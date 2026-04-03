@@ -1,5 +1,26 @@
 int main()
 {
+    bool b = false;
+    bool a = true;
+
+    if ( a )
+    {
+        continue;
+    }
+    else
+    {
+        continue;
+    }
+
+    int c = 10;
+    unsigned d = 0;
+    for ( int i = 0; i < 10; i++ )
+    {
+        c = c / 2;   
+        break;
+    }
+
+    int b = 3 - ( 3 + 5 ) * c / 
     int a = 3 + 4;
     return a;
 }

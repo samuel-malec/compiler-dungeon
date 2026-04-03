@@ -8,4 +8,6 @@ add_executable(compiler-dungeon)
 target_sources(compiler-dungeon
     PRIVATE
     src/main.cpp
+    src/lexer.cpp
+    src/parser.cpp
 )
