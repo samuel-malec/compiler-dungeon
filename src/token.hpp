@@ -17,7 +17,7 @@ struct source_file
     {}
 };
 
-using source_ptr = std::shared_ptr< source_file >;
+using source_ptr = std::shared_ptr<source_file>;
 
 struct location
 {
@@ -37,11 +37,12 @@ struct token
     std::string_view data;
     enum cat_t
     {
+        invalid,
         punct,
         keyword,
         ident,
         number,
-    } cat;
+    } cat = invalid;
 };
 
 inline std::ostream& operator<<( std::ostream& os, const token::cat_t c )
@@ -52,6 +53,7 @@ inline std::ostream& operator<<( std::ostream& os, const token::cat_t c )
         case token::keyword:  return os << "keyword";
         case token::ident:    return os << "ident";
         case token::number:   return os << "number";
+        case token::invalid:  return os << "invalid";
     }
     return os << "unknown";
 }

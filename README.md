@@ -10,4 +10,3 @@ My goals for this project are:
 - Peephole optimizations
 - Dataflow analysis framework
 - Compilation to RISC-V assembly
- 
