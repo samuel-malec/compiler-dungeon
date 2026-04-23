@@ -17,6 +17,7 @@ struct parser : token_sink
 {
     using cat = token::cat_t;
     using type_k = ast::type_kind;
+    using op_kind = ast::op_kind;
     using expr = ast::expr;
     using stmt = ast::stmt;
     using decl = ast::decl;
@@ -30,11 +31,14 @@ struct parser : token_sink
 
     parser( source_ptr doc ) : doc{ doc }, lex{ doc, *this } {}
 
-    template <typename... Args >
+    template < typename... Args >
     void error( Args... args )
     {
         std::stringstream buf{};
         ( ( ( buf << " " ) << args ), ... );
+
+        if ( current.cat != cat::invalid )
+            buf << current.loc << '\n';
         throw std::runtime_error( buf.str() );
     }
 
@@ -42,7 +46,7 @@ struct parser : token_sink
     {
         auto tok = fetch();
         if ( tok.cat != c )
-            error( tok, "Expected category: ", c );
+            error( tok, "Expected category: ", c, data.empty() ? "" : ", data: ", data );
         
         if ( !data.empty() && tok.data != data )
             error( tok, "Expected: ", data );
@@ -64,14 +68,59 @@ struct parser : token_sink
         return ast::UNKNOWN;
     }
 
+    op_kind op_kind_from_str( std::string_view data )
+    {
+        if ( data == "+" ) return ast::ADD;
+        if ( data == "-" ) return ast::SUB;
+        if ( data == "*" ) return ast::MUL;
+        if ( data == "/" ) return ast::DIV;
+        if ( data == "%" ) return ast::REM;
+        if ( data == "<<" ) return ast::SHL;
+        if ( data == ">>" ) return ast::SHR;
+        if ( data == "==" ) return ast::EQ;
+        if ( data == "!=" ) return ast::NEQ;
+        if ( data == "<" ) return ast::LE;
+        if ( data == "<=" ) return ast::LEQ;
+        if ( data == ">" ) return ast::GE;
+        if ( data == ">=" ) return ast::GEQ;
+        if ( data == "!" ) return ast::NOT;
+        if ( data == "&&" ) return ast::AND;
+        if ( data == "||" ) return ast::OR;
+        if ( data == "=" ) return ast::EQ;
+        error( "Unknown operator:", data );
+        return ast::ADD;
+    }
+
     bool match( cat c, std::string_view data = "" )
     {
         auto tok = peek();
-        return tok.cat == c && tok.data == data;
+        if ( tok.cat != c )
+            return false;
+
+        if ( data.empty() )
+            return true;
+
+        return tok.data == data;
     }
     
+    template< typename... Args >
+    std::optional< token > match_any( cat c, Args... args )
+    {
+        auto tok = peek();
+        if ( tok.cat != c )
+            return {};
+        
+        if ( ( ( tok.data == args ) || ... ) )
+            return tok;
+
+        return {};
+    } 
+
     token peek()
     {
+        if ( current.cat != cat::invalid )
+            return current;
+
         assert( !lex.empty() );
         while ( !lex.empty() && current.cat == cat::invalid )
             lex.next();
@@ -94,11 +143,19 @@ struct parser : token_sink
     ast::program parse()
     {
         program prog{};
-        while ( !lex.empty() )
+        while ( true )
         {
+            if ( current.cat == cat::invalid && lex.empty() )
+                break;
+
             std::optional< decl > d = parse_toplevel_decl();
-            if ( !d.has_value() )
+            if ( !d )
+            {
+                if ( current.cat == cat::invalid && lex.empty() )
+                    break;
+
                 error( "Unable to parse this" );
+            }
 
             prog.declarations.push_back( d.value() );
         }
@@ -106,38 +163,53 @@ struct parser : token_sink
         return prog;
     }
 
-    // todo make the api cleaner and have only toplevel, stmt, expr, and internal functions in .cpp file
-    std::optional< decl > parse_toplevel_decl();
+    std::optional< expr > parse_primary();
 
-    std::optional< decl > parse_fn_decl();
-    
-    std::vector< var_decl > parse_var_decl_list();
+    std::optional< expr > parse_postfix();
 
-    std::optional< stmt > parse_stmt();
+    std::optional< expr > parse_unary();
+
+    std::optional< expr > parse_factor();
+
+    std::optional< expr > parse_term();
+
+    std::optional< expr > parse_shift();
+
+    std::optional< expr > parse_comparison();
+
+    std::optional< expr > parse_equality();
+
+    std::optional< expr > parse_assignment();
+
+    std::optional< expr > parse_expr();
 
     std::optional< stmt > parse_block();
-    
-    std::optional< stmt > parse_loop_stmt();
+
+    std::optional< stmt > parse_if();
+
+    std::optional< stmt > parse_expr_stmt();
+
+    std::optional< stmt > parse_ret();
+
+    std::optional< stmt > parse_control_stmt();
 
     std::optional< stmt > parse_for();
 
     std::optional< stmt > parse_while();
 
-    std::optional < stmt > parse_do_while();
+    std::optional< stmt > parse_do_while();
 
-    std::optional< stmt > parse_if();
+    std::optional< stmt > parse_loop_stmt();
 
-    std::optional< stmt > parse_expr_stmt();
-    
-    std::optional< stmt > parse_ret();
-
-    std::optional< stmt > parse_control_stmt();
+    std::vector< var_decl > parse_var_decl_list();
 
     std::optional< stmt > parse_var_decl();
-    
-    std::optional< stmt > parse_assign();
 
-    std::optional< expr > parse_expr();
+    std::optional< stmt > parse_stmt();
+
+    std::optional< decl > parse_fn_decl();
+
+    std::optional< decl > parse_toplevel_decl();
 };
 
 }

@@ -14,7 +14,7 @@ namespace dungeon
 static const std::set< std::string_view > keywords = {
     "if", "else", "for", "do", "while", "switch", "break",
     "continue", "case", "return", "struct", "enum",
-    "int", "char", "bool", "void",
+    "int", "unsigned", "bool", "void",
 };
 
 static const std::set< std::string_view > punct = {

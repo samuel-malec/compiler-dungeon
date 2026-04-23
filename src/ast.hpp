@@ -2,6 +2,7 @@
 
 #include <cassert>
 #include <cstdint>
+#include <ostream>
 #include <string>
 #include <variant>
 #include <optional>
@@ -42,13 +43,12 @@ inline std::ostream& operator<<( std::ostream& os, const type_kind tk )
 
 enum op_kind 
 {
-    ADD,
-    SUB,
-    MUL,
-    DIV,
-    REM,
-    SHL,
-    SHR,
+    ADD, SUB, MUL, DIV,
+    REM, SHL, SHR,
+
+    EQ, NEQ, LE, LEQ, GE, GEQ,
+
+    NOT, AND, OR,
 };
 
 struct expr 
@@ -65,12 +65,35 @@ struct expr
         call,
     } cat;
 
-    std::variant< std::monostate, int64_t, bool, std::string > data;
+    enum val_kind_t
+    {
+        lvalue,
+        rvalue,
+    } val_kind;
+
+    std::variant< std::monostate, uint64_t, bool, std::string > val;
+    std::string_view id;
     std::vector< expr > subs{};
     type_kind type;
     op_kind op;
-    expr &left();
-    expr &right();
+    
+    expr &left() 
+    { 
+        assert( !subs.empty() );
+        return subs[ 0 ];
+    }
+
+    expr &right() 
+    { 
+        assert( 1 < subs.size() );
+        return subs[ 1 ];
+    }
+
+    expr& operator[]( int n )
+    {
+        assert( n < subs.size() );
+        return subs[ n ];
+    }
 };
 
 struct var_decl
@@ -98,7 +121,7 @@ struct stmt
     } cat;
 
     std::vector< stmt > subs{};
-    expr e;
+    std::optional< expr > e;
     var_decl vdecl;
 
     stmt& operator[]( int n )
@@ -116,6 +139,7 @@ struct decl
         enum_decl,
         struct_decl,
         fn_decl,
+        vdecl,
     } cat;
 
     type_kind type;
