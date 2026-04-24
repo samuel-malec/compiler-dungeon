@@ -1,7 +1,7 @@
 # Compiler Dungeon
 This project is aimed at trying out and implementing various compiler techniques.
 
-The source language I wish to be compile should look like C99 with core functionality 
+The source language I wish to compile should look like C99 with core functionality 
 such as arithmetic operations, types, arrays, structures, enums, conditions, switches, loops etc. 
 ( I have no plans to implement dynamic allocation as of now. )
 
