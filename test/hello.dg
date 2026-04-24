@@ -3,3 +3,10 @@ int main()
     3 + 4;
     return 0;
 }
+
+int foo()
+{
+    int a = 5;
+    main( a );
+    return 5;
+}

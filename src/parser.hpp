@@ -142,22 +142,17 @@ struct parser : token_sink
 
     ast::program parse()
     {
-        program prog{};
-        while ( true )
+        program prog{};        
+        while ( !lex.empty() )
         {
-            if ( current.cat == cat::invalid && lex.empty() )
+            if ( peek().cat == cat::invalid )
                 break;
 
             std::optional< decl > d = parse_toplevel_decl();
             if ( !d )
-            {
-                if ( current.cat == cat::invalid && lex.empty() )
-                    break;
+                error( "Expected a toplevel declaration" );
 
-                error( "Unable to parse this" );
-            }
-
-            prog.declarations.push_back( d.value() );
+            prog.decls.push_back( d.value() );
         }
 
         return prog;
@@ -203,6 +198,8 @@ struct parser : token_sink
 
     std::vector< var_decl > parse_var_decl_list();
 
+    std::optional< var_decl > parse_var_decl_info();
+
     std::optional< stmt > parse_var_decl();
 
     std::optional< stmt > parse_stmt();
@@ -210,6 +207,8 @@ struct parser : token_sink
     std::optional< decl > parse_fn_decl();
 
     std::optional< decl > parse_toplevel_decl();
+
+    void print_ast( program& prog );
 };
 
 }

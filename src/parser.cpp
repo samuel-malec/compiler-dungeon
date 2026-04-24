@@ -10,6 +10,9 @@ namespace dungeon
     using stmt = ast::stmt;
     using decl = ast::decl;
     using var_decl = ast::var_decl;
+    using fn_decl = ast::fn_decl;
+    using struct_decl = ast::struct_decl;
+    using enum_decl = ast::enum_decl;
     using program = ast::program;
 
     static expr make_expr_node( expr::cat_t cat, ast::type_kind type = ast::UNKNOWN )
@@ -261,6 +264,7 @@ namespace dungeon
             tmp.subs.push_back( rhs.value() );
             e = std::move( tmp );
         }
+
         return e;
     }
 
@@ -274,8 +278,8 @@ namespace dungeon
         auto e = parse_expr();
         if ( !e )
             return {};
-        require( cat::punct, ";" );
-            
+
+        require( cat::punct, ";" );            
         return stmt{ .cat = stmt::expr_stmt, .e = e.value() };
     }
 
@@ -313,14 +317,12 @@ namespace dungeon
             error( "Expected condition after if" );
 
         require( cat::punct, ")" );
-
         auto then_body = parse_stmt();
         if ( !then_body )
             error( "Empty body inside if block" );
 
         stmt res{ .cat = stmt::if_stmt, .e = cond.value() };
         res.subs.push_back( std::move( then_body.value() ) );
-
         if ( !match( cat::keyword, "else" ) )
             return res;
 
@@ -339,8 +341,8 @@ namespace dungeon
             return {};
 
         fetch();
-
         auto res = stmt{ .cat = stmt::ret };
+        
         if ( match( cat::punct, ";" ) )
         {
             fetch();
@@ -379,19 +381,15 @@ namespace dungeon
     {
         if ( !match( cat::keyword, "for" ) )
             return {};
-        fetch();
-        
-        require( cat::punct, "(" );
 
-        // poor mans solution for initializer placeholder value
-        stmt init{ .cat = stmt::expr_stmt, .e = make_expr_node( expr::num_lit, ast::UNSIGNED ) };
-        init.e.value().val = uint64_t{ 0 };
+        fetch();
+        require( cat::punct, "(" );
+        stmt init{};
+
         if ( !match( cat::punct, ";" ) )
         {
             if ( auto v = parse_var_decl() )
-            {
                 init = std::move( v.value() );
-            }
             else
             {
                 auto ie = parse_expr();
@@ -403,14 +401,9 @@ namespace dungeon
             }
         }
         else
-        {
             fetch();
-        }
 
-        // FIXME: now we don't have to do this, since we have optional value
-
-        // poor mans solution for condition placeholder value
-        stmt cond{ .cat = stmt::expr_stmt, .e = make_expr_node( expr::bool_lit, ast::BOOL ) };
+        stmt cond{};
         cond.e.value().val = true;
         if ( !match( cat::punct, ";" ) )
         {
@@ -421,7 +414,7 @@ namespace dungeon
         }
         require( cat::punct, ";" );
 
-        stmt update{ .cat = stmt::expr_stmt, .e = make_expr_node( expr::num_lit, ast::UNSIGNED ) };
+        stmt update{};
         if ( !match( cat::punct, ")" ) )
         {
             auto ue = parse_expr();
@@ -433,7 +426,7 @@ namespace dungeon
 
         auto body = parse_stmt();
         if ( !body )
-            error( "Empty body in for" );
+            error( "Empty body in for loop" );
 
         stmt res{ .cat = stmt::for_stmt };
         res.subs.push_back( std::move( init ) );
@@ -519,9 +512,9 @@ namespace dungeon
         }
 
         return var_decls;
-    }   
+    }
 
-    std::optional< stmt > parser::parse_var_decl()
+    std::optional< var_decl > parser::parse_var_decl_info()
     {
         if ( !match( cat::keyword ) )
             return {};
@@ -532,27 +525,33 @@ namespace dungeon
         
         fetch();
         auto id = require( cat::ident );
-
         var_decl vdecl{ .name = id.data, .type = tk };
-
         if ( match( cat::punct, ";" ) )
         {
             fetch();
-            return stmt{ .cat = stmt::var_dclr, .vdecl = vdecl };
+            return vdecl;
         }
     
         if ( !match( cat::punct, "=" ) )
-            return {};
+            error( "Unexpected symbol in variable declaration" );
         
         fetch();
         auto e = parse_expr();
         if ( !e )
             return {};
 
+        vdecl.e = e.value();        
         require( cat::punct, ";" );
-        
-        vdecl.e = e.value();
-        return stmt{ .cat = stmt::var_dclr, .vdecl = vdecl };
+        return vdecl;
+    }
+
+    std::optional< stmt > parser::parse_var_decl()
+    {
+        auto vdecl = parse_var_decl_info();
+        if ( !vdecl )
+            return {};
+
+        return stmt{ .cat = stmt::var_dclr, .vdecl = vdecl.value() };
     }
 
     std::optional< stmt > parser::parse_stmt()
@@ -583,12 +582,9 @@ namespace dungeon
         auto id = require( cat::ident );
         require( cat::punct, "(" );
 
-        decl res{ .cat = decl::fn_decl, .type = tk, .name = id.data };
-
-        res.vars = std::move( parse_var_decl_list() );
-
+        fn_decl res{ .sig_type = tk, .name = id.data };
+        res.params = std::move( parse_var_decl_list() );
         require( cat::punct, ")" );
-        
         auto body = parse_stmt();
         if ( !body )
             error( "Empty body of function: ", id.data );
@@ -600,20 +596,29 @@ namespace dungeon
     std::optional< decl > parser::parse_toplevel_decl()
     {
         // TODO: structs and enums later ( hopefully )
-        if ( current.cat == cat::invalid && lex.empty() )
-            return {};
+        return parse_fn_decl();
+    }
 
-        auto tok = peek();
-        if ( tok.cat == cat::invalid )
-            return {};
+    void parser::print_ast( program& prog )
+    {
+        std::cout << "printing the ast: " << '\n';
+        for ( auto& decl : prog.decls )
+        {
+            std::visit( []( auto&& arg )
+            {
+                using T = std::decay_t< decltype( arg ) >;
+                if constexpr ( std::is_same_v< T, fn_decl > )
+                {
+                    std::cout << " fn_decl\n";
 
-        if ( tok.cat == cat::keyword )
-            return parse_fn_decl();
-
-        if ( tok.cat == cat::ident )
-            error( "Expected a function return type before identifier '", tok.data, "'" );
-
-        error( "Expected a top-level declaration" );
-        return {};
+                }
+                else if constexpr ( std::is_same_v< T, struct_decl > )
+                    std::cout << "struct_decl\n";
+                else if constexpr ( std::is_same_v< T, enum_decl > )
+                    std::cout << "enum_decl\n";
+                else
+                    static_assert( false, "non-exhaustive visitor!" );
+            }, decl );
+        }
     }
 }

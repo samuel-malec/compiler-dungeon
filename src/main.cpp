@@ -37,7 +37,8 @@ int main( int argc, char* const* argv )
         std::string data = read_file( in_name );
         source_ptr doc = std::make_shared< source_file >( in_name, read_file( in_name ) ); 
         parser p{ doc };
-        p.parse();
+        auto prog = p.parse();
+        p.print_ast( prog );
     }
     catch( const std::exception& e )
     {

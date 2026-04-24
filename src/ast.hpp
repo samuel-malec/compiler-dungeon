@@ -51,6 +51,11 @@ enum op_kind
     NOT, AND, OR,
 };
 
+struct expr;
+struct stmt;
+struct fn_decl;
+struct var_decl;
+
 struct expr 
 {
     enum cat_t 
@@ -96,7 +101,7 @@ struct expr
     }
 };
 
-struct var_decl
+struct var_decl 
 {
     std::string_view name;
     type_kind type;
@@ -131,27 +136,23 @@ struct stmt
     }
 };
 
-// todo: rewrite this into separate subclasses cuz these don't have much in common ig
-struct decl 
-{
-    enum cat_t
-    {
-        enum_decl,
-        struct_decl,
-        fn_decl,
-        vdecl,
-    } cat;
+struct enum_decl{};
 
-    type_kind type;
+struct struct_decl{};
+
+struct fn_decl
+{
+    type_kind sig_type;
     std::string_view name;
-    expr e;
     stmt body;
-    std::vector< var_decl > vars; 
+    std::vector< var_decl > params;
 };
+
+using decl = std::variant< fn_decl, enum_decl, struct_decl >;
 
 struct program 
 {
-    std::vector< decl > declarations;
+    std::vector< decl > decls;
 };
 
 } // namespace dungeon
