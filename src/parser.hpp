@@ -208,6 +208,12 @@ struct parser : token_sink
 
     std::optional< decl > parse_toplevel_decl();
 
+    void pad( int depth );
+
+    void print_expr( expr& e, int depth );
+
+    void print_stmt( stmt& s, int depth );
+
     void print_ast( program& prog );
 };
 

@@ -51,6 +51,31 @@ enum op_kind
     NOT, AND, OR,
 };
 
+inline std::ostream& operator<<( std::ostream& os, const op_kind op )
+{
+    switch ( op )
+    {
+        case ADD:   return os << "+";
+        case SUB:   return os << "-";
+        case MUL:   return os << "*";
+        case DIV:   return os << "/";
+        case REM:   return os << "%";
+        case SHL:   return os << "<<";
+        case SHR:   return os << ">>";
+        case EQ:    return os << "==";
+        case NEQ:   return os << "!=";
+        case LE:    return os << "<";
+        case LEQ:   return os << "<=";
+        case GE:    return os << ">";
+        case GEQ:   return os << ">=";
+        case NOT:   return os << "!";
+        case AND:   return os << "&&";
+        case OR:    return os << "||";
+    }
+
+    return os << "idk";
+}
+
 struct expr;
 struct stmt;
 struct fn_decl;
@@ -121,7 +146,6 @@ struct stmt
         brk,
         block,
         var_dclr,
-        var_assign,
         expr_stmt,
     } cat;
 
