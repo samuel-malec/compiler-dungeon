@@ -5,6 +5,8 @@
 #include "common/file.hpp"
 #include "token.hpp"
 #include "parser.hpp"
+#include "pretty_printer.hpp"
+#include "semantic.hpp"
 
 using config = std::pair< std::string, std::string >;
 
@@ -38,7 +40,10 @@ int main( int argc, char* const* argv )
         source_ptr doc = std::make_shared< source_file >( in_name, read_file( in_name ) ); 
         parser p{ doc };
         auto prog = p.parse();
-        p.print_ast( prog );
+        print::pretty_printer printer{};
+        printer.print_ast( prog );
+        semantic sem{};
+        sem.run( prog );
     }
     catch( const std::exception& e )
     {

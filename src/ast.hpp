@@ -10,6 +10,8 @@
 
 namespace dungeon::ast {
 
+// TODO: it would be nice to have non-copyable expressions and statements, but it would break a lot of things rn ( we need to get things working first )
+
 // struct no_copy 
 // {
 //     no_copy() = default;
@@ -18,6 +20,7 @@ namespace dungeon::ast {
 //     no_copy &operator=(no_copy &&) noexcept = default;
 // };
 
+// FIXME: type info prolly shouldn't be in the ast but whateva, I definitely won't forget about this and refactor it. 
 enum type_kind
 {
     INT,
