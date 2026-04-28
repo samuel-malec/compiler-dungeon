@@ -11,7 +11,6 @@
 namespace dungeon::ast {
 
 // TODO: it would be nice to have non-copyable expressions and statements, but it would break a lot of things rn ( we need to get things working first )
-
 // struct no_copy 
 // {
 //     no_copy() = default;
@@ -167,6 +166,7 @@ struct enum_decl{};
 
 struct struct_decl{};
 
+// TODO: struct function signature should be here instead 
 struct fn_decl
 {
     type_kind sig_type;

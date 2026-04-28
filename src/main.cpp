@@ -45,6 +45,7 @@ int main( int argc, char* const* argv )
         semantic sem{};
         sem.run( prog );
     }
+    // todo: create something like diagnostic { warn, err } and catch this diagnostic& and print errors nicely
     catch( const std::exception& e )
     {
         std::cerr << "\033[1;31mexception:\033[m " << e.what() << "\n";
