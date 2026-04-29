@@ -151,7 +151,7 @@ struct parser : token_sink
 
             std::optional< decl > d = parse_toplevel_decl();
             if ( !d )
-                error( "Expected a toplevel declaration" );
+                error( "Expected a toplevel declaration " );
 
             prog.decls.push_back( d.value() );
         }

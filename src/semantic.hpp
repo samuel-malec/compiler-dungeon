@@ -57,7 +57,6 @@ struct symtab
         ast::stmt::cat_t scat;
     };
 
-
     std::map< std::string, uint32_t, std::less<> > map;
     std::vector< std::map< uint32_t, type > > scopes;
     std::vector< scope_kind > kinds;
@@ -76,7 +75,11 @@ struct symtab
 
     bool contains_name( std::string_view name ) { return map.contains( name ); }
 
-    void create_scope() { scopes.push_back( {} ); }
+    void create_scope() 
+    {
+        // todo: if this is the scope enclosing the function body, we should pass parameters to this scope also 
+        scopes.push_back( {} );
+    }
 
     void close_scope() { scopes.pop_back(); }
 
@@ -85,20 +88,12 @@ struct symtab
     scope_kind pop_kind()
     {
         scope_kind sk = kinds.back();
-        scopes.pop_back();
+        kinds.pop_back();
         return sk;
     }
     
     void add_var( std::string_view name, ast::type_kind tk )
     {
-        std::cout << "names to atoms: \n";
-        for ( auto& [ key, val ] : map )
-            std::cout << key << val << '\n';
-
-        std::cout << "scopes.back()\n";
-        for ( auto& [ key, _ ] : scopes.back() )
-            std::cout << key << '\n';
-
         atom a = get( name );
         if ( scopes.back().contains( a.idx ) )
             error( "re-definition of identifier: ", name );
@@ -109,18 +104,9 @@ struct symtab
 
     std::optional< type > find_var( std::string name )
     {
-        std::cout << "find var: " << name << '\n';
-        std::cout << "names to atoms: \n";
-        for ( auto& [ key, val ] : map )
-            std::cout << key << val << '\n';
-
-        std::cout << "scopes: \n";
         atom a = get( name );
         for ( int i = scopes.size() - 1; i >= 0; -- i )
         {
-            std::cout << "=================\n";
-            for ( auto& [ key, _ ] : scopes[ i ] )
-                std::cout << key << '\n';
             auto it = scopes[ i ].find( a.idx );
             if ( it == scopes[ i ].end() )
                 continue;
@@ -205,6 +191,7 @@ struct semantic
                 auto rhs = resolve_expr( e[ 1 ], st );
                 if ( !resolve_op( lhs, rhs, e.op ) )
                     error( "invalid types in operands in operation", e.op );
+                return type_kind::VOID;
             }
 
             case expr::assign:
@@ -337,10 +324,9 @@ struct semantic
 
             case stmt::expr_stmt:
             {
-                // void type please
                 if ( s.e.has_value() )
                     resolve_expr( s.e.value(), st );
-                // else void ?
+                // FIXME: else void ?
                 break; 
             }
 
@@ -367,12 +353,11 @@ struct semantic
                     st.add_var( fn.name, fn.sig_type );
                     st.create_scope(); // fn scope;
                     st.push_kind( { .cat = scope_kind::function, .fn_ret_type = fn.sig_type, .fn_name = std::string( fn.name ) } );
-                    
-                    st.create_scope(); // params
                     for ( auto& p : fn.params )
                         st.add_var( p.name, p.type );
-                    
-                    resolve_stmt( fn.body, st );
+                   
+                    for ( auto& s : fn.body )
+                        resolve_stmt( s, st );
 
                     st.close_scope();
                     st.pop_kind();

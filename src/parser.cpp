@@ -465,7 +465,7 @@ namespace dungeon
         fetch();
         auto s = parse_stmt();
         if ( !s )
-            error( "Empty body in do_while " );
+            error( "Empty body in do_while" );
 
         require( cat::keyword, "while" );
         require( cat::punct, "(" );
@@ -585,11 +585,17 @@ namespace dungeon
         fn_decl res{ .sig_type = tk, .name = id.data };
         res.params = std::move( parse_var_decl_list() );
         require( cat::punct, ")" );
-        auto body = parse_stmt();
-        if ( !body )
-            error( "Empty body of function: ", id.data );
-        
-        res.body = std::move( body.value() );
+        require( cat::punct, "{" );
+
+        while ( !match( cat::punct, "}" ) )
+        {
+            auto s = parse_stmt();
+            if ( !s )
+                error( "Parsing statement in function: ", id );
+            res.body.push_back( s.value() );
+        }
+        fetch();
+
         return res;
     }
 

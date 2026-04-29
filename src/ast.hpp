@@ -171,7 +171,7 @@ struct fn_decl
 {
     type_kind sig_type;
     std::string_view name;
-    stmt body;
+    std::vector< stmt > body;
     std::vector< var_decl > params;
 };
 

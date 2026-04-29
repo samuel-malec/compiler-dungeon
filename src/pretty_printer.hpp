@@ -191,7 +191,8 @@ struct pretty_printer
                     }
                     
                     std::cout << " )\n";
-                    print_stmt( fn.body, 1 );
+                    for ( auto& s : fn.body )
+                        print_stmt( s, 1 );
                 }
                 else if constexpr ( std::is_same_v< T, struct_decl > )
                     std::cout << "struct_decl\n";
