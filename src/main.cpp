@@ -13,7 +13,7 @@ using config = std::pair< std::string, std::string >;
 config parse_config( int argc, char* const* argv )
 {
     if ( argc != 1 && argc != 3 )
-        throw std::runtime_error( "Usage: ./vcc file.vj [-o output]\n" );
+        throw std::runtime_error( "Usage: ./compiler-dungeon file.c [-o output]\n" );
     
     std::string file_in = argv[ 0 ];
     std::string file_out = "a.s";
@@ -35,7 +35,7 @@ int main( int argc, char* const* argv )
     ++argv;
     try
     {
-        const auto& [ in_name, out_name ]= parse_config( argc, argv );
+        const auto& [ in_name, out_name ] = parse_config( argc, argv );
         std::string data = read_file( in_name );
         source_ptr doc = std::make_shared< source_file >( in_name, read_file( in_name ) ); 
         parser p{ doc };

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <filesystem>
 #include <fstream>
 #include <sstream>
 #include <vector>
@@ -22,6 +23,13 @@ inline std::string read_file( std::istream& in )
 
 inline std::string read_file( std::string path )
 {
+    namespace fs = std::filesystem;
+
+    if ( !fs::exists( path ) )
+        throw std::runtime_error( "path does not exist: " + path );
+    if ( !fs::is_regular_file( path ) )
+        throw std::runtime_error( "path is not a regular file: " + path );
+
     std::ifstream file( path, std::ios::in );
     if ( !file.is_open() )
         throw std::runtime_error( "couldn't open file at: " + path );
