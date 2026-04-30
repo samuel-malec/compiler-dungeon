@@ -9,6 +9,7 @@
 #include <string>
 #include <vector>
 
+#include "types.hpp"
 #include "ast.hpp"
 
 namespace dungeon
@@ -33,13 +34,7 @@ void error( Args... args )
 // todo: this deserves a much better implementation, move type specic stuff into types.hpp
 //       where the type hierarchy and management shall be implemented in greater detail in future
 
-struct fn_signature
-{
-    ast::type_kind ret_type;
-    std::vector< ast::type_kind > param_types;
-};
-
-using type = std::variant< fn_signature, ast::type_kind >;
+using type = std::variant< fn_signature, prim_type >;
 
 struct symtab
 {
@@ -52,7 +47,7 @@ struct symtab
             global,
         } cat;
         
-        ast::type_kind fn_ret_type;
+        prim_type fn_ret_type;
         std::string fn_name;
         ast::stmt::cat_t scat;
     };
@@ -92,14 +87,14 @@ struct symtab
         return sk;
     }
     
-    void add_var( std::string_view name, ast::type_kind tk )
+    void add_var( std::string_view name, prim_type pt )
     {
         atom a = get( name );
         if ( scopes.back().contains( a.idx ) )
             error( "re-definition of identifier: ", name );
 
         map[ std::string( name ) ] = a.idx;
-        scopes.back().emplace( a.idx, tk );
+        scopes.back().emplace( a.idx, pt );
     }
 
     std::optional< type > find_var( std::string name )
@@ -131,7 +126,7 @@ struct symtab
         return false;
     }
 
-    std::optional< ast::type_kind > enclosing_fn_ret_type() const
+    std::optional< prim_type > enclosing_fn_ret_type() const
     {
         for ( int i = kinds.size() - 1; i >= 0; -- i  )
         {
@@ -148,7 +143,6 @@ struct semantic
 {
     using expr = ast::expr;
     using stmt = ast::stmt;
-    using type_kind = ast::type_kind;
     using scope_kind = symtab::scope_kind;
 
     bool resolve_op( type lhs, type rhs, ast::op_kind op ) { return true; }
@@ -159,15 +153,15 @@ struct semantic
     {
         switch ( e.cat )
         {
-            // TODO: add a way to create unsigned literals in the language 
+            // NOTE: number literals are integers now -> this is probably a safe restriction right now 
             case expr::num_lit:
             {
-                return type_kind::INT;
+                return prim_type::INT;
             }
 
             case expr::bool_lit:
             {
-                return type_kind::BOOL;
+                return prim_type::BOOL;
             }
 
             case expr::identifier:
@@ -191,7 +185,7 @@ struct semantic
                 auto rhs = resolve_expr( e[ 1 ], st );
                 if ( !resolve_op( lhs, rhs, e.op ) )
                     error( "invalid types in operands in operation", e.op );
-                return type_kind::VOID;
+                return prim_type::VOID;
             }
 
             case expr::assign:
@@ -230,7 +224,7 @@ struct semantic
                 break;
         }
         
-        return ast::type_kind::VOID;
+        return prim_type::VOID;
     }
 
     void resolve_stmt( ast::stmt& s, symtab& st )
@@ -245,7 +239,7 @@ struct semantic
                 if ( !fn_ret_type )
                     error( "return used outside a function" );
                 
-                auto ret_type = s.e.has_value() ? resolve_expr( s.e.value(), st ) : type_kind::VOID;
+                auto ret_type = s.e.has_value() ? resolve_expr( s.e.value(), st ) : prim_type::VOID;
                 if ( !compatible( fn_ret_type.value(), ret_type ) )
                     error( "incompatible return type in function" );
                 break;
@@ -350,9 +344,9 @@ struct semantic
                 if constexpr( std::is_same_v< T, ast::fn_decl > )
                 {
                     ast::fn_decl fn = arg;
-                    st.add_var( fn.name, fn.sig_type );
+                    st.add_var( fn.name, fn.sig.ret_type );
                     st.create_scope(); // fn scope;
-                    st.push_kind( { .cat = scope_kind::function, .fn_ret_type = fn.sig_type, .fn_name = std::string( fn.name ) } );
+                    st.push_kind( { .cat = scope_kind::function, .fn_ret_type = fn.sig.ret_type, .fn_name = std::string( fn.name ) } );
                     for ( auto& p : fn.params )
                         st.add_var( p.name, p.type );
                    

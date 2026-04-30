@@ -183,7 +183,9 @@ struct pretty_printer
                 {
                     std::cout << "fn_decl: ";
                     fn_decl fn = arg;
-                    std::cout << fn.sig_type << " " << fn.name << "( ";
+                    std::cout << fn.sig.ret_type << " " << fn.name << "( ";
+                    // todo: we have redundant information about fn signature which can be deduced from params,
+                    //       think about possible refactorization later, right now we need to get simple typechecking to work
                     for ( size_t i = 0; i < fn.params.size(); ++i )
                     {
                         auto& p = fn.params[ i ];

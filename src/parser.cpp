@@ -15,7 +15,7 @@ namespace dungeon
     using enum_decl = ast::enum_decl;
     using program = ast::program;
 
-    static expr make_expr_node( expr::cat_t cat, ast::type_kind type = ast::UNKNOWN )
+    static expr make_expr_node( expr::cat_t cat, prim_type type = prim_type::UNKNOWN )
     {
         return expr{
             .cat = cat,
@@ -46,7 +46,7 @@ namespace dungeon
             if ( ec != std::errc() || p != tok.data.data() + tok.data.size() )
                 error( tok, "Invalid numeric literal" );
 
-            auto e = make_expr_node( expr::num_lit, ast::UNSIGNED );
+            auto e = make_expr_node( expr::num_lit, prim_type::INT );
             e.val = n;
             e.val_kind = expr::rvalue;
             return e;
@@ -56,7 +56,7 @@ namespace dungeon
         {
             fetch();
             bool value = t.value().data == "true";
-            auto e = make_expr_node( expr::bool_lit, ast::BOOL );
+            auto e = make_expr_node( expr::bool_lit, prim_type::BOOL );
             e.val = value;
             e.val_kind = expr::rvalue;
             return e;
@@ -503,11 +503,11 @@ namespace dungeon
 
             auto t = require( cat::keyword );
             auto tk = type_from_str( t.data );
-            if ( tk == ast::UNKNOWN )
+            if ( !tk )
                 error( t, "Expected a type" );
             
             auto id = require( cat::ident );
-            var_decl tmp{ .name = id.data, .type = tk };
+            var_decl tmp{ .name = id.data, .type = tk.value() };
             var_decls.push_back( tmp );
         }
 
@@ -520,12 +520,12 @@ namespace dungeon
             return {};
 
         auto tk = type_from_str( peek().data );
-        if ( tk == type_k::UNKNOWN )
+        if ( !tk )
             return {};
         
         fetch();
         auto id = require( cat::ident );
-        var_decl vdecl{ .name = id.data, .type = tk };
+        var_decl vdecl{ .name = id.data, .type = tk.value() };
         if ( match( cat::punct, ";" ) )
         {
             fetch();
@@ -575,17 +575,24 @@ namespace dungeon
             return {};
 
         auto tk = type_from_str( current.data );
-        if ( tk == ast::UNKNOWN )
-            error( tk, "Expected a type" );
+        if ( !tk )
+            error( "Expected a type" );
         fetch();
 
         auto id = require( cat::ident );
         require( cat::punct, "(" );
 
-        fn_decl res{ .sig_type = tk, .name = id.data };
+        fn_decl res{ .name = id.data };
         res.params = std::move( parse_var_decl_list() );
+        
         require( cat::punct, ")" );
         require( cat::punct, "{" );
+
+        struct fn_signature sig{ .ret_type = tk.value() };
+        for ( var_decl& dec : res.params )
+            sig.param_types.push_back( dec.type );
+        
+        res.sig = sig;
 
         while ( !match( cat::punct, "}" ) )
         {

@@ -8,6 +8,8 @@
 #include <optional>
 #include <vector>
 
+#include "types.hpp"
+
 namespace dungeon::ast {
 
 // TODO: it would be nice to have non-copyable expressions and statements, but it would break a lot of things rn ( we need to get things working first )
@@ -18,30 +20,6 @@ namespace dungeon::ast {
 //     no_copy(no_copy &&) = default;
 //     no_copy &operator=(no_copy &&) noexcept = default;
 // };
-
-// FIXME: type info prolly shouldn't be in the ast but whateva, I definitely won't forget about this and refactor it. 
-enum type_kind
-{
-    INT,
-    BOOL,
-    UNSIGNED,
-    VOID,
-    UNKNOWN,
-};
-
-inline std::ostream& operator<<( std::ostream& os, const type_kind tk )
-{
-    switch ( tk )
-    {
-        case INT:       return os << "int";
-        case BOOL:      return os << "bool";
-        case UNSIGNED:  return os << "unsigned";
-        case VOID:      return os << "void";
-        case UNKNOWN:   return os << "unknown";
-    }
-
-    return os << "idk";
-}
 
 enum op_kind 
 {
@@ -106,7 +84,7 @@ struct expr
     std::variant< std::monostate, uint64_t, bool, std::string > val;
     std::string_view id;
     std::vector< expr > subs{};
-    type_kind type;
+    prim_type type;
     op_kind op;
     
     expr &left() 
@@ -131,7 +109,7 @@ struct expr
 struct var_decl 
 {
     std::string_view name;
-    type_kind type;
+    prim_type type;
     std::optional< expr >  e;
 };
 
@@ -166,10 +144,9 @@ struct enum_decl{};
 
 struct struct_decl{};
 
-// TODO: struct function signature should be here instead 
 struct fn_decl
 {
-    type_kind sig_type;
+    fn_signature sig;
     std::string_view name;
     std::vector< stmt > body;
     std::vector< var_decl > params;

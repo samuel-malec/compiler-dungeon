@@ -9,6 +9,7 @@
 
 #include "ast.hpp"
 #include "lexer.hpp"
+#include "types.hpp"
 
 // TODO: add source position into the ast
 namespace dungeon
@@ -17,7 +18,6 @@ namespace dungeon
 struct parser : token_sink
 {
     using cat = token::cat_t;
-    using type_k = ast::type_kind;
     using op_kind = ast::op_kind;
     using expr = ast::expr;
     using stmt = ast::stmt;
@@ -55,18 +55,16 @@ struct parser : token_sink
         return tok;
     }
 
-    type_k type_from_str( std::string_view data )
+    std::optional< prim_type > type_from_str( std::string_view data )
     {
         if ( data == "bool" )
-            return ast::BOOL;
+            return BOOL;
         if ( data == "int" )
-            return ast::INT;
-        if ( data == "unsigned" )
-            return ast::UNSIGNED;
+            return INT;
         if ( data == "void" )
-            return ast::VOID;
-        
-        return ast::UNKNOWN;
+            return VOID;
+
+        return {};
     }
 
     op_kind op_kind_from_str( std::string_view data )
