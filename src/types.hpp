@@ -6,6 +6,7 @@
 namespace dungeon
 {
 
+// how to represent types ? 
 enum prim_type
 {
     INT,
@@ -33,5 +34,7 @@ struct fn_signature
     prim_type ret_type;
     std::vector< prim_type > param_types;    
 };
+
+// TODO: type resulution
 
 }

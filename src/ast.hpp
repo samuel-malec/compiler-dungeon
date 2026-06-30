@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "types.hpp"
+#include "token.hpp"
 
 namespace dungeon::ast {
 
@@ -61,6 +62,7 @@ struct stmt;
 struct fn_decl;
 struct var_decl;
 
+// TODO :: add locations to nodes ? 
 struct expr 
 {
     enum cat_t 
@@ -81,6 +83,7 @@ struct expr
         rvalue,
     } val_kind;
 
+    location src_loc;
     std::variant< std::monostate, uint64_t, bool, std::string > val;
     std::string_view id;
     std::vector< expr > subs{};
@@ -129,6 +132,7 @@ struct stmt
         expr_stmt,
     } cat;
 
+    location src_loc;
     std::vector< stmt > subs{};
     std::optional< expr > e;
     var_decl vdecl;
@@ -146,6 +150,7 @@ struct struct_decl{};
 
 struct fn_decl
 {
+    location src_loc;
     fn_signature sig;
     std::string_view name;
     std::vector< stmt > body;

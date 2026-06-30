@@ -38,13 +38,16 @@ int main( int argc, char* const* argv )
         const auto& [ in_name, out_name ] = parse_config( argc, argv );
         std::string data = read_file( in_name );
         source_ptr doc = std::make_shared< source_file >( in_name, read_file( in_name ) ); 
+
         parser p{ doc };
         auto prog = p.parse();
         print::pretty_printer printer{};
-        printer.print_ast( prog );
+        
         semantic sem{};
         sem.run( prog );
+        printer.print_ast( prog );
     }
+
     // todo: create something like diagnostic { warn, err } and catch this diagnostic& and print errors nicely
     catch( const std::exception& e )
     {

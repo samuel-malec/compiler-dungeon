@@ -31,9 +31,6 @@ void error( Args... args )
     throw std::runtime_error( buf.str() );
 }
 
-// todo: this deserves a much better implementation, move type specic stuff into types.hpp
-//       where the type hierarchy and management shall be implemented in greater detail in future
-
 using type = std::variant< fn_signature, prim_type >;
 
 struct symtab
@@ -47,7 +44,7 @@ struct symtab
             global,
         } cat;
         
-        prim_type fn_ret_type;
+        fn_signature sig;
         std::string fn_name;
         ast::stmt::cat_t scat;
     };
@@ -72,7 +69,6 @@ struct symtab
 
     void create_scope() 
     {
-        // todo: if this is the scope enclosing the function body, we should pass parameters to this scope also 
         scopes.push_back( {} );
     }
 
@@ -132,7 +128,7 @@ struct symtab
         {
             scope_kind sk = kinds[ i ];
             if ( sk.cat == scope_kind::function )
-                return sk.fn_ret_type;
+                return sk.sig.ret_type;
         }
 
         return {};
@@ -149,11 +145,12 @@ struct semantic
     
     bool compatible( type to, type from ) { return true; }
 
+    // TODO: assign types to expressions
+    // TODO: why are we even doing type return here ? shouldn't it just be primitive_type
     type resolve_expr( ast::expr& e, symtab& st )
     {
         switch ( e.cat )
         {
-            // NOTE: number literals are integers now -> this is probably a safe restriction right now 
             case expr::num_lit:
             {
                 return prim_type::INT;
@@ -168,7 +165,7 @@ struct semantic
             {
                 auto v = st.find_var( std::string( e.id ) );
                 if ( !v )
-                    error( "variable used before definition", e.id );
+                    error( e.src_loc, "variable used before definition", e.id );
                 return v.value();             
             }
 
@@ -184,7 +181,7 @@ struct semantic
                 auto lhs = resolve_expr( e[ 0 ], st );
                 auto rhs = resolve_expr( e[ 1 ], st );
                 if ( !resolve_op( lhs, rhs, e.op ) )
-                    error( "invalid types in operands in operation", e.op );
+                    error( e.src_loc, "invalid types in operands in operation", e.op );
                 return prim_type::VOID;
             }
 
@@ -193,7 +190,7 @@ struct semantic
                 auto lhs = resolve_expr( e[ 0 ], st ); 
                 auto rhs = resolve_expr( e[ 1 ], st );
                 if ( !compatible( lhs, rhs ) )
-                    error( "invalid types in assignments" );
+                    error( e.src_loc, "invalid types in assignment" );
                 return rhs;
             }
 
@@ -202,19 +199,19 @@ struct semantic
                 std::string id = std::string( e.subs[ 0 ].id );
                 auto callee = st.find_var( id );
                 if ( !callee )
-                    error( "unknown identifier: ", id );
+                    error( e.src_loc, "unknown identifier: ", e.id );
                 
                 if ( !std::holds_alternative< fn_signature >( callee.value() ) )
-                    error( "expected a function call but insead got a primitive type" );
+                    error( e.src_loc, "expected a function call but insead got a primitive type " );
                 
                 fn_signature fsig = std::get< fn_signature >( callee.value() );
                 int actuals_amount = e.subs.size() - 1;
                 if ( actuals_amount != fsig.param_types.size() )
-                    error( id, " expected ", fsig.param_types.size(), " arguments, but got ", actuals_amount, " instead" );
+                    error( e.src_loc, id, " expected ", fsig.param_types.size(), " arguments, but got ", actuals_amount, " instead" );
 
                 for ( int i = 1; i < e.subs.size(); ++ i )
                     if ( !compatible( fsig.param_types[ i - 1 ], resolve_expr( e.subs[ i ], st ) ) )
-                        error( "invalid types in function call" );
+                        error( e.src_loc, "invalid types in function call" );
 
                 return e.subs[ 0 ].type;
             }
@@ -237,18 +234,18 @@ struct semantic
             {
                 auto fn_ret_type = st.enclosing_fn_ret_type();
                 if ( !fn_ret_type )
-                    error( "return used outside a function" );
+                    error( s.src_loc, "return used outside a function" );
                 
                 auto ret_type = s.e.has_value() ? resolve_expr( s.e.value(), st ) : prim_type::VOID;
                 if ( !compatible( fn_ret_type.value(), ret_type ) )
-                    error( "incompatible return type in function" );
+                    error( s.src_loc, "incompatible return type in function" );
                 break;
             }
 
             case stmt::if_stmt:
             {
                 if ( !s.e.has_value() )
-                    error( "if without condition" );
+                    error( s.src_loc, "if without condition" );
                 resolve_expr( s.e.value(), st );
                 for ( auto& sub : s.subs )
                     resolve_stmt( sub, st );
@@ -266,7 +263,7 @@ struct semantic
             case stmt::while_stmt:
             {
                 if ( !s.e.has_value() )
-                    error( "while statement without expression" );
+                    error( s.src_loc, "while statement without expression" );
 
                 resolve_expr( s.e.value(), st );
 
@@ -278,9 +275,12 @@ struct semantic
             case stmt::do_while_stmt:
             {
                 if ( !s.e.has_value() )
-                    error( "do-while statement without condition" );
+                    error( s.src_loc, "do-while statement without condition" );
 
-                resolve_expr( s.e.value(), st );
+                auto cond_t = resolve_expr( s.e.value(), st );
+                // TODO
+                // if ( !conditional_type( cond_t ) )
+                //     error( "expression cannot be used as a condition" );
                 resolve_stmt( s[ 0 ], st );
                 break;
             }
@@ -288,14 +288,14 @@ struct semantic
             case stmt::cont:
             {    
                 if ( !st.within_loop() )
-                    error( "continue used outside of a loop" );
+                    error( s.src_loc, "continue used outside of a loop" );
                 break;
             }
 
             case stmt::brk:
             {
                 if ( !st.within_loop() )
-                    error( "break used outside of a loop" );
+                    error( s.src_loc, "break used outside of a loop" );
                 break;
             }
 
@@ -312,7 +312,11 @@ struct semantic
             {
                 st.add_var( s.vdecl.name, s.vdecl.type );
                 if ( s.e.has_value() )
-                    resolve_expr( s.e.value(), st );
+                {
+                    type rhs_type = resolve_expr( s.e.value(), st );
+                    if ( !compatible( s.vdecl.type, rhs_type ) )
+                        error( s.src_loc, "Incompatible sides of assignment" );
+                }
                 break;
             }
 
@@ -346,7 +350,7 @@ struct semantic
                     ast::fn_decl fn = arg;
                     st.add_var( fn.name, fn.sig.ret_type );
                     st.create_scope(); // fn scope;
-                    st.push_kind( { .cat = scope_kind::function, .fn_ret_type = fn.sig.ret_type, .fn_name = std::string( fn.name ) } );
+                    st.push_kind( { .cat = scope_kind::function, .sig = fn.sig, .fn_name = std::string( fn.name ) } );
                     for ( auto& p : fn.params )
                         st.add_var( p.name, p.type );
                    

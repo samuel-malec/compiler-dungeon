@@ -15,11 +15,12 @@ namespace dungeon
     using enum_decl = ast::enum_decl;
     using program = ast::program;
 
-    static expr make_expr_node( expr::cat_t cat, prim_type type = prim_type::UNKNOWN )
+    expr parser::make_expr_node( expr::cat_t cat, prim_type type )
     {
         return expr{
             .cat = cat,
             .val_kind = expr::rvalue,
+            .src_loc = peek().loc,
             .val = std::monostate{},
             .id = {},
             .subs = {},

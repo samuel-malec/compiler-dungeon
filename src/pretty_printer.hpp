@@ -26,6 +26,7 @@ struct pretty_printer
     inline void print_expr( expr& e, int depth )
     {
         pad( depth );
+        std::cout << " type: " << e.type << " ";
         switch ( e.cat )
         {
             case expr::num_lit:

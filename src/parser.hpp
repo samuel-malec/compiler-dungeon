@@ -11,7 +11,6 @@
 #include "lexer.hpp"
 #include "types.hpp"
 
-// TODO: add source position into the ast
 namespace dungeon
 {
 
@@ -156,6 +155,8 @@ struct parser : token_sink
 
         return prog;
     }
+
+    expr make_expr_node( expr::cat_t cat, prim_type type = prim_type::UNKNOWN );
 
     std::optional< expr > parse_primary();
 
