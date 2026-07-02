@@ -54,15 +54,16 @@ struct parser : token_sink
         return tok;
     }
 
-    std::optional< prim_type > type_from_str( std::string_view data )
+    std::optional< type > type_from_str( std::string_view data )
     {
         if ( data == "bool" )
-            return BOOL;
+            return type{ .data = BOOL };
         if ( data == "int" )
-            return INT;
+            return type{ .data = INT };
         if ( data == "void" )
-            return VOID;
-
+            return type{ .data = VOID };
+        if ( data == "float" )
+            return type{ .data = FLOAT };
         return {};
     }
 
@@ -156,7 +157,7 @@ struct parser : token_sink
         return prog;
     }
 
-    expr make_expr_node( expr::cat_t cat, prim_type type = prim_type::UNKNOWN );
+    expr make_expr_node( expr::cat_t cat, type typ = {} );
 
     std::optional< expr > parse_primary();
 

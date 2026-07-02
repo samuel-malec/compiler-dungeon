@@ -32,6 +32,17 @@ enum op_kind
     NOT, AND, OR,
 };
 
+inline bool is_numerical_op( op_kind op )
+{
+    return op == ADD || op == SUB || op == MUL ||
+           op == DIV || op == REM || op == SHL || op == SHR;
+}
+
+inline bool is_bool_op( op_kind op )
+{
+    return op == NOT || op == AND || op == OR;
+} 
+
 inline std::ostream& operator<<( std::ostream& os, const op_kind op )
 {
     switch ( op )
@@ -62,7 +73,10 @@ struct stmt;
 struct fn_decl;
 struct var_decl;
 
-// TODO :: add locations to nodes ? 
+/**
+ * The current representation of expressions mixes many different things together such as source location, types, value category, etc.
+ * We should think about how to decouple this information into separate representations, such as AST and HIR.  
+ */
 struct expr 
 {
     enum cat_t 
@@ -87,7 +101,7 @@ struct expr
     std::variant< std::monostate, uint64_t, bool, std::string > val;
     std::string_view id;
     std::vector< expr > subs{};
-    prim_type type;
+    type typ;
     op_kind op;
     
     expr &left() 
@@ -112,7 +126,7 @@ struct expr
 struct var_decl 
 {
     std::string_view name;
-    prim_type type;
+    type typ;
     std::optional< expr >  e;
 };
 
@@ -151,7 +165,7 @@ struct struct_decl{};
 struct fn_decl
 {
     location src_loc;
-    fn_signature sig;
+    function_type fn_typ;
     std::string_view name;
     std::vector< stmt > body;
     std::vector< var_decl > params;

@@ -15,7 +15,7 @@ namespace dungeon
     using enum_decl = ast::enum_decl;
     using program = ast::program;
 
-    expr parser::make_expr_node( expr::cat_t cat, prim_type type )
+    expr parser::make_expr_node( expr::cat_t cat, type typ )
     {
         return expr{
             .cat = cat,
@@ -24,7 +24,7 @@ namespace dungeon
             .val = std::monostate{},
             .id = {},
             .subs = {},
-            .type = type,
+            .typ = typ,
             .op = ast::ADD,
         };
     }
@@ -47,7 +47,7 @@ namespace dungeon
             if ( ec != std::errc() || p != tok.data.data() + tok.data.size() )
                 error( tok, "Invalid numeric literal" );
 
-            auto e = make_expr_node( expr::num_lit, prim_type::INT );
+            auto e = make_expr_node( expr::num_lit, type{ .data = INT } );
             e.val = n;
             e.val_kind = expr::rvalue;
             return e;
@@ -57,7 +57,7 @@ namespace dungeon
         {
             fetch();
             bool value = t.value().data == "true";
-            auto e = make_expr_node( expr::bool_lit, prim_type::BOOL );
+            auto e = make_expr_node( expr::bool_lit, type{ .data = BOOL } );
             e.val = value;
             e.val_kind = expr::rvalue;
             return e;
@@ -508,7 +508,7 @@ namespace dungeon
                 error( t, "Expected a type" );
             
             auto id = require( cat::ident );
-            var_decl tmp{ .name = id.data, .type = tk.value() };
+            var_decl tmp{ .name = id.data, .typ = tk.value() };
             var_decls.push_back( tmp );
         }
 
@@ -526,7 +526,7 @@ namespace dungeon
         
         fetch();
         auto id = require( cat::ident );
-        var_decl vdecl{ .name = id.data, .type = tk.value() };
+        var_decl vdecl{ .name = id.data, .typ = tk.value() };
         if ( match( cat::punct, ";" ) )
         {
             fetch();
@@ -589,12 +589,12 @@ namespace dungeon
         require( cat::punct, ")" );
         require( cat::punct, "{" );
 
-        struct fn_signature sig{ .ret_type = tk.value() };
+        // fixme: is this legit ? 
+        function_type fn_typ{ .ret_type = tk.value().as_primitive() };
         for ( var_decl& dec : res.params )
-            sig.param_types.push_back( dec.type );
+            fn_typ.params.push_back( dec.typ.as_primitive() );
         
-        res.sig = sig;
-
+        res.fn_typ = fn_typ;
         while ( !match( cat::punct, "}" ) )
         {
             auto s = parse_stmt();
@@ -602,8 +602,8 @@ namespace dungeon
                 error( "Parsing statement in function: ", id );
             res.body.push_back( s.value() );
         }
-        fetch();
 
+        fetch();
         return res;
     }
 

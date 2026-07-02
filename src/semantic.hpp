@@ -31,8 +31,6 @@ void error( Args... args )
     throw std::runtime_error( buf.str() );
 }
 
-using type = std::variant< fn_signature, prim_type >;
-
 struct symtab
 {
     struct scope_kind
@@ -43,8 +41,8 @@ struct symtab
             stmt,
             global,
         } cat;
-        
-        fn_signature sig;
+
+        function_type fn_type;
         std::string fn_name;
         ast::stmt::cat_t scat;
     };
@@ -83,14 +81,14 @@ struct symtab
         return sk;
     }
     
-    void add_var( std::string_view name, prim_type pt )
+    void add_var( std::string_view name, type typ )
     {
         atom a = get( name );
         if ( scopes.back().contains( a.idx ) )
             error( "re-definition of identifier: ", name );
 
         map[ std::string( name ) ] = a.idx;
-        scopes.back().emplace( a.idx, pt );
+        scopes.back().emplace( a.idx, typ );
     }
 
     std::optional< type > find_var( std::string name )
@@ -122,13 +120,13 @@ struct symtab
         return false;
     }
 
-    std::optional< prim_type > enclosing_fn_ret_type() const
+    std::optional< type > enclosing_fn_ret_type() const
     {
         for ( int i = kinds.size() - 1; i >= 0; -- i  )
         {
             scope_kind sk = kinds[ i ];
             if ( sk.cat == scope_kind::function )
-                return sk.sig.ret_type;
+                return type{ .data = sk.fn_type.ret_type };
         }
 
         return {};
@@ -141,24 +139,68 @@ struct semantic
     using stmt = ast::stmt;
     using scope_kind = symtab::scope_kind;
 
-    bool resolve_op( type lhs, type rhs, ast::op_kind op ) { return true; }
-    
-    bool compatible( type to, type from ) { return true; }
+    type resolve_unary( ast::expr& e )
+    {
+        if ( e[ 0 ].typ.is_primitive() && e[ 0 ].typ.as_primitive() == prim_type::VOID )
+            error( e.src_loc, "invalid operand of operation, expression has type void" );
+        
+        if ( e[ 0 ].typ.is_primitive() && e[ 0 ].typ.as_primitive() == prim_type::BOOL && e.op != ast::op_kind::NOT )
+            error( e.src_loc, "invalid operand of operation, expected expression of type bool " );
 
-    // TODO: assign types to expressions
-    // TODO: why are we even doing type return here ? shouldn't it just be primitive_type
+        return e.typ;
+    }
+
+    type resolve_binary( ast::expr& e ) 
+    {
+        
+        return e.typ;
+    }
+
+    bool compatible( type to, type from ) 
+    {
+        if ( ( to.is_primitive() && to.as_primitive() == prim_type::VOID ) ||
+             ( from.is_primitive() && from.as_primitive() == prim_type::VOID ) ) 
+            return false;
+        return to == from;
+    }
+
+    bool check_call( symtab& st, std::string_view id, ast::expr& callee, function_type& fn_sig ) 
+    {  
+        int actuals_amount = callee.subs.size() - 1;
+        if ( actuals_amount != fn_sig.params.size() )
+            error( callee.src_loc, id, " expected ", fn_sig.params.size(), " arguments, but got ", actuals_amount, " instead" );
+
+        for ( int i = 1; i < callee.subs.size(); ++ i )
+            if ( !compatible( type{ .data = fn_sig.params[ i - 1 ] }, resolve_expr( callee.subs[ i ], st ) ) )
+                error( callee.src_loc, "invalid types in function call, expected ", fn_sig.params[ i - 1 ], ", but got ", callee.subs[ i ].typ, " instead" );
+
+        return true;
+    }
+
+    bool is_assignable( ast::expr& e ) 
+    {
+        return e.val_kind == ast::expr::val_kind_t::lvalue;
+    }
+
+    bool check_condition( ast::expr& e ) 
+    { 
+        assert( false );
+    }
+
     type resolve_expr( ast::expr& e, symtab& st )
     {
         switch ( e.cat )
         {
             case expr::num_lit:
             {
-                return prim_type::INT;
+                e.typ = type{ .data = INT };
+                break;
             }
 
             case expr::bool_lit:
             {
-                return prim_type::BOOL;
+                e.typ = type{ .data = BOOL };
+                break;
             }
 
             case expr::identifier:
@@ -166,32 +208,38 @@ struct semantic
                 auto v = st.find_var( std::string( e.id ) );
                 if ( !v )
                     error( e.src_loc, "variable used before definition", e.id );
-                return v.value();             
+                e.typ = v.value();
+                break;
             }
 
             case expr::unary:
             {
                 resolve_expr( e[ 0 ], st );
+                e.typ = resolve_unary( e );
                 break;
             }
 
             case expr::binary:
             case expr::relational:
             {
-                auto lhs = resolve_expr( e[ 0 ], st );
-                auto rhs = resolve_expr( e[ 1 ], st );
-                if ( !resolve_op( lhs, rhs, e.op ) )
-                    error( e.src_loc, "invalid types in operands in operation", e.op );
-                return prim_type::VOID;
+                resolve_expr( e[ 0 ], st );
+                resolve_expr( e[ 1 ], st );
+                e.typ = resolve_binary( e );
+                break;
             }
 
             case expr::assign:
             {
-                auto lhs = resolve_expr( e[ 0 ], st ); 
+                auto lhs = resolve_expr( e[ 0 ], st );
+                if ( !is_assignable( e[ 0 ] ) )
+                    error( e[ 0 ].src_loc, "invalid left side of an assignment, expected an lvalue" );
+
                 auto rhs = resolve_expr( e[ 1 ], st );
                 if ( !compatible( lhs, rhs ) )
                     error( e.src_loc, "invalid types in assignment" );
-                return rhs;
+                
+                e.typ = rhs;
+                break;
             }
 
             case expr::call:
@@ -201,27 +249,20 @@ struct semantic
                 if ( !callee )
                     error( e.src_loc, "unknown identifier: ", e.id );
                 
-                if ( !std::holds_alternative< fn_signature >( callee.value() ) )
-                    error( e.src_loc, "expected a function call but insead got a primitive type " );
+                if ( !callee.value().is_function() )
+                    error( e.src_loc, "expected a function call but insead got: ", callee.value().describe() );
                 
-                fn_signature fsig = std::get< fn_signature >( callee.value() );
-                int actuals_amount = e.subs.size() - 1;
-                if ( actuals_amount != fsig.param_types.size() )
-                    error( e.src_loc, id, " expected ", fsig.param_types.size(), " arguments, but got ", actuals_amount, " instead" );
-
-                for ( int i = 1; i < e.subs.size(); ++ i )
-                    if ( !compatible( fsig.param_types[ i - 1 ], resolve_expr( e.subs[ i ], st ) ) )
-                        error( e.src_loc, "invalid types in function call" );
-
-                return e.subs[ 0 ].type;
+                function_type fn_sig = callee.value().as_function();
+                check_call( st, id, e, fn_sig );
+                e.typ = type{ .data = fn_sig.ret_type };
+                break;
             }
 
             default:
                 error( "should not reach here" );
                 break;
         }
-        
-        return prim_type::VOID;
+        return e.typ;
     }
 
     void resolve_stmt( ast::stmt& s, symtab& st )
@@ -236,7 +277,7 @@ struct semantic
                 if ( !fn_ret_type )
                     error( s.src_loc, "return used outside a function" );
                 
-                auto ret_type = s.e.has_value() ? resolve_expr( s.e.value(), st ) : prim_type::VOID;
+                auto ret_type = s.e.has_value() ? resolve_expr( s.e.value(), st ) : type{ .data = prim_type::VOID };
                 if ( !compatible( fn_ret_type.value(), ret_type ) )
                     error( s.src_loc, "incompatible return type in function" );
                 break;
@@ -246,7 +287,11 @@ struct semantic
             {
                 if ( !s.e.has_value() )
                     error( s.src_loc, "if without condition" );
+                
                 resolve_expr( s.e.value(), st );
+                if ( !check_condition( s.e.value() ) )
+                    error( s.src_loc, "expected a condition" );
+
                 for ( auto& sub : s.subs )
                     resolve_stmt( sub, st );
                 break;
@@ -266,6 +311,8 @@ struct semantic
                     error( s.src_loc, "while statement without expression" );
 
                 resolve_expr( s.e.value(), st );
+                if ( !check_condition( s.e.value() ) ) 
+                    error( s.src_loc, "expected a condition" );
 
                 for ( auto& sub : s.subs )
                     resolve_stmt( sub, st );
@@ -277,10 +324,10 @@ struct semantic
                 if ( !s.e.has_value() )
                     error( s.src_loc, "do-while statement without condition" );
 
-                auto cond_t = resolve_expr( s.e.value(), st );
-                // TODO
-                // if ( !conditional_type( cond_t ) )
-                //     error( "expression cannot be used as a condition" );
+                resolve_expr( s.e.value(), st );
+                if ( !check_condition( s.e.value() ) )
+                    error( s.src_loc, "expected a condition" );
+
                 resolve_stmt( s[ 0 ], st );
                 break;
             }
@@ -310,12 +357,12 @@ struct semantic
 
             case stmt::var_dclr:
             {
-                st.add_var( s.vdecl.name, s.vdecl.type );
+                st.add_var( s.vdecl.name, s.vdecl.typ );
                 if ( s.e.has_value() )
-                {
+                { 
                     type rhs_type = resolve_expr( s.e.value(), st );
-                    if ( !compatible( s.vdecl.type, rhs_type ) )
-                        error( s.src_loc, "Incompatible sides of assignment" );
+                    if ( !compatible( s.vdecl.typ, rhs_type ) )
+                        error( s.src_loc, "incompatible sides of assignment" );
                 }
                 break;
             }
@@ -324,7 +371,9 @@ struct semantic
             {
                 if ( s.e.has_value() )
                     resolve_expr( s.e.value(), st );
-                // FIXME: else void ?
+                else
+                    error( s.src_loc, "should not reache here, !s.e.has_value() " );
+                
                 break; 
             }
 
@@ -348,11 +397,11 @@ struct semantic
                 if constexpr( std::is_same_v< T, ast::fn_decl > )
                 {
                     ast::fn_decl fn = arg;
-                    st.add_var( fn.name, fn.sig.ret_type );
                     st.create_scope(); // fn scope;
-                    st.push_kind( { .cat = scope_kind::function, .sig = fn.sig, .fn_name = std::string( fn.name ) } );
+                    st.push_kind( { .cat = scope_kind::function, .fn_type = fn.fn_typ, .fn_name = std::string( fn.name ) } );
+
                     for ( auto& p : fn.params )
-                        st.add_var( p.name, p.type );
+                        st.add_var( p.name, p.typ );
                    
                     for ( auto& s : fn.body )
                         resolve_stmt( s, st );
@@ -362,7 +411,6 @@ struct semantic
                 }
             }, d );
         }
-
     }
 };
 

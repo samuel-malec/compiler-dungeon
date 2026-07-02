@@ -26,7 +26,6 @@ struct pretty_printer
     inline void print_expr( expr& e, int depth )
     {
         pad( depth );
-        std::cout << " type: " << e.type << " ";
         switch ( e.cat )
         {
             case expr::num_lit:
@@ -153,7 +152,7 @@ struct pretty_printer
             case stmt::var_dclr:
                 std::cout << "[ var_decl ]\n";
                 pad( depth + 1 );
-                std::cout << "[ var ] " << s.vdecl.type << " " << s.vdecl.name << '\n';
+                std::cout << "[ var ] " << s.vdecl.typ << " " << s.vdecl.name << '\n';
                 if ( s.vdecl.e.has_value() )
                     print_expr( s.vdecl.e.value(), depth + 1 );
                 return;
@@ -184,13 +183,13 @@ struct pretty_printer
                 {
                     std::cout << "fn_decl: ";
                     fn_decl fn = arg;
-                    std::cout << fn.sig.ret_type << " " << fn.name << "( ";
+                    std::cout << fn.fn_typ.ret_type << " " << fn.name << "( ";
                     // todo: we have redundant information about fn signature which can be deduced from params,
                     //       think about possible refactorization later, right now we need to get simple typechecking to work
                     for ( size_t i = 0; i < fn.params.size(); ++i )
                     {
                         auto& p = fn.params[ i ];
-                        std::cout << p.type << " " << p.name << ( i == fn.params.size() - 1 ?  "" : ", " );
+                        std::cout << p.typ << " " << p.name << ( i == fn.params.size() - 1 ?  "" : ", " );
                     }
                     
                     std::cout << " )\n";
