@@ -2,7 +2,7 @@
 
 #include <iostream>
 
-#include "ast.hpp"
+#include "frontend/ast.hpp"
 
 namespace dungeon::print
 {

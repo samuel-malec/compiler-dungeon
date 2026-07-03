@@ -11,8 +11,8 @@ add_executable(compiler-dungeon)
 target_sources(compiler-dungeon
     PRIVATE
     src/main.cpp
-    src/lexer.cpp
-    src/parser.cpp
+    src/frontend/lexer.cpp
+    src/frontend/parser.cpp
 )
 
 function(add_compiler_fixture_tests stage)

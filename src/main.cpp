@@ -3,10 +3,10 @@
 #include <stdexcept>
 
 #include "common/file.hpp"
-#include "token.hpp"
-#include "parser.hpp"
+#include "frontend/parser.hpp"
 #include "pretty_printer.hpp"
-#include "semantic.hpp"
+#include "frontend/semantic.hpp"
+#include "frontend/token.hpp"
 
 using config = std::pair< std::string, std::string >;
 
