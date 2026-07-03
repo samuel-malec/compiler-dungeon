@@ -11,6 +11,7 @@
 #include "lexer.hpp"
 #include "types.hpp"
 
+// TODO: fix forward declaration of variables;
 namespace dungeon
 {
 
@@ -62,8 +63,6 @@ struct parser : token_sink
             return type{ .data = INT };
         if ( data == "void" )
             return type{ .data = VOID };
-        if ( data == "float" )
-            return type{ .data = FLOAT };
         return {};
     }
 

@@ -32,6 +32,11 @@ enum op_kind
     NOT, AND, OR,
 };
 
+inline bool is_rel_op( op_kind op )
+{
+    return op == EQ || op == NEQ || op == LE || op == LEQ || op == GE || op == GEQ;
+}
+
 inline bool is_numerical_op( op_kind op )
 {
     return op == ADD || op == SUB || op == MUL ||

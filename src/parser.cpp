@@ -526,12 +526,10 @@ namespace dungeon
         
         fetch();
         auto id = require( cat::ident );
-        var_decl vdecl{ .name = id.data, .typ = tk.value() };
+        var_decl vdecl{ .name = id.data, .typ = tk.value(), .e = std::nullopt };
+
         if ( match( cat::punct, ";" ) )
-        {
-            fetch();
             return vdecl;
-        }
     
         if ( !match( cat::punct, "=" ) )
             error( "Unexpected symbol in variable declaration" );
