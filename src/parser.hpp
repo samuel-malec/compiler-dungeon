@@ -11,7 +11,6 @@
 #include "lexer.hpp"
 #include "types.hpp"
 
-// TODO: fix forward declaration of variables;
 namespace dungeon
 {
 
@@ -175,6 +174,10 @@ struct parser : token_sink
     std::optional< expr > parse_equality();
 
     std::optional< expr > parse_assignment();
+
+    std::optional< expr > parse_and();
+
+    std::optional< expr > parse_or();
 
     std::optional< expr > parse_expr();
 

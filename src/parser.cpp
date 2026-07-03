@@ -266,12 +266,58 @@ namespace dungeon
             e = std::move( tmp );
         }
 
-        return e;
+        return e;    
+    }
+
+    std::optional< expr > parser::parse_and()
+    {
+        auto e = parse_assignment();
+        if ( !e )
+            return {};
+
+        while ( auto t = match_any( cat::punct, "&&" ) )
+        {
+            fetch();
+            auto rhs = parse_assignment();
+            if ( !rhs )
+                error( "Expected rhs for assignment expression" );
+
+            auto tmp = make_expr_node( expr::binary );
+            tmp.op = op_kind_from_str( t->data );
+            tmp.subs.push_back( e.value() );
+            tmp.subs.push_back( rhs.value() );
+            e = std::move( tmp );
+        }
+
+        return e;  
+    }
+
+    std::optional< expr > parser::parse_or()
+    {
+        auto e = parse_and();
+        if ( !e )
+            return {};
+
+        while ( auto t = match_any( cat::punct, "||" ) )
+        {
+            fetch();
+            auto rhs = parse_assignment();
+            if ( !rhs )
+                error( "Expected rhs for assignment expression" );
+
+            auto tmp = make_expr_node( expr::binary );
+            tmp.op = op_kind_from_str( t->data );
+            tmp.subs.push_back( e.value() );
+            tmp.subs.push_back( rhs.value() );
+            e = std::move( tmp );
+        }
+
+        return e;  
     }
 
     std::optional< expr > parser::parse_expr() 
     { 
-        return parse_assignment();
+        return parse_or();
     }
 
     std::optional< stmt > parser::parse_expr_stmt()

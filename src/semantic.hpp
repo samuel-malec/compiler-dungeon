@@ -23,6 +23,7 @@ struct atom
     bool operator==( const atom& o ) const = default;
 };
 
+// TODO: perhaps add function name in the error
 template < typename... Args >
 void error( Args... args )
 {
@@ -85,7 +86,7 @@ struct symtab
     {
         atom a = get( name );
         if ( scopes.back().contains( a.idx ) )
-            error( "re-definition of identifier: ", name );
+            error( "redeclaration of identifier: ", name, "with type", typ );
 
         map[ std::string( name ) ] = a.idx;
         scopes.back().emplace( a.idx, typ );
@@ -141,18 +142,53 @@ struct semantic
 
     type resolve_unary( ast::expr& e )
     {
-        if ( e[ 0 ].typ.is_primitive() && e[ 0 ].typ.as_primitive() == prim_type::VOID )
-            error( e.src_loc, "invalid operand of operation, expression has type void" );
+        if ( !e[ 0 ].typ.is_primitive() )
+            error( e[ 0 ].src_loc, "unexpected type in operation", e[ 0 ].typ );
+
+        if ( e[ 0 ].typ.as_primitive() == prim_type::VOID )
+            error( e[ 0 ].src_loc, "invalid operand to unary expression", e[ 0 ].typ );
         
-        if ( e[ 0 ].typ.is_primitive() && e[ 0 ].typ.as_primitive() == prim_type::BOOL && e.op != ast::op_kind::NOT )
-            error( e.src_loc, "invalid operand of operation, expected expression of type bool " );
+        if ( e[ 0 ].typ.as_primitive() == prim_type::BOOL && e.op != ast::op_kind::NOT )
+            error( e[ 0 ].src_loc, "invalid operand to unary expression", e[ 0 ].typ );
+
+        if ( e[ 0 ].typ.as_primitive() == prim_type::INT && ( e.op != ast::op_kind::ADD && e.op != ast::op_kind::SUB ) )
+            error( e[ 0 ].src_loc, "invalid operand to unary expression", e[ 0 ].typ );
+
+        e.typ = e[ 0 ].typ;
 
         return e.typ;
     }
 
     type resolve_binary( ast::expr& e ) 
     {
+        if ( !e[ 0 ].typ.is_primitive() || !e[ 1 ].typ.is_primitive() )
+            error( e.src_loc, "invalid operands to binary expression: ", e[ 0 ].typ, e[ 1 ].typ );
+
+        if ( e[ 0 ].typ.as_primitive() == prim_type::VOID || e[ 1 ].typ.as_primitive() == prim_type::VOID )
+            error( e.src_loc, "invalid operands to binary expression: ", e[ 0 ].typ, e[ 1 ].typ );
         
+        if ( is_bool_op( e.op ) )
+        {
+            if ( e[ 0 ].typ.as_primitive() != prim_type::BOOL || e[ 1 ].typ.as_primitive() != BOOL )
+                error( "invalid operands to binary expression: ", e[ 0 ].typ, e[ 1 ].typ );
+            e.typ = type{ .data = prim_type::BOOL };
+        }
+
+        if ( is_rel_op( e.op ) )
+        {
+            if ( e[ 0 ].typ.as_primitive() != e[ 1 ].typ.as_primitive() )
+                error( "invalid operands to binary expression: ", e[ 0 ].typ, e[ 1 ].typ );
+
+            e.typ = type{ .data = prim_type::BOOL } ;
+        }
+
+        if ( is_numerical_op( e.op ) )
+        {
+            if ( e[ 0 ].typ.as_primitive() != prim_type::INT || e[ 1 ].typ.as_primitive() != INT )
+                error( "invalid operands to binary expression: ", e[ 0 ].typ, e[ 1 ].typ );
+            e.typ = type{ .data = prim_type::INT };
+        }
+
         return e.typ;
     }
 
@@ -161,6 +197,7 @@ struct semantic
         if ( ( to.is_primitive() && to.as_primitive() == prim_type::VOID ) ||
              ( from.is_primitive() && from.as_primitive() == prim_type::VOID ) ) 
             return false;
+        
         return to == from;
     }
 
@@ -183,8 +220,8 @@ struct semantic
     }
 
     bool check_condition( ast::expr& e ) 
-    { 
-        assert( false );
+    {
+        return e.typ.is_primitive() && e.typ.as_primitive() == prim_type::BOOL;
     }
 
     type resolve_expr( ast::expr& e, symtab& st )
@@ -207,7 +244,7 @@ struct semantic
             {
                 auto v = st.find_var( std::string( e.id ) );
                 if ( !v )
-                    error( e.src_loc, "variable used before definition", e.id );
+                    error( e.src_loc, e.id, "undeclared (first use in this function)", e.id );
                 e.typ = v.value();
                 break;
             }
@@ -270,7 +307,6 @@ struct semantic
         st.push_kind( { .cat = scope_kind::stmt, .scat = s.cat } );
         switch ( s.cat )
         {
-            // TODO: check that we are actually returning something
             case stmt::ret:
             {
                 auto fn_ret_type = st.enclosing_fn_ret_type();
@@ -279,7 +315,7 @@ struct semantic
                 
                 auto ret_type = s.e.has_value() ? resolve_expr( s.e.value(), st ) : type{ .data = prim_type::VOID };
                 if ( !compatible( fn_ret_type.value(), ret_type ) )
-                    error( s.src_loc, "incompatible return type in function" );
+                    error( s.src_loc, ret_type, " is incompatible with return type:", fn_ret_type.value() );
                 break;
             }
 
@@ -362,7 +398,7 @@ struct semantic
                 { 
                     type rhs_type = resolve_expr( s.e.value(), st );
                     if ( !compatible( s.vdecl.typ, rhs_type ) )
-                        error( s.src_loc, "incompatible sides of assignment" );
+                        error( s.src_loc, "incompatible sides of assignment", s.vdecl.typ, rhs_type );
                 }
                 break;
             }

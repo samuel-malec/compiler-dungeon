@@ -13,7 +13,6 @@ enum prim_type
 {
     INT,
     BOOL,
-    FLOAT,
     VOID,
     UNKNOWN,
 };
@@ -26,8 +25,6 @@ inline std::ostream& operator<<( std::ostream& os, const prim_type& typ )
             return os << "int";
         case BOOL:
             return os << "bool";
-        case FLOAT:
-            return os << "float";
         case VOID:
             return os << "void";
         default:
@@ -71,7 +68,6 @@ struct type
 
     bool is_function() const { return std::holds_alternative< function_type >( data ); }
 
-    // TODO: these as_*** functions should be rewritten, we really don't want a bad access error here
     prim_type as_primitive() const { return std::get< prim_type >( data ); }
 
     function_type as_function() const { return std::get< function_type >( data ); }
