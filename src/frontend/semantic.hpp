@@ -244,7 +244,7 @@ struct semantic
             {
                 auto v = st.find_var( std::string( e.id ) );
                 if ( !v )
-                    error( e.src_loc, e.id, "undeclared (first use in this function)", e.id );
+                    error( e.src_loc, e.id, "undeclared ", e.id );
                 e.typ = v.value();
                 break;
             }
@@ -337,7 +337,8 @@ struct semantic
             {   
                 for ( auto& sub : s.subs )
                     resolve_stmt( sub, st );
-            
+                if ( s.subs[ 1 ].e.has_value() && !check_condition( s.subs[ 1 ].e.value() ) )
+                    error( s.src_loc, "expected a condition in for-loop", s.subs[ 1 ].e.value() );
                 break;
             }
 
