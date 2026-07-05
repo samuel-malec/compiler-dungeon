@@ -25,22 +25,22 @@ namespace dungeon::ast {
 enum op_kind 
 {
     ADD, SUB, MUL, DIV,
-    REM, SHL, SHR,
+    MOD, SHL, SHR,
 
-    EQ, NEQ, LE, LEQ, GE, GEQ,
+    EQ, NEQ, LT, LEQ, GT, GEQ,
 
     NOT, AND, OR,
 };
 
 inline bool is_rel_op( op_kind op )
 {
-    return op == EQ || op == NEQ || op == LE || op == LEQ || op == GE || op == GEQ;
+    return op == EQ || op == NEQ || op == LT || op == LEQ || op == GT || op == GEQ;
 }
 
 inline bool is_numerical_op( op_kind op )
 {
     return op == ADD || op == SUB || op == MUL ||
-           op == DIV || op == REM || op == SHL || op == SHR;
+           op == DIV || op == MOD || op == SHL || op == SHR;
 }
 
 inline bool is_bool_op( op_kind op )
@@ -56,14 +56,14 @@ inline std::ostream& operator<<( std::ostream& os, const op_kind op )
         case SUB:   return os << "-";
         case MUL:   return os << "*";
         case DIV:   return os << "/";
-        case REM:   return os << "%";
+        case MOD:   return os << "%";
         case SHL:   return os << "<<";
         case SHR:   return os << ">>";
         case EQ:    return os << "==";
         case NEQ:   return os << "!=";
-        case LE:    return os << "<";
+        case LT:    return os << "<";
         case LEQ:   return os << "<=";
-        case GE:    return os << ">";
+        case GT:    return os << ">";
         case GEQ:   return os << ">=";
         case NOT:   return os << "!";
         case AND:   return os << "&&";
@@ -103,7 +103,7 @@ struct expr
     } val_kind;
 
     location src_loc;
-    std::variant< std::monostate, uint64_t, bool, std::string > val;
+    std::variant< std::monostate, uint64_t, bool > val;
     std::string_view id;
     std::vector< expr > subs{};
     type typ;

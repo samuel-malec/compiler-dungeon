@@ -338,7 +338,7 @@ struct semantic
                 for ( auto& sub : s.subs )
                     resolve_stmt( sub, st );
                 if ( s.subs[ 1 ].e.has_value() && !check_condition( s.subs[ 1 ].e.value() ) )
-                    error( s.src_loc, "expected a condition in for-loop", s.subs[ 1 ].e.value() );
+                    error( s.src_loc, "expected a condition in for-loop" );
                 break;
             }
 

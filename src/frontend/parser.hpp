@@ -71,14 +71,14 @@ struct parser : token_sink
         if ( data == "-" ) return ast::SUB;
         if ( data == "*" ) return ast::MUL;
         if ( data == "/" ) return ast::DIV;
-        if ( data == "%" ) return ast::REM;
+        if ( data == "%" ) return ast::MOD;
         if ( data == "<<" ) return ast::SHL;
         if ( data == ">>" ) return ast::SHR;
         if ( data == "==" ) return ast::EQ;
         if ( data == "!=" ) return ast::NEQ;
-        if ( data == "<" ) return ast::LE;
+        if ( data == "<" ) return ast::LT;
         if ( data == "<=" ) return ast::LEQ;
-        if ( data == ">" ) return ast::GE;
+        if ( data == ">" ) return ast::GT;
         if ( data == ">=" ) return ast::GEQ;
         if ( data == "!" ) return ast::NOT;
         if ( data == "&&" ) return ast::AND;
