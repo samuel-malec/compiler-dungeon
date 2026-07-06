@@ -10,8 +10,6 @@
 namespace dungeon::tac
 {
 
-// todo: copy and goto and call? 
-
 enum class un_op
 {
     plus, minus, lnot,
@@ -24,8 +22,7 @@ enum class bin_op
 };
 
 using constant = std::variant< uint64_t, bool >;   
-using tmp_id = std::string;
-
+using tmp_id = int;
 using argument = std::variant< tmp_id, constant >;
 
 enum op_kind
@@ -45,6 +42,7 @@ struct unary_data
 {
     un_op op;
     argument arg1;
+    tmp_id target;
 };
 
 struct binary_data
@@ -52,18 +50,36 @@ struct binary_data
     bin_op op;
     argument arg1;
     argument arg2;
+    tmp_id target;
 };
 
-struct copy_data{};
+struct copy_data
+{
+    argument arg1;
+    tmp_id target;
+};
 
 struct jump_data
 {
-
+    std::string label;
 };
 
-struct branch_if_data{};
-struct param_data{};
-struct call_data{};
+struct branch_if_data
+{
+    argument arg1;
+    std::string label;
+};
+
+struct param_data
+{
+    argument arg;
+};
+
+struct call_data
+{
+    std::string fn_name;
+    tmp_id target;
+};
 
 struct ret_data
 {
@@ -72,18 +88,22 @@ struct ret_data
 
 struct label_data
 {
-    std::string name;
+   std::string name;
 };
 
 struct instr
 {
-    op_kind kind; 
-    argument arg1;
-    argument arg2;
-    tmp_id target;
+    using data_type = std::variant< 
+                    unary_data,
+                    binary_data,
+                    copy_data,
+                    jump_data,
+                    branch_if_data,
+                    param_data,
+                    call_data,
+                    ret_data>;
+    data_type data;
 };
-
-using instr_ptr = std::unique_ptr< instr >;
 
 struct function
 {

@@ -103,7 +103,7 @@ struct expr
     } val_kind;
 
     location src_loc;
-    std::variant< std::monostate, uint64_t, bool > val;
+    std::variant< std::monostate, uint64_t, bool, std::string > val;
     std::string_view id;
     std::vector< expr > subs{};
     type typ;
@@ -170,7 +170,7 @@ struct struct_decl{};
 struct fn_decl
 {
     location src_loc;
-    function_type fn_typ;
+    function_type sig;
     std::string_view name;
     std::vector< stmt > body;
     std::vector< var_decl > params;

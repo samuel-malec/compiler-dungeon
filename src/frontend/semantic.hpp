@@ -43,7 +43,7 @@ struct symtab
             global,
         } cat;
 
-        function_type fn_type;
+        function_type sig;
         std::string fn_name;
         ast::stmt::cat_t scat;
     };
@@ -127,7 +127,7 @@ struct symtab
         {
             scope_kind sk = kinds[ i ];
             if ( sk.cat == scope_kind::function )
-                return type{ .data = sk.fn_type.ret_type };
+                return type{ .data = sk.sig.ret_type };
         }
 
         return {};
@@ -435,7 +435,7 @@ struct semantic
                 {
                     ast::fn_decl fn = arg;
                     st.create_scope(); // fn scope;
-                    st.push_kind( { .cat = scope_kind::function, .fn_type = fn.fn_typ, .fn_name = std::string( fn.name ) } );
+                    st.push_kind( { .cat = scope_kind::function, .sig = fn.sig, .fn_name = std::string( fn.name ) } );
 
                     for ( auto& p : fn.params )
                         st.add_var( p.name, p.typ );

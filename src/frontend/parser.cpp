@@ -638,7 +638,7 @@ namespace dungeon
         for ( var_decl& dec : res.params )
             fn_typ.params.push_back( dec.typ.as_primitive() );
         
-        res.fn_typ = fn_typ;
+        res.sig = fn_typ;
         while ( !match( cat::punct, "}" ) )
         {
             auto s = parse_stmt();
