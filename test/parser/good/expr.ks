@@ -3,4 +3,11 @@ int main()
     3;
     5;
     6;
+    3 + 5;
+    2 * 2;
+    true && false;
+    false || true;
+    !false;
+    2 - 4;
+    5 - 8;
 }
