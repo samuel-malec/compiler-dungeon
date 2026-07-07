@@ -37,23 +37,17 @@ struct function_type
 {
     prim_type ret_type;
     std::vector< prim_type > params;
-
-    std::string describe() const
-    {
-        std::string out = "fn(";
-        for ( int i = 0; i < params.size(); ++i )
-        {
-            std::ostringstream oss;
-            oss << params[ i ];
-            out += oss.str();
-        }
-        out += ") -> ";
-        std::ostringstream ret;
-        ret << ret_type;
-        out += ret.str();
-        return out;
-    }
 };
+
+inline std::ostream& operator<< ( std::ostream& os, const function_type& sig )
+{
+    os << "(";
+    for ( int i = 0; i < sig.params.size(); ++i )
+        os << sig.params[ i ] << " x ";
+    os << ") -> ";
+    os << sig.ret_type;
+    return os << '\n';
+}
 
 inline bool operator==( const function_type& lhs, const function_type& rhs )
 {
@@ -74,13 +68,14 @@ struct type
 
     std::string describe() const
     {
+
+        std::ostringstream oss;
         if ( is_primitive() )
-        {
-            std::ostringstream oss;
             oss << as_primitive();
-            return oss.str();
-        }
-        return as_function().describe();
+        else
+            oss << as_function();
+
+        return oss.str();
     }
 };
 

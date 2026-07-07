@@ -68,7 +68,6 @@ namespace dungeon
             auto tok = fetch();
             auto e = make_expr_node( expr::identifier );
             e.id = tok.data;
-            e.val = std::string( tok.data );
             e.val_kind = expr::lvalue;
             return e;
         }
@@ -449,8 +448,13 @@ namespace dungeon
         }
         else
             fetch();
-
-        stmt cond{ .cat = stmt::expr_stmt };
+        
+        // FIXME: this is a dirty ( and a little retarded ) hack, but I currently don't have time to implement this in a better way
+        auto cond_expr = make_expr_node( expr::bool_lit, type{ .data = BOOL } );
+        cond_expr.val = true;
+        cond_expr.val_kind = expr::rvalue;
+        stmt cond{ .cat = stmt::expr_stmt, .e = cond_expr };
+        
         if ( !match( cat::punct, ";" ) )
         {
             auto ce = parse_expr();
@@ -633,7 +637,6 @@ namespace dungeon
         require( cat::punct, ")" );
         require( cat::punct, "{" );
 
-        // fixme: is this legit ? 
         function_type fn_typ{ .ret_type = tk.value().as_primitive() };
         for ( var_decl& dec : res.params )
             fn_typ.params.push_back( dec.typ.as_primitive() );

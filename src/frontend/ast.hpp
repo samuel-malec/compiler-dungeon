@@ -13,7 +13,9 @@
 
 namespace dungeon::ast {
 
-// TODO: it would be nice to have non-copyable expressions and statements, but it would break a lot of things rn ( we need to get things working first )
+// TODO: it would be nice to have non-copyable expressions and statements, but it would break a lot of things and right now we
+// should focus primarily on implementing the core features of the compiler - only then can we start going 
+
 // struct no_copy 
 // {
 //     no_copy() = default;
@@ -78,10 +80,6 @@ struct stmt;
 struct fn_decl;
 struct var_decl;
 
-/**
- * The current representation of expressions mixes many different things together such as source location, types, value category, etc.
- * We should think about how to decouple this information into separate representations, such as AST and HIR.  
- */
 struct expr 
 {
     enum cat_t 
@@ -103,7 +101,7 @@ struct expr
     } val_kind;
 
     location src_loc;
-    std::variant< std::monostate, uint64_t, bool, std::string > val;
+    std::variant< std::monostate, uint64_t, bool > val;
     std::string_view id;
     std::vector< expr > subs{};
     type typ;

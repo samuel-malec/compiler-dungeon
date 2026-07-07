@@ -23,7 +23,6 @@ struct atom
     bool operator==( const atom& o ) const = default;
 };
 
-// TODO: perhaps add function name in the error
 template < typename... Args >
 void error( Args... args )
 {
@@ -34,23 +33,23 @@ void error( Args... args )
 
 struct symtab
 {
-    struct scope_kind
+    struct scope
     {
-        enum cat_t 
+        enum cat_t
         {
-            function,
-            stmt,
             global,
+            function,
+            loop,
+            block,
         } cat;
-
+        
         function_type sig;
         std::string fn_name;
-        ast::stmt::cat_t scat;
+        std::map< uint32_t, type > symbols;
     };
-
+    
     std::map< std::string, uint32_t, std::less<> > map;
-    std::vector< std::map< uint32_t, type > > scopes;
-    std::vector< scope_kind > kinds;
+    std::vector< scope > scopes;
 
     atom get( std::string_view name )
     {
@@ -66,39 +65,30 @@ struct symtab
 
     bool contains_name( std::string_view name ) { return map.contains( name ); }
 
-    void create_scope() 
+    void push_scope( scope scope ) 
     {
-        scopes.push_back( {} );
+        scopes.push_back( std::move( scope ) );
     }
 
-    void close_scope() { scopes.pop_back(); }
+    void pop_scope() { scopes.pop_back(); }
 
-    void push_kind( scope_kind sk ) { kinds.push_back( sk ); }
-
-    scope_kind pop_kind()
-    {
-        scope_kind sk = kinds.back();
-        kinds.pop_back();
-        return sk;
-    }
-    
-    void add_var( std::string_view name, type typ )
+    void add_sym( std::string_view name, type typ )
     {
         atom a = get( name );
-        if ( scopes.back().contains( a.idx ) )
+        if ( scopes.back().symbols.contains( a.idx ) )
             error( "redeclaration of identifier: ", name, "with type", typ );
 
         map[ std::string( name ) ] = a.idx;
-        scopes.back().emplace( a.idx, typ );
+        scopes.back().symbols.emplace( a.idx, typ );
     }
 
-    std::optional< type > find_var( std::string name )
+    std::optional< type > find_sym( std::string name )
     {
         atom a = get( name );
         for ( int i = scopes.size() - 1; i >= 0; -- i )
         {
-            auto it = scopes[ i ].find( a.idx );
-            if ( it == scopes[ i ].end() )
+            auto it = scopes[ i ].symbols.find( a.idx );
+            if ( it == scopes[ i ].symbols.end() )
                 continue;
             
             return it->second;
@@ -109,36 +99,32 @@ struct symtab
     
     bool within_loop() const
     {
-        for ( int i = kinds.size() - 1; i >= 0; -- i )
+        for ( int i = scopes.size() - 1; i >= 0; -- i )
         {
-            scope_kind sk = kinds[ i ];
-            if ( sk.cat != scope_kind::stmt )
+            if ( scopes[ i ].cat == scope::cat_t::block )
                 continue;
-            if ( sk.scat == ast::stmt::for_stmt || sk.scat == ast::stmt::while_stmt || 
-                 sk.scat == ast::stmt::do_while_stmt )
+            if ( scopes[ i ].cat == scope::cat_t::loop )
                 return true;
         }
         return false;
     }
 
-    std::optional< type > enclosing_fn_ret_type() const
+    std::optional< scope > enclosing_fn_scope() const
     {
-        for ( int i = kinds.size() - 1; i >= 0; -- i  )
+        for ( int i = scopes.size() - 1; i >= 0; -- i  )
         {
-            scope_kind sk = kinds[ i ];
-            if ( sk.cat == scope_kind::function )
-                return type{ .data = sk.sig.ret_type };
+            if ( scopes[ i ].cat == scope::cat_t::function )
+                return scopes[ i ];
         }
 
         return {};
     }
 };
 
-struct semantic
+struct semantic_analyzer
 {
     using expr = ast::expr;
     using stmt = ast::stmt;
-    using scope_kind = symtab::scope_kind;
 
     type resolve_unary( ast::expr& e )
     {
@@ -242,7 +228,7 @@ struct semantic
 
             case expr::identifier:
             {
-                auto v = st.find_var( std::string( e.id ) );
+                auto v = st.find_sym( std::string( e.id ) );
                 if ( !v )
                     error( e.src_loc, e.id, "undeclared ", e.id );
                 e.typ = v.value();
@@ -282,7 +268,7 @@ struct semantic
             case expr::call:
             {
                 std::string id = std::string( e.subs[ 0 ].id );
-                auto callee = st.find_var( id );
+                auto callee = st.find_sym( id );
                 if ( !callee )
                     error( e.src_loc, "unknown identifier: ", e.id );
                 
@@ -304,18 +290,20 @@ struct semantic
 
     void resolve_stmt( ast::stmt& s, symtab& st )
     {
-        st.push_kind( { .cat = scope_kind::stmt, .scat = s.cat } );
+        using scope_cat = symtab::scope::cat_t;
+
         switch ( s.cat )
         {
             case stmt::ret:
             {
-                auto fn_ret_type = st.enclosing_fn_ret_type();
-                if ( !fn_ret_type )
+                auto fn_scope = st.enclosing_fn_scope();
+                if ( !fn_scope )
                     error( s.src_loc, "return used outside a function" );
                 
-                auto ret_type = s.e.has_value() ? resolve_expr( s.e.value(), st ) : type{ .data = prim_type::VOID };
-                if ( !compatible( fn_ret_type.value(), ret_type ) )
-                    error( s.src_loc, ret_type, " is incompatible with return type:", fn_ret_type.value() );
+                auto ret_type = type{ .data = fn_scope.value().sig.ret_type };
+                auto expr_type = s.e.has_value() ? resolve_expr( s.e.value(), st ) : type{ .data = prim_type::VOID };
+                if ( !compatible( ret_type , expr_type ) )
+                    error( s.src_loc, "expresion of type: ", expr_type, " is incompatible with return type:", ret_type );
                 break;
             }
 
@@ -334,11 +322,21 @@ struct semantic
             }
             
             case stmt::for_stmt:
-            {   
-                for ( auto& sub : s.subs )
-                    resolve_stmt( sub, st );
-                if ( s.subs[ 1 ].e.has_value() && !check_condition( s.subs[ 1 ].e.value() ) )
-                    error( s.src_loc, "expected a condition in for-loop" );
+            {
+                // s[ 0 ] --> init
+                // s[ 1 ] --> cond
+                // s[ 2 ] --> update
+                // s[ 3 ] --> body
+                st.push_scope( { .cat = scope_cat::loop } );
+                resolve_stmt( s[ 0 ], st );
+                resolve_stmt( s[ 1 ], st );
+                if ( !check_condition( s[ 1 ].e.value() ) )
+                    error( s[ 1 ].src_loc, "expected a condition" );
+                resolve_stmt( s[ 2 ], st );
+
+                for ( int i = 3; i < s.subs.size(); ++ i )
+                    resolve_stmt( s.subs[ i ], st );
+                
                 break;
             }
 
@@ -350,12 +348,13 @@ struct semantic
                 resolve_expr( s.e.value(), st );
                 if ( !check_condition( s.e.value() ) ) 
                     error( s.src_loc, "expected a condition" );
-
+                
+                st.push_scope( { .cat = scope_cat::loop } );
                 for ( auto& sub : s.subs )
                     resolve_stmt( sub, st );
                 break;
             }
-
+            
             case stmt::do_while_stmt:
             {
                 if ( !s.e.has_value() )
@@ -365,6 +364,7 @@ struct semantic
                 if ( !check_condition( s.e.value() ) )
                     error( s.src_loc, "expected a condition" );
 
+                st.push_scope( { .cat = scope_cat::loop } );
                 resolve_stmt( s[ 0 ], st );
                 break;
             }
@@ -385,16 +385,16 @@ struct semantic
 
             case stmt::block:
             {
-                st.create_scope();
+                st.push_scope( { .cat = scope_cat::block } );
                 for ( auto& sub : s.subs )
                     resolve_stmt( sub, st );
-                st.close_scope();
+                st.pop_scope();
                 break;
             }
 
             case stmt::var_dclr:
             {
-                st.add_var( s.vdecl.name, s.vdecl.typ );
+                st.add_sym( s.vdecl.name, s.vdecl.typ );
                 if ( s.e.has_value() )
                 { 
                     type rhs_type = resolve_expr( s.e.value(), st );
@@ -409,7 +409,7 @@ struct semantic
                 if ( s.e.has_value() )
                     resolve_expr( s.e.value(), st );
                 else
-                    error( s.src_loc, "should not reache here, !s.e.has_value() " );
+                    error( s.src_loc, "should not reach here, !s.e.has_value() " );
                 
                 break; 
             }
@@ -417,14 +417,14 @@ struct semantic
             default:
                 break;
         }
-
-        st.pop_kind();
     }
 
     void run( ast::program& prog )
     {
+        using scope_cat = symtab::scope::cat_t;
+
         symtab st{};
-        st.create_scope(); // global scope
+        st.push_scope( { .cat = scope_cat::global } );
 
         for ( auto& d : prog.decls )
         {
@@ -434,17 +434,16 @@ struct semantic
                 if constexpr( std::is_same_v< T, ast::fn_decl > )
                 {
                     ast::fn_decl fn = arg;
-                    st.create_scope(); // fn scope;
-                    st.push_kind( { .cat = scope_kind::function, .sig = fn.sig, .fn_name = std::string( fn.name ) } );
+                    st.add_sym( std::string( fn.name ), type{ .data = fn.sig } );
+                    st.push_scope( { .cat = scope_cat::function, .sig = fn.sig, .fn_name = std::string( fn.name ) } );
 
                     for ( auto& p : fn.params )
-                        st.add_var( p.name, p.typ );
+                        st.add_sym( p.name, p.typ );
                    
                     for ( auto& s : fn.body )
                         resolve_stmt( s, st );
 
-                    st.close_scope();
-                    st.pop_kind();
+                    st.pop_scope();
                 }
             }, d );
         }
