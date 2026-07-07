@@ -8,6 +8,8 @@
 #include "frontend/semantic.hpp"
 #include "frontend/token.hpp"
 
+#include "ir/tac/ast2tac.hpp"
+
 using config = std::pair< std::string, std::string >;
 
 config parse_config( int argc, char* const* argv )
@@ -40,12 +42,15 @@ int main( int argc, char* const* argv )
         source_ptr doc = std::make_shared< source_file >( in_name, read_file( in_name ) ); 
 
         parser p{ doc };
-        auto prog = p.parse();
+        auto ast = p.parse();
         print::pretty_printer printer{};
-        
-        semantic sem{};
-        sem.run( prog );
-        printer.print_ast( prog );
+        printer.print_ast( ast );
+
+        semantic_analyzer sa{};
+        sa.run( ast );
+
+        tac::program tac_ir = tac::lower_to_tac( ast );
+        printer.print_tac( tac_ir );
     }
 
     // todo: create something like diagnostic { warn, err } and catch this diagnostic& and print errors nicely

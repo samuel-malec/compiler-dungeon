@@ -22,8 +22,12 @@ enum class bin_op
 };
 
 using constant = std::variant< uint64_t, bool >;   
-using tmp_id = int;
-using argument = std::variant< tmp_id, constant >;
+struct tmp
+{
+    int id;
+};
+
+using argument = std::variant< tmp, constant >;
 
 enum op_kind
 {
@@ -33,6 +37,7 @@ enum op_kind
     jump,
     branch_if,
     param,
+    get_param,
     call,
     ret,
     label,
@@ -42,7 +47,7 @@ struct unary_data
 {
     un_op op;
     argument arg1;
-    tmp_id target;
+    tmp target;
 };
 
 struct binary_data
@@ -50,13 +55,13 @@ struct binary_data
     bin_op op;
     argument arg1;
     argument arg2;
-    tmp_id target;
+    tmp target;
 };
 
 struct copy_data
 {
     argument arg1;
-    tmp_id target;
+    tmp target;
 };
 
 struct jump_data
@@ -75,20 +80,27 @@ struct param_data
     argument arg;
 };
 
-struct call_data
+struct get_param_data
 {
-    std::string fn_name;
-    tmp_id target;
+    int idx;
+    tmp target;
 };
 
-struct ret_data
+struct call_data
 {
-    std::optional< argument > arg;
+    std::string callee;
+    int args;
+    tmp target;
 };
 
 struct label_data
 {
    std::string name;
+};
+
+struct ret_data
+{
+    std::optional< argument > arg;
 };
 
 struct instr
@@ -100,7 +112,9 @@ struct instr
                     jump_data,
                     branch_if_data,
                     param_data,
+                    get_param_data,
                     call_data,
+                    label_data,
                     ret_data>;
     data_type data;
 };
