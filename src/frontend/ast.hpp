@@ -13,9 +13,6 @@
 
 namespace dungeon::ast {
 
-// TODO: it would be nice to have non-copyable expressions and statements, but it would break a lot of things and right now we
-// should focus primarily on implementing the core features of the compiler - only then can we start going 
-
 // struct no_copy 
 // {
 //     no_copy() = default;

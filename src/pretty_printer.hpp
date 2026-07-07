@@ -1,8 +1,17 @@
 #pragma once
 
 #include <iostream>
+#include <sstream>
+#include <string>
+#include <variant>
 
 #include "frontend/ast.hpp"
+#include "ir/tac/tac.hpp"
+
+// TODO: Right now this is a utility printer for debugging purposes, later
+// we should add a more sophisticated logging system, which would allow us to
+// log information about compiler phases, such as duration of the phase,
+// and specific metadata.
 
 namespace dungeon::print
 {
@@ -11,16 +20,19 @@ struct pretty_printer
 {
     using expr = ast::expr;
     using stmt = ast::stmt;
-    using program = ast::program;
     using decl = ast::decl;
     using fn_decl = ast::fn_decl;
     using enum_decl = ast::enum_decl;
     using struct_decl = ast::struct_decl; 
 
+    std::string indent( int depth )
+    {
+        return std::string( depth * 2, ' ' );
+    }
+
     void pad( int depth )
     {
-        for ( int i = 0; i < depth * 2; ++ i )
-            std::cout << " ";
+        std::cout << indent( depth );
     }
 
     inline void print_expr( expr& e, int depth )
@@ -172,9 +184,9 @@ struct pretty_printer
         std::cout << "\n";
     }
 
-    inline void print_ast( program& prog )
+    inline void print_ast( ast::program& ast )
     {
-        for ( auto& decl : prog.decls )
+        for ( auto& decl : ast.decls )
         {
             std::visit( [ this ]( auto&& arg )
             {
@@ -201,6 +213,149 @@ struct pretty_printer
                 else
                     static_assert( false, "non-exhaustive visitor!" );
             }, decl );
+        }
+    }
+
+    std::string tac_tmp_to_string( const tac::tmp& t )
+    {
+        return "t" + std::to_string( t.id );
+    }
+
+    std::string tac_arg_to_string( const tac::argument& arg )
+    {
+        return std::visit( [ this ]( auto&& value ) -> std::string
+        {
+            using T = std::decay_t< decltype( value ) >;
+            if constexpr ( std::is_same_v< T, tac::tmp > )
+                return tac_tmp_to_string( value );
+            else
+            {
+                std::ostringstream out;
+                if ( std::holds_alternative< uint64_t >( value ) )
+                    out << std::get< uint64_t >( value );
+                if ( std::holds_alternative< bool >( value ) )
+                    out << ( std::get< bool >( value ) ? "true" : "false" );
+                return out.str();
+            }
+        }, arg );
+    }
+
+    std::string tac_un_op_to_string( tac::un_op op )
+    {
+        switch ( op )
+        {
+            case tac::un_op::plus:  return "+";
+            case tac::un_op::minus: return "-";
+            case tac::un_op::lnot:  return "!";
+        }
+        return "?";
+    }
+
+    std::string tac_bin_op_to_string( tac::bin_op op )
+    {
+        switch ( op )
+        {
+            case tac::bin_op::add:  return "+";
+            case tac::bin_op::sub:  return "-";
+            case tac::bin_op::mul:  return "*";
+            case tac::bin_op::div:  return "/";
+            case tac::bin_op::mod:  return "%";
+            case tac::bin_op::shl:  return "<<";
+            case tac::bin_op::shr:  return ">>";
+            case tac::bin_op::eq:   return "==";
+            case tac::bin_op::neq:  return "!=";
+            case tac::bin_op::lt:   return "<";
+            case tac::bin_op::leq:  return "<=";
+            case tac::bin_op::gt:   return ">";
+            case tac::bin_op::geq:  return ">=";
+            case tac::bin_op::land: return "&&";
+            case tac::bin_op::lor:  return "||";
+        }
+        return "?";
+    }
+
+    std::string tac_instr_symbolic( const tac::instr& i )
+    {
+        return std::visit( [ this ]( auto&& value ) -> std::string
+        {
+            using T = std::decay_t< decltype( value ) >;
+            std::ostringstream out;
+
+            if constexpr ( std::is_same_v< T, tac::unary_data > )
+            {
+                out << tac_tmp_to_string( value.target ) << " = "
+                    << tac_un_op_to_string( value.op ) << " "
+                    << tac_arg_to_string( value.arg1 );
+            }
+            else if constexpr ( std::is_same_v< T, tac::binary_data > )
+            {
+                out << tac_tmp_to_string( value.target ) << " = "
+                    << tac_arg_to_string( value.arg1 ) << " "
+                    << tac_bin_op_to_string( value.op ) << " "
+                    << tac_arg_to_string( value.arg2 );
+            }
+            else if constexpr ( std::is_same_v< T, tac::copy_data > )
+            {
+                out << tac_tmp_to_string( value.target ) << " = "
+                    << tac_arg_to_string( value.arg1 );
+            }
+            else if constexpr ( std::is_same_v< T, tac::jump_data > )
+            {
+                out << "goto ";
+                out << value.label;
+            }
+            else if constexpr ( std::is_same_v< T, tac::branch_if_data > )
+            {
+                out << "if " << tac_arg_to_string( value.arg1 )
+                    << " goto " << value.label;
+            }
+            else if constexpr ( std::is_same_v< T, tac::param_data > )
+            {
+                out << "param ";
+                out << tac_arg_to_string( value.arg );
+            }
+            else if constexpr ( std::is_same_v< T, tac::get_param_data> )
+            {
+                out << tac_tmp_to_string( value.target ) << " = get_param "
+                << value.idx;
+            }
+            else if constexpr ( std::is_same_v< T, tac::call_data > )
+            {
+                out << tac_tmp_to_string( value.target ) << " = call "
+                    << value.callee << "(" << value.args << " args)";
+            }
+            else if constexpr ( std::is_same_v< T, tac::label_data > )
+            {
+                out << value.name << ":";
+            }
+            else if constexpr ( std::is_same_v< T, tac::ret_data > )
+            {
+                out << "ret";
+                if ( value.arg.has_value() )
+                    out << " " << tac_arg_to_string( value.arg.value() );
+            }
+
+            return out.str();
+        }, i.data );
+    }
+
+    inline void print_tac_inst( tac::instr& i )
+    {
+        std::holds_alternative< tac::label_data>( i.data ) ? pad( 2 ) : pad( 4 );
+        std::cout << tac_instr_symbolic( i ) << '\n';
+    }
+
+    inline void print_tac( tac::program& tac )
+    {
+        std::cout << "\n";
+        std::cout << "Printing three address code\n";
+        std::cout << "__________________________________\n";
+        for ( auto& fn : tac.functions )
+        {
+            std::cout << fn.name << " :: ";
+            std::cout << fn.sig;
+            for ( auto& i : fn.body )
+                print_tac_inst( i );
         }
     }
 };
