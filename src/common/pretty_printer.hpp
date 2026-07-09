@@ -5,8 +5,8 @@
 #include <string>
 #include <variant>
 
-#include "frontend/ast.hpp"
-#include "ir/tac/tac.hpp"
+#include "../frontend/ast.hpp"
+#include "../ir/tac/tac.hpp"
 
 // TODO: Right now this is a utility printer for debugging purposes, later
 // we should add a more sophisticated logging system, which would allow us to

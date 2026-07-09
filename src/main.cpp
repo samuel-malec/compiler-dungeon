@@ -3,8 +3,8 @@
 #include <stdexcept>
 
 #include "common/file.hpp"
+#include "common/pretty_printer.hpp"
 #include "frontend/parser.hpp"
-#include "pretty_printer.hpp"
 #include "frontend/semantic.hpp"
 #include "frontend/token.hpp"
 
