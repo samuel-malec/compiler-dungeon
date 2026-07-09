@@ -38,7 +38,6 @@ int main( int argc, char* const* argv )
     try
     {
         const auto& [ in_name, out_name ] = parse_config( argc, argv );
-        std::string data = read_file( in_name );
         source_ptr doc = std::make_shared< source_file >( in_name, read_file( in_name ) ); 
 
         parser p{ doc };

@@ -6,13 +6,12 @@
 namespace dungeon
 {   
     using cat = token::cat_t;
+    using op_kind = ast::op_kind;
     using expr = ast::expr;
     using stmt = ast::stmt;
-    using decl = ast::decl;
-    using var_decl = ast::var_decl;
+    using toplevel = ast::toplevel;
     using fn_decl = ast::fn_decl;
-    using struct_decl = ast::struct_decl;
-    using enum_decl = ast::enum_decl;
+    using var_decl = ast::var_decl;
     using program = ast::program;
 
     expr parser::make_expr_node( expr::cat_t cat, type typ )
@@ -618,7 +617,7 @@ namespace dungeon
         return {};
     }
 
-    std::optional< decl > parser::parse_fn_decl()
+    std::optional< fn_decl > parser::parse_fn_decl()
     {
         if ( !match( cat::keyword ) )
             return {};
@@ -654,7 +653,7 @@ namespace dungeon
         return res;
     }
 
-    std::optional< decl > parser::parse_toplevel_decl()
+    std::optional< toplevel > parser::parse_toplevel()
     {
         // TODO: structs and enums later ( hopefully )
         return parse_fn_decl();

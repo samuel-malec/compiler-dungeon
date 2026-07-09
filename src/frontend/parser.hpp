@@ -11,6 +11,7 @@
 #include "lexer.hpp"
 #include "types.hpp"
 
+// TODO: add compound assignments to our language
 namespace dungeon
 {
 
@@ -20,7 +21,8 @@ struct parser : token_sink
     using op_kind = ast::op_kind;
     using expr = ast::expr;
     using stmt = ast::stmt;
-    using decl = ast::decl;
+    using toplevel = ast::toplevel;
+    using fn_decl = ast::fn_decl;
     using var_decl = ast::var_decl;
     using program = ast::program;
 
@@ -145,11 +147,11 @@ struct parser : token_sink
             if ( peek().cat == cat::invalid )
                 break;
 
-            std::optional< decl > d = parse_toplevel_decl();
+            std::optional< toplevel > d = parse_toplevel();
             if ( !d )
                 error( "Expected a toplevel declaration " );
 
-            prog.decls.push_back( d.value() );
+            prog.toplevel_items.push_back( d.value() );
         }
 
         return prog;
@@ -207,9 +209,9 @@ struct parser : token_sink
 
     std::optional< stmt > parse_stmt();
 
-    std::optional< decl > parse_fn_decl();
+    std::optional< fn_decl > parse_fn_decl();
 
-    std::optional< decl > parse_toplevel_decl();
+    std::optional< toplevel > parse_toplevel();
 };
 
 }

@@ -12,6 +12,9 @@
 #include "types.hpp"
 #include "ast.hpp"
 
+// TODO: We should create a separate HIR and convert our ast to this HIR, because once we add more syntax constructs to our language,
+// these analyses will become really nasty - although some analyses as scope analysis can be done on our ast structure, the type analysis 
+// will become increasingly harder to maintain 
 namespace dungeon
 {
 
@@ -426,7 +429,7 @@ struct semantic_analyzer
         symtab st{};
         st.push_scope( { .cat = scope_cat::global } );
 
-        for ( auto& d : prog.decls )
+        for ( auto& d : prog.toplevel_items )
         {
             std::visit( [ & ]( auto&& arg )
             {

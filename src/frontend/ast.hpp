@@ -19,6 +19,8 @@ namespace dungeon::ast {
 //     no_copy(const no_copy &) = delete;
 //     no_copy(no_copy &&) = default;
 //     no_copy &operator=(no_copy &&) noexcept = default;
+
+//     virtual ~no_copy() = default;
 // };
 
 enum op_kind 
@@ -77,7 +79,7 @@ struct stmt;
 struct fn_decl;
 struct var_decl;
 
-struct expr 
+struct expr
 {
     enum cat_t 
     {
@@ -104,18 +106,6 @@ struct expr
     type typ;
     op_kind op;
     
-    expr &left() 
-    { 
-        assert( !subs.empty() );
-        return subs[ 0 ];
-    }
-
-    expr &right() 
-    { 
-        assert( 1 < subs.size() );
-        return subs[ 1 ];
-    }
-
     expr& operator[]( int n )
     {
         assert( n < subs.size() );
@@ -127,10 +117,10 @@ struct var_decl
 {
     std::string_view name;
     type typ;
-    std::optional< expr >  e;
+    std::optional< expr > e;
 };
 
-struct stmt 
+struct stmt
 {
     enum cat_t 
     {
@@ -171,11 +161,11 @@ struct fn_decl
     std::vector< var_decl > params;
 };
 
-using decl = std::variant< fn_decl, enum_decl, struct_decl >;
+using toplevel = std::variant< fn_decl, enum_decl, struct_decl >;
 
 struct program 
 {
-    std::vector< decl > decls;
+    std::vector< toplevel > toplevel_items;
 };
 
 } // namespace dungeon

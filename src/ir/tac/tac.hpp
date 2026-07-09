@@ -7,6 +7,8 @@
 
 #include "../../frontend/types.hpp"
 
+// TODO: load/store for variables
+// TODO: remove branch_if, create branch instr with true_lab and false_lab
 namespace dungeon::tac
 {
 

@@ -385,7 +385,7 @@ program lower_to_tac( ast::program& ast )
 {
     program prog{};
 
-    for ( auto& decl : ast.decls )
+    for ( auto& decl : ast.toplevel_items )
     {
         if ( std::holds_alternative< ast::fn_decl >( decl ) )
         {

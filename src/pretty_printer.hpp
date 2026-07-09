@@ -20,7 +20,8 @@ struct pretty_printer
 {
     using expr = ast::expr;
     using stmt = ast::stmt;
-    using decl = ast::decl;
+    using toplevel = ast::toplevel;
+    using var_decl = ast::var_decl;
     using fn_decl = ast::fn_decl;
     using enum_decl = ast::enum_decl;
     using struct_decl = ast::struct_decl; 
@@ -186,7 +187,7 @@ struct pretty_printer
 
     inline void print_ast( ast::program& ast )
     {
-        for ( auto& decl : ast.decls )
+        for ( auto& decl : ast.toplevel_items )
         {
             std::visit( [ this ]( auto&& arg )
             {

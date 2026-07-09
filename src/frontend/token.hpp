@@ -17,7 +17,7 @@ struct source_file
     {}
 };
 
-using source_ptr = std::shared_ptr<source_file>;
+using source_ptr = std::shared_ptr< source_file >;
 
 struct location
 {
