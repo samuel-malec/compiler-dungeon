@@ -11,14 +11,13 @@
 #include "lexer.hpp"
 #include "types.hpp"
 
-// TODO: add compound assignments to our language
 namespace dungeon
 {
 
 struct parser : token_sink
 {
     using cat = token::cat_t;
-    using op_kind = ast::op_kind;
+    using op_kind = dungeon::ast::op_kind;
     using expr = ast::expr;
     using stmt = ast::stmt;
     using toplevel = ast::toplevel;
@@ -69,23 +68,30 @@ struct parser : token_sink
 
     op_kind op_kind_from_str( std::string_view data )
     {
-        if ( data == "+" ) return ast::ADD;
-        if ( data == "-" ) return ast::SUB;
-        if ( data == "*" ) return ast::MUL;
-        if ( data == "/" ) return ast::DIV;
-        if ( data == "%" ) return ast::MOD;
-        if ( data == "<<" ) return ast::SHL;
-        if ( data == ">>" ) return ast::SHR;
-        if ( data == "==" ) return ast::EQ;
-        if ( data == "!=" ) return ast::NEQ;
-        if ( data == "<" ) return ast::LT;
-        if ( data == "<=" ) return ast::LEQ;
-        if ( data == ">" ) return ast::GT;
-        if ( data == ">=" ) return ast::GEQ;
-        if ( data == "!" ) return ast::NOT;
-        if ( data == "&&" ) return ast::AND;
-        if ( data == "||" ) return ast::OR;
-        if ( data == "=" ) return ast::EQ;
+        if ( data == "+"   )   return ast::ADD;
+        if ( data == "-"   )   return ast::SUB;
+        if ( data == "*"   )   return ast::MUL;
+        if ( data == "/"   )   return ast::DIV;
+        if ( data == "%"   )   return ast::MOD;
+        if ( data == "<<"  )   return ast::SHL;
+        if ( data == ">>"  )   return ast::SHR;
+        if ( data == "=="  )   return ast::EQ;
+        if ( data == "!="  )   return ast::NEQ;
+        if ( data == "<"   )   return ast::LT;
+        if ( data == "<="  )   return ast::LEQ;
+        if ( data == ">"   )   return ast::GT;
+        if ( data == ">="  )   return ast::GEQ;
+        if ( data == "!"   )   return ast::NOT;
+        if ( data == "&&"  )   return ast::AND;
+        if ( data == "||"  )   return ast::OR;
+        if ( data == "="   )   return ast::EQ;
+        if ( data == "+="  )   return ast::ADD_EQ;
+        if ( data == "-="  )   return ast::SUB_EQ;
+        if ( data == "*="  )   return ast::MUL_EQ;
+        if ( data == "%="  )   return ast::MOD_EQ;
+        if ( data == "/="  )   return ast::DIV_EQ;
+        if ( data == "<<=" )   return ast::SHL_EQ;
+        if ( data == ">>=" )   return ast::SHR_EQ;
         error( "Unknown operator:", data );
         return ast::ADD;
     }

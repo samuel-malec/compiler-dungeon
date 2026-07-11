@@ -25,11 +25,13 @@ namespace dungeon::ast {
 
 enum op_kind 
 {
-    ADD, SUB, MUL, DIV,
-    MOD, SHL, SHR,
+    ADD, SUB, MUL, DIV, MOD, SHL, SHR,
+
+    // compound assignments
+    ADD_EQ, SUB_EQ, MUL_EQ, DIV_EQ, MOD_EQ, SHL_EQ, SHR_EQ,
 
     EQ, NEQ, LT, LEQ, GT, GEQ,
-
+    
     NOT, AND, OR,
 };
 
@@ -53,22 +55,29 @@ inline std::ostream& operator<<( std::ostream& os, const op_kind op )
 {
     switch ( op )
     {
-        case ADD:   return os << "+";
-        case SUB:   return os << "-";
-        case MUL:   return os << "*";
-        case DIV:   return os << "/";
-        case MOD:   return os << "%";
-        case SHL:   return os << "<<";
-        case SHR:   return os << ">>";
-        case EQ:    return os << "==";
-        case NEQ:   return os << "!=";
-        case LT:    return os << "<";
-        case LEQ:   return os << "<=";
-        case GT:    return os << ">";
-        case GEQ:   return os << ">=";
-        case NOT:   return os << "!";
-        case AND:   return os << "&&";
-        case OR:    return os << "||";
+        case ADD:    return os << "+";
+        case SUB:    return os << "-";
+        case MUL:    return os << "*";
+        case DIV:    return os << "/";
+        case MOD:    return os << "%";
+        case SHL:    return os << "<<";
+        case SHR:    return os << ">>";
+        case EQ:     return os << "==";
+        case NEQ:    return os << "!=";
+        case LT:     return os << "<";
+        case LEQ:    return os << "<=";
+        case GT:     return os << ">";
+        case GEQ:    return os << ">=";
+        case NOT:    return os << "!";
+        case AND:    return os << "&&";
+        case OR:     return os << "||";
+        case ADD_EQ: return os << "+=";
+        case SUB_EQ: return os << "-=";
+        case MUL_EQ: return os << "*="; 
+        case DIV_EQ: return os << "/=";
+        case MOD_EQ: return os << "%=";
+        case SHL_EQ: return os << "<<=";
+        case SHR_EQ: return os << ">>=";
     }
 
     return os << "idk";

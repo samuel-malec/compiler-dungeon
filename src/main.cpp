@@ -48,8 +48,8 @@ int main( int argc, char* const* argv )
         semantic_analyzer sa{};
         sa.run( ast );
 
-        tac::program tac_ir = tac::lower_to_tac( ast );
-        printer.print_tac( tac_ir );
+        // tac::program tac_ir = tac::lower_to_tac( ast );
+        // printer.print_tac( tac_ir );
     }
 
     // todo: create something like diagnostic { warn, err } and catch this diagnostic& and print errors nicely

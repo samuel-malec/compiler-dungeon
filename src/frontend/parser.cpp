@@ -250,7 +250,7 @@ namespace dungeon
         if ( !e )
             return {};
 
-        while ( auto t = match_any( cat::punct, "=" ) )
+        while ( auto t = match_any( cat::punct, "=", "+=", "-=", "*=", "<<=", ">>=" ) )
         {
             fetch();
             auto rhs = parse_assignment();

@@ -13,6 +13,7 @@ target_sources(compiler-dungeon
     src/main.cpp
     src/frontend/lexer.cpp
     src/frontend/parser.cpp
+    src/common/pretty_printer.cpp
 )
 
 function(add_compiler_fixture_tests stage)
