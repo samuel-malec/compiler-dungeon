@@ -98,6 +98,7 @@ hir::expr lower_expr_to_hir( ast::expr& e, symtab& st )
                 hir::expr::binary_data bd{ .op = op_from_compound_asn( e.op ), 
                                        .left = std::make_shared< expr >( lower_expr_to_hir( e[ 0 ], st ) ),
                                        .right = std::make_shared< expr >( lower_expr_to_hir( e[ 1 ], st ) ) };
+                helper.data = bd;
                 ad.value = std::make_shared< expr >( helper ); 
             };
 
