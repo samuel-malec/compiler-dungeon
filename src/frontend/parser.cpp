@@ -6,7 +6,6 @@
 namespace dungeon
 {   
     using cat = token::cat_t;
-    using op_kind = ast::op_kind;
     using expr = ast::expr;
     using stmt = ast::stmt;
     using toplevel = ast::toplevel;
@@ -24,7 +23,7 @@ namespace dungeon
             .id = {},
             .subs = {},
             .typ = typ,
-            .op = ast::ADD,
+            .op = op_kind::ADD,
         };
     }
 

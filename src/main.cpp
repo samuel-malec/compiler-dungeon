@@ -8,6 +8,7 @@
 #include "frontend/semantic.hpp"
 #include "frontend/token.hpp"
 
+#include "ir/hir/ast2hir.hpp"
 #include "ir/tac/ast2tac.hpp"
 
 using config = std::pair< std::string, std::string >;
@@ -47,6 +48,9 @@ int main( int argc, char* const* argv )
 
         semantic_analyzer sa{};
         sa.run( ast );
+
+        hir::program hir = hir::lower_ast_to_hir( ast, sa.st );
+        printer.print_hir();
 
         // tac::program tac_ir = tac::lower_to_tac( ast );
         // printer.print_tac( tac_ir );

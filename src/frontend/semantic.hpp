@@ -12,9 +12,6 @@
 #include "types.hpp"
 #include "ast.hpp"
 
-// TODO: We should create a separate HIR and convert our ast to this HIR, because once we add more syntax constructs to our language,
-// these analyses will become really nasty - although some analyses as scope analysis can be done on our ast structure, the type analysis 
-// will become increasingly harder to maintain 
 namespace dungeon
 {
 
@@ -52,6 +49,7 @@ struct symtab
     };
     
     std::map< std::string, uint32_t, std::less<> > map;
+    // TODO: add reverse map ?
     std::vector< scope > scopes;
 
     atom get( std::string_view name )
@@ -128,6 +126,7 @@ struct semantic_analyzer
 {
     using expr = ast::expr;
     using stmt = ast::stmt;
+    symtab st{};
 
     type resolve_unary( ast::expr& e )
     {
@@ -137,10 +136,10 @@ struct semantic_analyzer
         if ( e[ 0 ].typ.as_primitive() == prim_type::VOID )
             error( e[ 0 ].src_loc, "invalid operand to unary expression", e[ 0 ].typ );
         
-        if ( e[ 0 ].typ.as_primitive() == prim_type::BOOL && e.op != ast::op_kind::NOT )
+        if ( e[ 0 ].typ.as_primitive() == prim_type::BOOL && e.op != op_kind::NOT )
             error( e[ 0 ].src_loc, "invalid operand to unary expression", e[ 0 ].typ );
 
-        if ( e[ 0 ].typ.as_primitive() == prim_type::INT && ( e.op != ast::op_kind::ADD && e.op != ast::op_kind::SUB ) )
+        if ( e[ 0 ].typ.as_primitive() == prim_type::INT && ( e.op != op_kind::ADD && e.op != op_kind::SUB ) )
             error( e[ 0 ].src_loc, "invalid operand to unary expression", e[ 0 ].typ );
 
         e.typ = e[ 0 ].typ;
@@ -425,8 +424,6 @@ struct semantic_analyzer
     void run( ast::program& prog )
     {
         using scope_cat = symtab::scope::cat_t;
-
-        symtab st{};
         st.push_scope( { .cat = scope_cat::global } );
 
         for ( auto& d : prog.toplevel_items )

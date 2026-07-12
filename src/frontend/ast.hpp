@@ -23,66 +23,6 @@ namespace dungeon::ast {
 //     virtual ~no_copy() = default;
 // };
 
-enum op_kind 
-{
-    ADD, SUB, MUL, DIV, MOD, SHL, SHR,
-
-    // compound assignments
-    ADD_EQ, SUB_EQ, MUL_EQ, DIV_EQ, MOD_EQ, SHL_EQ, SHR_EQ,
-
-    EQ, NEQ, LT, LEQ, GT, GEQ,
-    
-    NOT, AND, OR,
-};
-
-inline bool is_rel_op( op_kind op )
-{
-    return op == EQ || op == NEQ || op == LT || op == LEQ || op == GT || op == GEQ;
-}
-
-inline bool is_numerical_op( op_kind op )
-{
-    return op == ADD || op == SUB || op == MUL ||
-           op == DIV || op == MOD || op == SHL || op == SHR;
-}
-
-inline bool is_bool_op( op_kind op )
-{
-    return op == NOT || op == AND || op == OR;
-} 
-
-inline std::ostream& operator<<( std::ostream& os, const op_kind op )
-{
-    switch ( op )
-    {
-        case ADD:    return os << "+";
-        case SUB:    return os << "-";
-        case MUL:    return os << "*";
-        case DIV:    return os << "/";
-        case MOD:    return os << "%";
-        case SHL:    return os << "<<";
-        case SHR:    return os << ">>";
-        case EQ:     return os << "==";
-        case NEQ:    return os << "!=";
-        case LT:     return os << "<";
-        case LEQ:    return os << "<=";
-        case GT:     return os << ">";
-        case GEQ:    return os << ">=";
-        case NOT:    return os << "!";
-        case AND:    return os << "&&";
-        case OR:     return os << "||";
-        case ADD_EQ: return os << "+=";
-        case SUB_EQ: return os << "-=";
-        case MUL_EQ: return os << "*="; 
-        case DIV_EQ: return os << "/=";
-        case MOD_EQ: return os << "%=";
-        case SHL_EQ: return os << "<<=";
-        case SHR_EQ: return os << ">>=";
-    }
-
-    return os << "idk";
-}
-
 struct expr;
 struct stmt;
 struct fn_decl;

@@ -17,7 +17,6 @@ namespace dungeon
 struct parser : token_sink
 {
     using cat = token::cat_t;
-    using op_kind = dungeon::ast::op_kind;
     using expr = ast::expr;
     using stmt = ast::stmt;
     using toplevel = ast::toplevel;
@@ -68,32 +67,32 @@ struct parser : token_sink
 
     op_kind op_kind_from_str( std::string_view data )
     {
-        if ( data == "+"   )   return ast::ADD;
-        if ( data == "-"   )   return ast::SUB;
-        if ( data == "*"   )   return ast::MUL;
-        if ( data == "/"   )   return ast::DIV;
-        if ( data == "%"   )   return ast::MOD;
-        if ( data == "<<"  )   return ast::SHL;
-        if ( data == ">>"  )   return ast::SHR;
-        if ( data == "=="  )   return ast::EQ;
-        if ( data == "!="  )   return ast::NEQ;
-        if ( data == "<"   )   return ast::LT;
-        if ( data == "<="  )   return ast::LEQ;
-        if ( data == ">"   )   return ast::GT;
-        if ( data == ">="  )   return ast::GEQ;
-        if ( data == "!"   )   return ast::NOT;
-        if ( data == "&&"  )   return ast::AND;
-        if ( data == "||"  )   return ast::OR;
-        if ( data == "="   )   return ast::EQ;
-        if ( data == "+="  )   return ast::ADD_EQ;
-        if ( data == "-="  )   return ast::SUB_EQ;
-        if ( data == "*="  )   return ast::MUL_EQ;
-        if ( data == "%="  )   return ast::MOD_EQ;
-        if ( data == "/="  )   return ast::DIV_EQ;
-        if ( data == "<<=" )   return ast::SHL_EQ;
-        if ( data == ">>=" )   return ast::SHR_EQ;
+        if ( data == "+"   )   return op_kind::ADD;
+        if ( data == "-"   )   return op_kind::SUB;
+        if ( data == "*"   )   return op_kind::MUL;
+        if ( data == "/"   )   return op_kind::DIV;
+        if ( data == "%"   )   return op_kind::MOD;
+        if ( data == "<<"  )   return op_kind::SHL;
+        if ( data == ">>"  )   return op_kind::SHR;
+        if ( data == "=="  )   return op_kind::EQ;
+        if ( data == "!="  )   return op_kind::NEQ;
+        if ( data == "<"   )   return op_kind::LT;
+        if ( data == "<="  )   return op_kind::LEQ;
+        if ( data == ">"   )   return op_kind::GT;
+        if ( data == ">="  )   return op_kind::GEQ;
+        if ( data == "!"   )   return op_kind::NOT;
+        if ( data == "&&"  )   return op_kind::AND;
+        if ( data == "||"  )   return op_kind::OR;
+        if ( data == "="   )   return op_kind::EQ;
+        if ( data == "+="  )   return op_kind::ADD_EQ;
+        if ( data == "-="  )   return op_kind::SUB_EQ;
+        if ( data == "*="  )   return op_kind::MUL_EQ;
+        if ( data == "%="  )   return op_kind::MOD_EQ;
+        if ( data == "/="  )   return op_kind::DIV_EQ;
+        if ( data == "<<=" )   return op_kind::SHL_EQ;
+        if ( data == ">>=" )   return op_kind::SHR_EQ;
         error( "Unknown operator:", data );
-        return ast::ADD;
+        return op_kind::ADD;
     }
 
     bool match( cat c, std::string_view data = "" )

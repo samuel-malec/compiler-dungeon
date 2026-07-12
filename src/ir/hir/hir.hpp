@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <memory>
 
 #include "../../frontend/types.hpp"
 
@@ -9,6 +10,11 @@ namespace dungeon::hir
 
 using var_id = std::uint32_t;
 using fn_id = std::uint32_t;
+
+struct expr;
+struct stmt;
+using expr_ptr = std::shared_ptr< expr >;
+using stmt_ptr = std::shared_ptr< stmt >;
 
 struct expr
 {
@@ -25,11 +31,12 @@ struct expr
     } kind;
 
     type typ;
+
     struct var_ref_data { var_id id; };
-    struct unary_data   { op_kind op; expr* sub; };
-    struct binary_data  { op_kind op; expr* left; expr* right; };
-    struct assign_data  { var_id target; expr* value; };
-    struct call_data    { fn_id target; std::vector<expr> args; };
+    struct unary_data   { op_kind op; expr_ptr sub; };
+    struct binary_data  { op_kind op; expr_ptr left; expr_ptr right; };
+    struct assign_data  { var_id target; expr_ptr value; };
+    struct call_data    { fn_id target; std::vector< expr_ptr > args; };
     
     std::variant<
         uint64_t,
@@ -42,7 +49,7 @@ struct expr
     > data;
 };
 
-struct stmt 
+struct stmt
 {
     enum class kind_t 
     {
@@ -56,11 +63,11 @@ struct stmt
         ret
     } kind;
 
-    struct block_data { std::vector<stmt> stmts; };
-    struct let_data   { var_id target; expr value; };
-    struct if_data    { expr cond; stmt* then_branch; stmt* else_branch; };
-    struct loop_data  { stmt* body; };
-    struct ret_data   { expr* value; };
+    struct block_data { std::vector< stmt > stmts; };
+    struct let_data   { var_id target; expr_ptr value; };
+    struct if_data    { expr cond; stmt_ptr then_branch; stmt_ptr else_branch; };
+    struct loop_data  { stmt_ptr body; };
+    struct ret_data   { expr_ptr value; };
 
     std::variant<
         expr,
@@ -84,7 +91,7 @@ struct fn_def
 struct program
 {
     std::vector< fn_def > functions;
-    // optionally we can add global vars
-}
+    std::vector< stmt::let_data > globals;
+};
 
 }

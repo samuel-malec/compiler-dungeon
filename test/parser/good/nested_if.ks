@@ -8,5 +8,9 @@ int main()
             return 1;
         }
     }
+    else
+    {
+        int b = 10;
+    }
     return 0;
 }
