@@ -7,6 +7,7 @@
 
 #include "../frontend/ast.hpp"
 #include "../ir/tac/tac.hpp"
+#include "../ir/hir/hir.hpp"
 
 // TODO: Right now this is a utility printer for debugging purposes, later
 // we should add a more sophisticated logging system, which would allow us to
@@ -57,6 +58,12 @@ struct pretty_printer
     void print_stmt( stmt& s, int depth );
 
     void print_ast( ast::program& ast );
+
+    void print_hir_expr( const hir::expr& e, int depth );
+
+    void print_hir_stmt( const hir::stmt& s, int depth );
+
+    void print_hir( const hir::program& hir );
 
     std::string tac_arg_to_string( const tac::argument& arg );
 

@@ -135,7 +135,7 @@ struct semantic_analyzer
 
         if ( e[ 0 ].typ.as_primitive() == prim_type::VOID )
             error( e[ 0 ].src_loc, "invalid operand to unary expression", e[ 0 ].typ );
-        
+
         if ( e[ 0 ].typ.as_primitive() == prim_type::BOOL && e.op != op_kind::NOT )
             error( e[ 0 ].src_loc, "invalid operand to unary expression", e[ 0 ].typ );
 
@@ -143,7 +143,6 @@ struct semantic_analyzer
             error( e[ 0 ].src_loc, "invalid operand to unary expression", e[ 0 ].typ );
 
         e.typ = e[ 0 ].typ;
-
         return e.typ;
     }
 
@@ -154,10 +153,10 @@ struct semantic_analyzer
 
         if ( e[ 0 ].typ.as_primitive() == prim_type::VOID || e[ 1 ].typ.as_primitive() == prim_type::VOID )
             error( e.src_loc, "invalid operands to binary expression: ", e[ 0 ].typ, e[ 1 ].typ );
-        
+
         if ( is_bool_op( e.op ) )
         {
-            if ( e[ 0 ].typ.as_primitive() != prim_type::BOOL || e[ 1 ].typ.as_primitive() != BOOL )
+            if ( e[ 0 ].typ.as_primitive() != prim_type::BOOL || e[ 1 ].typ.as_primitive() != prim_type::BOOL )
                 error( "invalid operands to binary expression: ", e[ 0 ].typ, e[ 1 ].typ );
             e.typ = type{ .data = prim_type::BOOL };
         }
@@ -166,13 +165,12 @@ struct semantic_analyzer
         {
             if ( e[ 0 ].typ.as_primitive() != e[ 1 ].typ.as_primitive() )
                 error( "invalid operands to binary expression: ", e[ 0 ].typ, e[ 1 ].typ );
-
-            e.typ = type{ .data = prim_type::BOOL } ;
+            e.typ = type{ .data = prim_type::BOOL };
         }
 
         if ( is_numerical_op( e.op ) )
         {
-            if ( e[ 0 ].typ.as_primitive() != prim_type::INT || e[ 1 ].typ.as_primitive() != INT )
+            if ( e[ 0 ].typ.as_primitive() != prim_type::INT || e[ 1 ].typ.as_primitive() != prim_type::INT )
                 error( "invalid operands to binary expression: ", e[ 0 ].typ, e[ 1 ].typ );
             e.typ = type{ .data = prim_type::INT };
         }
@@ -240,16 +238,16 @@ struct semantic_analyzer
             case expr::unary:
             {
                 resolve_expr( e[ 0 ], st );
-                e.typ = resolve_unary( e );
+                resolve_unary( e );
                 break;
             }
 
-            case expr::binary:
             case expr::relational:
+            case expr::binary:
             {
                 resolve_expr( e[ 0 ], st );
                 resolve_expr( e[ 1 ], st );
-                e.typ = resolve_binary( e );
+                resolve_binary( e );
                 break;
             }
 
@@ -287,6 +285,7 @@ struct semantic_analyzer
                 error( "should not reach here" );
                 break;
         }
+
         return e.typ;
     }
 
@@ -421,19 +420,19 @@ struct semantic_analyzer
         }
     }
 
-    void run( ast::program& prog )
+    void run( ast::program& ast )
     {
         using scope_cat = symtab::scope::cat_t;
         st.push_scope( { .cat = scope_cat::global } );
 
-        for ( auto& d : prog.toplevel_items )
+        for ( auto& d : ast.toplevel_items )
         {
             std::visit( [ & ]( auto&& arg )
             {
                 using T = std::decay_t< decltype( arg ) >;
                 if constexpr( std::is_same_v< T, ast::fn_decl > )
                 {
-                    ast::fn_decl fn = arg;
+                    ast::fn_decl& fn = arg;
                     st.add_sym( std::string( fn.name ), type{ .data = fn.sig } );
                     st.push_scope( { .cat = scope_cat::function, .sig = fn.sig, .fn_name = std::string( fn.name ) } );
 

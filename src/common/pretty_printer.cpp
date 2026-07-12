@@ -14,6 +14,7 @@ using struct_decl = ast::struct_decl;
 void pretty_printer::print_expr( expr& e, int depth )
 {
     pad( depth );
+    std::cout << e.typ << " ";
     switch ( e.cat )
     {
         case expr::num_lit:
@@ -189,6 +190,179 @@ void pretty_printer::print_ast( ast::program& ast )
             else
                 static_assert( false, "non-exhaustive visitor!" );
         }, decl );
+    }
+}
+
+void pretty_printer::print_hir_expr( const hir::expr& e, int depth )
+{
+    pad( depth );
+    std::cout << "[hir:" << e.typ << "] ";
+
+    switch ( e.kind )
+    {
+        case hir::expr::int_lit:
+            std::cout << "[int_lit] " << std::get< uint64_t >( e.data ) << "\n";
+            break;
+        case hir::expr::bool_lit:
+            std::cout << "[bool_lit] " << ( std::get< bool >( e.data ) ? "true" : "false" ) << "\n";
+            break;
+        case hir::expr::var_ref:
+        {
+            auto data = std::get< hir::expr::var_ref_data >( e.data );
+            std::cout << "[var_ref] v" << data.id << "\n";
+            break;
+        }
+        case hir::expr::unary:
+        {
+            auto data = std::get< hir::expr::unary_data >( e.data );
+            std::cout << "[unary " << data.op << "]\n";
+            if ( data.sub ) print_hir_expr( *data.sub, depth + 1 );
+            break;
+        }
+        case hir::expr::binary:
+        {
+            auto data = std::get< hir::expr::binary_data >( e.data );
+            std::cout << "[binary " << data.op << "]\n";
+            if ( data.left )  print_hir_expr( *data.left, depth + 1 );
+            if ( data.right ) print_hir_expr( *data.right, depth + 1 );
+            break;
+        }
+        case hir::expr::assign:
+        {
+            auto data = std::get< hir::expr::assign_data >( e.data );
+            std::cout << "[assign] v" << data.target << "\n";
+            if ( data.value ) print_hir_expr( *data.value, depth + 1 );
+            break;
+        }
+        case hir::expr::call:
+        {
+            auto data = std::get< hir::expr::call_data >( e.data );
+            std::cout << "[call] f" << data.target << "\n";
+            pad( depth + 1 );
+            std::cout << "[args]\n";
+            for ( const auto& arg : data.args )
+            {
+                if ( arg ) print_hir_expr( *arg, depth + 2 );
+            }
+            break;
+        }
+        case hir::expr::cast:
+            std::cout << "[cast]\n";
+            break;
+    }
+}
+
+void pretty_printer::print_hir_stmt( const hir::stmt& s, int depth )
+{
+    pad( depth );
+    switch ( s.kind )
+    {
+        case hir::stmt::kind_t::expr_stmt:
+        {
+            std::cout << "[expr_stmt]\n";
+            print_hir_expr( std::get< hir::expr >( s.data ), depth + 1 );
+            break;
+        }
+        case hir::stmt::kind_t::block:
+        {
+            std::cout << "[block]\n";
+            auto data = std::get< hir::stmt::block_data >( s.data );
+            for ( const auto& sub_stmt : data.stmts )
+            {
+                print_hir_stmt( sub_stmt, depth + 1 );
+            }
+            break;
+        }
+        case hir::stmt::kind_t::let_stmt:
+        {
+            auto data = std::get< hir::stmt::let_data >( s.data );
+            std::cout << "[let_stmt] v" << data.target << "\n";
+            if ( data.value ) 
+                print_hir_expr( *data.value, depth + 1 );
+            break;
+        }
+        case hir::stmt::kind_t::if_stmt:
+        {
+            auto data = std::get< hir::stmt::if_data >( s.data );
+            std::cout << "[if_stmt]\n";
+            pad( depth + 1 );
+            std::cout << "[cond]\n";
+            print_hir_expr( data.cond, depth + 2 );
+            
+            if ( data.then_branch )
+            {
+                pad( depth + 1 );
+                std::cout << "[then]\n";
+                print_hir_stmt( *data.then_branch, depth + 2 );
+            }
+            if ( data.else_branch )
+            {
+                pad( depth + 1 );
+                std::cout << "[else]\n";
+                print_hir_stmt( *data.else_branch, depth + 2 );
+            }
+            break;
+        }
+        case hir::stmt::kind_t::loop_stmt:
+        {
+            auto data = std::get< hir::stmt::loop_data >( s.data );
+            std::cout << "[loop_stmt]\n";
+            if ( data.body ) 
+                print_hir_stmt( *data.body, depth + 1 );
+            break;
+        }
+        case hir::stmt::kind_t::brk:
+            std::cout << "[break]\n";
+            break;
+
+        case hir::stmt::kind_t::cont:
+            std::cout << "[continue]\n";
+            break;
+
+        case hir::stmt::kind_t::ret:
+        {
+            auto data = std::get< hir::stmt::ret_data >( s.data );
+            std::cout << "[ret]";
+            if ( data.value )
+            {
+                std::cout << "\n";
+                print_hir_expr( *data.value, depth + 1 );
+            }
+            else
+            {
+                std::cout << " {}\n";
+            }
+            break;
+        }
+    }
+}
+
+void pretty_printer::print_hir( const hir::program& hir )
+{
+    std::cout << "\n";
+    std::cout << "HIR\n";
+
+    if ( !hir.globals.empty() )
+    {
+        std::cout << "Globals:\n";
+        for ( const auto& global : hir.globals )
+        {
+            pad( 1 );
+            std::cout << "let v" << global.target << "\n";
+            if ( global.value ) 
+                print_hir_expr( *global.value, 2 );
+        }
+    }
+
+    for ( const auto& fn : hir.functions )
+    {
+        std::cout << "fn_def: f" << fn.name << " :: " << fn.sig << " ( ";
+        for ( size_t i = 0; i < fn.params.size(); ++i )
+        {
+            std::cout << "v" << fn.params[ i ] << ( i == fn.params.size() - 1 ? "" : ", " );
+        }
+        std::cout << " )\n";
+        print_hir_stmt( fn.body, 1 );
     }
 }
 

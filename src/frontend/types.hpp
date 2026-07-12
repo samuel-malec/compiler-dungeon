@@ -68,7 +68,6 @@ struct type
 
     std::string describe() const
     {
-
         std::ostringstream oss;
         if ( is_primitive() )
             oss << as_primitive();
@@ -119,6 +118,7 @@ inline bool is_numerical_op( op_kind op )
 {
     return op == ADD || op == SUB || op == MUL ||
            op == DIV || op == MOD || op == SHL || op == SHR;
+           op == ADD_EQ || op == SUB_EQ || op == MUL_EQ || op == DIV_EQ || op == MOD_EQ || op == SHL_EQ || op == SHR_EQ;
 }
 
 inline bool is_bool_op( op_kind op )

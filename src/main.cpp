@@ -44,13 +44,14 @@ int main( int argc, char* const* argv )
         parser p{ doc };
         auto ast = p.parse();
         print::pretty_printer printer{};
-        printer.print_ast( ast );
-
+        
         semantic_analyzer sa{};
         sa.run( ast );
+        
+        printer.print_ast( ast );
 
         hir::program hir = hir::lower_ast_to_hir( ast, sa.st );
-        printer.print_hir();
+        printer.print_hir( hir );
 
         // tac::program tac_ir = tac::lower_to_tac( ast );
         // printer.print_tac( tac_ir );

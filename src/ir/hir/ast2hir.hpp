@@ -279,12 +279,11 @@ hir::program lower_ast_to_hir( ast::program& ast, symtab& st  )
 {
     hir::program prog{};
     for ( auto& toplevel : ast.toplevel_items )
-    {
         if ( std::holds_alternative< ast::fn_decl >( toplevel ) )
         {
             hir::fn_def fd = lower_fn_to_hir( std::get< ast::fn_decl >( toplevel ), st );
+            prog.functions.push_back( fd );
         }
-    }
     return prog;
 }
 
