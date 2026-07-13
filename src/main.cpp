@@ -8,8 +8,8 @@
 #include "frontend/semantic.hpp"
 #include "frontend/token.hpp"
 
-#include "ir/hir/ast2hir.hpp"
-#include "ir/tac/hir2tac.hpp"
+#include "middleend/hir/ast2hir.hpp"
+#include "middleend/tac/hir2tac.hpp"
 
 using config = std::pair< std::string, std::string >;
 
@@ -53,8 +53,8 @@ int main( int argc, char* const* argv )
         hir::program hir = hir::lower_ast_to_hir( ast, sa.st );
         printer.print_hir( hir );
 
-        // tac::program tac_ir = tac::lower_to_tac( ast );
-        // printer.print_tac( tac_ir );
+        tac::program tac_ir = tac::lower_to_tac( hir );
+        printer.print_tac( tac_ir );
     }
 
     // todo: create something like diagnostic { warn, err } and catch this diagnostic& and print errors nicely

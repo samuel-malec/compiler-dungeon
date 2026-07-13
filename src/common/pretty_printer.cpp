@@ -395,14 +395,14 @@ std::string pretty_printer::tac_instr_symbolic( const tac::instr& i )
         if constexpr ( std::is_same_v< T, tac::unary_data > )
         {
             out << tac_tmp_to_string( value.target ) << " = "
-                << tac_un_op_to_string( value.op ) << " "
+                << value.op << " "
                 << tac_arg_to_string( value.arg1 );
         }
         else if constexpr ( std::is_same_v< T, tac::binary_data > )
         {
             out << tac_tmp_to_string( value.target ) << " = "
                 << tac_arg_to_string( value.arg1 ) << " "
-                << tac_bin_op_to_string( value.op ) << " "
+                << value.op << " "
                 << tac_arg_to_string( value.arg2 );
         }
         else if constexpr ( std::is_same_v< T, tac::copy_data > )
@@ -415,10 +415,10 @@ std::string pretty_printer::tac_instr_symbolic( const tac::instr& i )
             out << "goto ";
             out << value.label;
         }
-        else if constexpr ( std::is_same_v< T, tac::branch_if_data > )
+        else if constexpr ( std::is_same_v< T, tac::branch_data > )
         {
-            out << "if " << tac_arg_to_string( value.arg1 )
-                << " goto " << value.label;
+            out << "branch " << tac_arg_to_string( value.arg1 )
+                << "  " << value.true_lab << " " << value.false_lab;
         }
         else if constexpr ( std::is_same_v< T, tac::param_data > )
         {
@@ -437,7 +437,7 @@ std::string pretty_printer::tac_instr_symbolic( const tac::instr& i )
         }
         else if constexpr ( std::is_same_v< T, tac::label_data > )
         {
-            out << value.name << ":";
+            out << value.id << ":";
         }
         else if constexpr ( std::is_same_v< T, tac::ret_data > )
         {

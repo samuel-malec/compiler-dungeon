@@ -7,37 +7,24 @@
 
 #include "../../frontend/types.hpp"
 
-// TODO: load/store for variables
-// TODO: remove branch_if, create branch instr with true_lab and false_lab
 namespace dungeon::tac
 {
 
-enum class un_op
-{
-    plus, minus, lnot,
-};
-
-enum class bin_op
-{
-    add, sub, mul, div, mod, shl, shr,
-    eq, neq, lt, leq, gt, geq, land, lor,
-};
-
+using label_id = uint32_t;
+using fn_id = uint32_t;
+using var_id = uint32_t;
 using constant = std::variant< uint64_t, bool >;   
-struct tmp
-{
-    int id;
-};
 
+struct tmp { int id; };
 using argument = std::variant< tmp, constant >;
 
-enum op_kind
+enum instr_kind
 {
     unary,
     binary,
     copy,
     jump,
-    branch_if,
+    branch,
     param,
     get_param,
     call,
@@ -47,14 +34,14 @@ enum op_kind
 
 struct unary_data
 {
-    un_op op;
+    dungeon::op_kind op;
     argument arg1;
     tmp target;
 };
 
 struct binary_data
 {
-    bin_op op;
+    dungeon::op_kind op;
     argument arg1;
     argument arg2;
     tmp target;
@@ -68,13 +55,14 @@ struct copy_data
 
 struct jump_data
 {
-    std::string label;
+    label_id label;
 };
 
-struct branch_if_data
+struct branch_data
 {
     argument arg1;
-    std::string label;
+    label_id true_lab;
+    label_id false_lab;
 };
 
 struct param_data
@@ -90,14 +78,14 @@ struct get_param_data
 
 struct call_data
 {
-    std::string callee;
+    fn_id callee;
     int args;
     tmp target;
 };
 
 struct label_data
 {
-   std::string name;
+   label_id id;
 };
 
 struct ret_data
@@ -112,7 +100,7 @@ struct instr
                     binary_data,
                     copy_data,
                     jump_data,
-                    branch_if_data,
+                    branch_data,
                     param_data,
                     get_param_data,
                     call_data,
@@ -123,7 +111,7 @@ struct instr
 
 struct function
 {
-    std::string name;
+    fn_id name;
     function_type sig;
     std::vector< instr > body;
 };
