@@ -155,21 +155,35 @@ hir::stmt lower_stmt_to_hir( ast::stmt& s, symtab& st )
             break;
         }
 
-        // TODO
         case ast::stmt::for_stmt:
         {
-            res.kind = hir::stmt::kind_t::loop_stmt;
-            hir::stmt::loop_data ld{};
-            
-            hir::stmt::block_data loop_block;
-
             // s[ 0 ] // init
             // s[ 1 ] // cond
             // s[ 2 ] // update
             // s[ 3 ] // body 
+            // init; loop { if ( !cond ) break; body; update }
+            res.kind = hir::stmt::kind_t::block;
+            hir::stmt::block_data bd{};
+
+            bd.stmts.push_back( lower_stmt_to_hir( s[ 0 ], st ) );
+
+            hir::stmt inner_loop;
+            inner_loop.kind = hir::stmt::kind_t::loop_stmt;
+            hir::stmt::loop_data inner_loop_data;
+
+            hir::stmt loop_block;
+            loop_block.kind = hir::stmt::kind_t::block;
+            hir::stmt::block_data loop_block_data;
+            loop_block_data.stmts.push_back( make_cond_break( lower_expr_to_hir( s[ 1 ].e.value(), st ) ) );
+            loop_block_data.stmts.push_back( lower_stmt_to_hir( s[ 3 ], st ) );
+            loop_block_data.stmts.push_back( lower_stmt_to_hir( s[ 2 ], st ) );
+            loop_block.data = loop_block_data;
+
+            inner_loop_data.body = std::make_shared< hir::stmt >( loop_block );
+            inner_loop.data = inner_loop_data;
             
-            ld.body = std::make_shared< hir::stmt >( lower_stmt_to_hir( s[ 3 ], st ) );
-            res.data = ld;
+            bd.stmts.push_back( inner_loop );
+            res.data = bd;
             break;
         }
 

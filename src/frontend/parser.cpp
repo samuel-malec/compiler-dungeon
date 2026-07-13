@@ -447,7 +447,6 @@ namespace dungeon
         else
             fetch();
         
-        // FIXME: this is a dirty ( and a little retarded ) hack, but I currently don't have time to implement this in a better way
         auto cond_expr = make_expr_node( expr::bool_lit, type{ .data = BOOL } );
         cond_expr.val = true;
         cond_expr.val_kind = expr::rvalue;

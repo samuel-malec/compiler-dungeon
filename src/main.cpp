@@ -9,7 +9,7 @@
 #include "frontend/token.hpp"
 
 #include "ir/hir/ast2hir.hpp"
-#include "ir/tac/ast2tac.hpp"
+#include "ir/tac/hir2tac.hpp"
 
 using config = std::pair< std::string, std::string >;
 

@@ -9,7 +9,7 @@
 #include "../ir/tac/tac.hpp"
 #include "../ir/hir/hir.hpp"
 
-// TODO: Right now this is a utility printer for debugging purposes, later
+// Right now this is a utility printer for debugging purposes, later
 // we should add a more sophisticated logging system, which would allow us to
 // log information about compiler phases, such as duration of the phase,
 // and specific metadata.
