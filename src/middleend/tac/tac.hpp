@@ -18,20 +18,6 @@ using constant = std::variant< uint64_t, bool >;
 struct tmp { int id; };
 using argument = std::variant< tmp, constant >;
 
-enum instr_kind
-{
-    unary,
-    binary,
-    copy,
-    jump,
-    branch,
-    param,
-    get_param,
-    call,
-    ret,
-    label,
-};
-
 struct unary_data
 {
     dungeon::op_kind op;

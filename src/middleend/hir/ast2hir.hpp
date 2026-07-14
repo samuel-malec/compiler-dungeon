@@ -74,6 +74,7 @@ hir::expr lower_expr_to_hir( ast::expr& e, symtab& st )
             res.data = ud;
             break;
         }
+        // TODO: in the future, we should add short-circuit and, or to hir;;;
         case ast::expr::relational:
         case ast::expr::binary:
         {
