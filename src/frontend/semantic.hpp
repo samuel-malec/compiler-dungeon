@@ -321,7 +321,9 @@ struct semantic_analyzer
                     resolve_stmt( sub, st );
                 break;
             }
-            
+            // How to restrict for loop ?
+            // Restricting init to be declaration with initalizer seems too restrictive somehow... 
+            // Right now, we only restrict cond to be of type bool...
             case stmt::for_stmt:
             {
                 // s[ 0 ] --> init

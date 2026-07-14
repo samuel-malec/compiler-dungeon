@@ -11,6 +11,7 @@ add_executable(compiler-dungeon)
 target_sources(compiler-dungeon
     PRIVATE
     src/main.cpp
+    src/driver/compiler.cpp
     src/frontend/lexer.cpp
     src/frontend/parser.cpp
     src/common/pretty_printer.cpp
