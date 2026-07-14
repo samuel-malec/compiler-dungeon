@@ -466,13 +466,19 @@ void pretty_printer::export_to_dot( const cfg::cfg& graph, std::ostream& out )
     out << "    node [shape=box, fontname=\"Courier New\", fontsize=10, style=filled, fillcolor=\"#f9f9f9\"];\n";
     out << "    edge [fontname=\"Courier New\", fontsize=9];\n\n";
 
+    if ( !graph.basic_blocks.empty() )
+    {
+        out << "    entry [shape=circle, label=\"entry\", style=filled, fillcolor=\"#d4edda\", fontname=\"Courier New\", fontsize=10, width=0.5, fixedsize=true];\n";
+        out << "    entry -> block_" << graph.basic_blocks.front()->id << ";\n\n";
+    }
+
     for ( const auto& bb : graph.basic_blocks )
     {
         out << "    block_" << bb->id << " [label=\"";
         out << "BB " << bb->id << "\\n";
         out << "--------------------------------\\n";
         
-        for ( auto& ins : bb->instructions )
+        for ( const auto& ins : bb->instructions )
         {
             std::string inst_str = tac_instr_symbolic( ins );
             
@@ -490,9 +496,35 @@ void pretty_printer::export_to_dot( const cfg::cfg& graph, std::ostream& out )
     out << "\n";
 
     for ( const auto& bb : graph.basic_blocks )
-        for (const auto& succ : bb->succ)
+    {
+        bool is_conditional = false;
+        if ( !bb->instructions.empty() )
+        {
+            const auto& term = bb->instructions.back();
+            if ( std::holds_alternative< tac::branch_data >( term.data ) )
+            {
+                is_conditional = true;
+            }
+        }
+
+        for ( size_t i = 0; i < bb->succ.size(); ++i )
+        {
+            const auto succ = bb->succ[ i ];
             if ( succ )
-                out << "    block_" << bb->id << " -> block_" << succ->id << ";\n";
+            {
+                out << "    block_" << bb->id << " -> block_" << succ->id;
+                
+                if ( is_conditional )
+                {
+                    if ( i == 0 )
+                        out << " [label=\"true\", color=\"#2ca02c\", fontcolor=\"#2ca02c\"]"; // Forest Green
+                    else if ( i == 1 )
+                        out << " [label=\"false\", color=\"#d62728\", fontcolor=\"#d62728\"]"; // Crimson Red
+                }
+                out << ";\n";
+            }
+        }
+    }
 
     out << "}\n";
 }

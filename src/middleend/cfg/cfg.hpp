@@ -28,6 +28,7 @@ struct basic_block
 
 struct cfg
 {
+    bb_ptr entry;
     std::vector< bb_ptr > basic_blocks;
 };
 
@@ -56,6 +57,7 @@ struct cfg_builder
     cfg build( const std::vector< tac::instr >& insns )
     {
         cfg res{};
+        res.entry = std::make_unique< basic_block >();
         if ( insns.empty() )
             return res;
 
@@ -123,6 +125,9 @@ struct cfg_builder
             else if ( i + 1 < res.basic_blocks.size() )
                 connect( bb.get(), res.basic_blocks[ i + 1 ].get() );
         }
+
+        if ( !res.basic_blocks.empty() )
+            res.entry->succ.push_back( res.basic_blocks[ 0 ].get() );
 
         return res;
     }

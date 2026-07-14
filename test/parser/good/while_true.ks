@@ -2,5 +2,7 @@
 
 int main()
 {
-    while ( true ) {}
+    while ( true ) { continue; }
+
+    return 4;
 }

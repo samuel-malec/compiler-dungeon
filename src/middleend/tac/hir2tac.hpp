@@ -257,7 +257,6 @@ tac::function lower_to_tac( hir::fn_def& fn )
     
     builder b{};
     b.sm.push_scope();
-    b.add_label( b.gen_label() );
     for ( int i = 0; i < fn.params.size(); ++i )
     {
         tmp target = tmp{ .id = b.get_id() };
