@@ -1,5 +1,18 @@
+#pragma once
+
+#include <string>
+#include <cstring>
+#include <iostream>
+#include <stdexcept> 
+
+#include "config.hpp"
+
 namespace dungeon
 {
-    // TODO: move the compiler pipeline logic from main.cpp and move it here
+
+struct compiler
+{
+    void run( config& conf );
+};
 
 }
