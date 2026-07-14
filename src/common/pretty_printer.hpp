@@ -6,6 +6,7 @@
 #include <variant>
 
 #include "../frontend/ast.hpp"
+#include "../middleend/cfg/cfg.hpp"
 #include "../middleend/tac/tac.hpp"
 #include "../middleend/hir/hir.hpp"
 
@@ -65,6 +66,8 @@ struct pretty_printer
     }
 
     void print_tac( tac::program& tac );
+
+    void export_to_dot( const cfg::cfg& graph, std::ostream& out );
 };
 
 }

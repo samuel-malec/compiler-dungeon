@@ -2,7 +2,8 @@
 
 namespace dungeon::print
 {
-
+// TODO: so far we have been using std::cout, but this is no longer the logical thing to do since we are 
+// past the stage of testing small programs, and instead we should focus on dumping the intermediate representations into a file
 using expr = ast::expr;
 using stmt = ast::stmt;
 using toplevel = ast::toplevel;
@@ -339,9 +340,6 @@ void pretty_printer::print_hir_stmt( const hir::stmt& s, int depth )
 
 void pretty_printer::print_hir( const hir::program& hir )
 {
-    std::cout << "\n";
-    std::cout << "HIR\n";
-
     if ( !hir.globals.empty() )
     {
         std::cout << "Globals:\n";
@@ -453,16 +451,50 @@ std::string pretty_printer::tac_instr_symbolic( const tac::instr& i )
 
 void pretty_printer::print_tac( tac::program& tac )
 {
-    std::cout << "\n";
-    std::cout << "Printing three address code\n";
-    std::cout << "__________________________________\n";
     for ( auto& fn : tac.functions )
     {
-        std::cout << fn.name << " :: ";
+        std::cout << "f" << fn.name << " :: ";
         std::cout << fn.sig;
         for ( auto& i : fn.body )
             print_tac_inst( i );
     }
+}
+
+void pretty_printer::export_to_dot( const cfg::cfg& graph, std::ostream& out )
+{
+    out << "digraph CFG {\n";
+    out << "    node [shape=box, fontname=\"Courier New\", fontsize=10, style=filled, fillcolor=\"#f9f9f9\"];\n";
+    out << "    edge [fontname=\"Courier New\", fontsize=9];\n\n";
+
+    for ( const auto& bb : graph.basic_blocks )
+    {
+        out << "    block_" << bb->id << " [label=\"";
+        out << "BB " << bb->id << "\\n";
+        out << "--------------------------------\\n";
+        
+        for ( auto& ins : bb->instructions )
+        {
+            std::string inst_str = tac_instr_symbolic( ins );
+            
+            size_t pos = 0;
+            while ( ( pos = inst_str.find( '"', pos ) ) != std::string::npos )
+            {
+                inst_str.replace( pos, 1, "\\\"" );
+                pos += 2;
+            }
+            out << inst_str << "\\n";
+        }
+        out << "\"];\n";
+    }
+
+    out << "\n";
+
+    for ( const auto& bb : graph.basic_blocks )
+        for (const auto& succ : bb->succ)
+            if ( succ )
+                out << "    block_" << bb->id << " -> block_" << succ->id << ";\n";
+
+    out << "}\n";
 }
 
 };
