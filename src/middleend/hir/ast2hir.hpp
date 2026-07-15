@@ -75,6 +75,7 @@ hir::expr lower_expr_to_hir( ast::expr& e, symtab& st )
             break;
         }
         // TODO: in the future, we should add short-circuit and, or to hir;;;
+        // TODO: we can use only a subset of relational operators and convert the remaining ones to this subset
         case ast::expr::relational:
         case ast::expr::binary:
         {

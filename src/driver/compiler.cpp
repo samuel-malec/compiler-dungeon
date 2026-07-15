@@ -33,11 +33,11 @@ namespace dungeon
         
         hir::program hir = hir::lower_ast_to_hir( ast, sa.st );
         if ( conf.emit_hir )
-            printer.print_hir( hir );
+            printer.print_hir( hir, sa.st.reverse_map );
         
         tac::program tac_ir = tac::lower_to_tac( hir );
         if ( conf.emit_tac )
-            printer.print_tac( tac_ir );
+            printer.print_tac( tac_ir, sa.st.reverse_map );
 
         cfg::program program = cfg::build_cfg( tac_ir );
         if ( conf.emit_cfg )
@@ -46,7 +46,7 @@ namespace dungeon
                 std::ostringstream os;
                 os << "f" << fn << "_cfg.dot";
                 std::ofstream out( os.str() );
-                printer.export_to_dot( cfg, out );
+                printer.export_to_dot( cfg, out, sa.st.reverse_map );
             }
     }
 }

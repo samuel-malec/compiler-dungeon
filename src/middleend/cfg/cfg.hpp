@@ -14,16 +14,26 @@ namespace dungeon::cfg
 using block_id = uint32_t;
 using fn_id = uint32_t;
 using ins_id = uint32_t;
+using var_id = uint32_t;
 
 struct basic_block;
 using bb_ptr = std::unique_ptr< basic_block >;
 
+struct phi_node
+{
+    var_id var;
+    tac::tmp target;
+    std::unordered_map< block_id, tac::tmp > incoming;
+};
+
 struct basic_block
 {
     block_id id;
+    std::vector< phi_node > phis;
     std::vector< tac::instr > instructions;
     std::vector< basic_block* > succ;
     std::vector< basic_block* > pred;
+    std::vector< basic_block* > dom;
 };
 
 struct cfg
@@ -127,7 +137,7 @@ struct cfg_builder
         }
 
         if ( !res.basic_blocks.empty() )
-            res.entry->succ.push_back( res.basic_blocks[ 0 ].get() );
+            connect( res.entry.get(), res.basic_blocks[ 0 ].get() );
 
         return res;
     }

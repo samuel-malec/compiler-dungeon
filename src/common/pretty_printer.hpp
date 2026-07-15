@@ -6,6 +6,7 @@
 #include <variant>
 
 #include "../frontend/ast.hpp"
+#include "../frontend/semantic.hpp"
 #include "../middleend/cfg/cfg.hpp"
 #include "../middleend/tac/tac.hpp"
 #include "../middleend/hir/hir.hpp"
@@ -26,7 +27,8 @@ struct pretty_printer
     using var_decl = ast::var_decl;
     using fn_decl = ast::fn_decl;
     using enum_decl = ast::enum_decl;
-    using struct_decl = ast::struct_decl; 
+    using struct_decl = ast::struct_decl;
+    using atom_map = std::map< uint32_t, std::string >;
 
     std::string indent( int depth )
     {
@@ -49,25 +51,25 @@ struct pretty_printer
 
     void print_ast( ast::program& ast );
 
-    void print_hir_expr( const hir::expr& e, int depth );
+    void print_hir_expr( hir::expr& e, int depth, const atom_map& am );
 
-    void print_hir_stmt( const hir::stmt& s, int depth );
+    void print_hir_stmt( hir::stmt& s, int depth, const atom_map& am );
 
-    void print_hir( const hir::program& hir );
+    void print_hir( hir::program& hir, const atom_map& am );
 
-    std::string tac_arg_to_string( const tac::argument& arg );
+    std::string tac_arg_to_string( tac::argument& arg, const atom_map& am );
 
-    std::string tac_instr_symbolic( const tac::instr& i );
+    std::string tac_instr_symbolic( tac::instr& i, const atom_map& am );
 
-    void print_tac_inst( tac::instr& i )
+    void print_tac_inst( tac::instr& i, const atom_map& am )
     {
         std::holds_alternative< tac::label_data>( i.data ) ? pad( 2 ) : pad( 4 );
-        std::cout << tac_instr_symbolic( i ) << '\n';
+        std::cout << tac_instr_symbolic( i, am ) << '\n';
     }
 
-    void print_tac( tac::program& tac );
+    void print_tac( tac::program& tac, const atom_map& am );
 
-    void export_to_dot( const cfg::cfg& graph, std::ostream& out );
+    void export_to_dot( cfg::cfg& graph, std::ostream& out, const atom_map& am );
 };
 
 }

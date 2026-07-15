@@ -49,7 +49,8 @@ struct symtab
     };
     
     std::map< std::string, uint32_t, std::less<> > map;
-    // TODO: add reverse map ?
+    std::map< uint32_t, std::string > reverse_map; // this one is for debugging/printing purposes, we should remove it in the future
+
     std::vector< scope > scopes;
 
     atom get( std::string_view name )
@@ -80,6 +81,7 @@ struct symtab
             error( "redeclaration of identifier: ", name, "with type", typ );
 
         map[ std::string( name ) ] = a.idx;
+        reverse_map[ a.idx ] = std::string( name );
         scopes.back().symbols.emplace( a.idx, typ );
     }
 

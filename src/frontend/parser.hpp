@@ -216,6 +216,7 @@ struct parser : token_sink
 
     std::optional< fn_decl > parse_fn_decl();
 
+    // todo: structs, enums, comma operator ;-), etc...
     std::optional< toplevel > parse_toplevel();
 };
 

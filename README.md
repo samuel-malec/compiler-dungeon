@@ -10,7 +10,7 @@ My current goals for this project are:
 - Play with intermediate representations and their conversions : AST -> HIR -> TAC -> CFG -> SSA-CFG and AST -> SON 
 - Learn SSA construction algorithms
 - Learn Sea of Nodes concepts and construct a SoN representation from AST
-- Perform optimizations on the SSA CFG as well as SoN and compare the difficulty in optimizations
+- Perform optimizations on the SSA CFG as well as SoN and compare the difficulty of implementing optimizations in both of these representations
 - Implement dataflow analysis framework and perform simple analyses such as cse, dce, liveness, ...
 - Compilation to RISC-V assembly
 

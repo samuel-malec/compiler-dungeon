@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cassert>
 #include <map>
 #include <string>
 #include <vector>
@@ -25,7 +26,7 @@ struct scope_manager
     void push_scope() { scopes.push_back( {} ); }
     void pop_scope() { scopes.pop_back(); }
     
-    // The optional is not really necessaray here, because the program passed semantical analysis
+    // The optional is not really necessary here, because the program passed semantical analysis
     std::optional< tmp > get_var( uint32_t var )
     {
         for ( int i = scopes.size() - 1; i >= 0; --i )
@@ -68,21 +69,17 @@ struct builder
         ins.push_back( i );
     }
 
-    tmp lower_expr( hir::expr& e )
+    argument lower_expr( hir::expr& e )
     {
         switch ( e.kind )
         {
             case hir::expr::int_lit:
             {
-                copy_data cp{ .arg1 = std::get< uint64_t >( e.data ), .target = tmp{ get_id() } };
-                add_instr( cp );
-                return tmp{ tmp_id - 1 };
+                return constant{ std::get< uint64_t >( e.data ) };
             }
             case hir::expr::bool_lit:
             {
-                copy_data cp{ .arg1 = std::get< bool >( e.data ), .target = tmp{ get_id() } };
-                add_instr( cp );
-                return tmp{ tmp_id - 1 };
+                return constant{ std::get< bool >( e.data ) };
             }
             case hir::expr::var_ref:
             {
@@ -99,8 +96,8 @@ struct builder
             case hir::expr::binary:
             {
                 auto data = std::get< hir::expr::binary_data >( e.data );
-                tmp tmp1 = lower_expr( *data.left );
-                tmp tmp2 = lower_expr( *data.right );
+                argument tmp1 = lower_expr( *data.left );
+                argument tmp2 = lower_expr( *data.right );
                 binary_data bd{ .op = data.op, .arg1 = tmp1, .arg2 = tmp2, .target = tmp{ get_id() } };
                 add_instr( bd );
                 return tmp{ tmp_id - 1 };
@@ -108,28 +105,28 @@ struct builder
             case hir::expr::assign:
             {
                 auto data = std::get< hir::expr::assign_data >( e.data );
-                tmp src_tmp = lower_expr( *data.value );
-                tmp dst_tmp = sm.get_var( data.target ).value();
-                copy_data cd{ .arg1 = src_tmp, .target = dst_tmp };
+                argument arg1 = lower_expr( *data.value );
+                tmp tar = sm.get_var( data.target ).value();
+                copy_data cd{ .arg1 = arg1, .target = tar };
                 add_instr( cd );
-                return dst_tmp;
+                return tar;
             }
             case hir::expr::call:
             {
                 auto data = std::get< hir::expr::call_data >( e.data );
                 auto callee = data.target;
-                
-                std::vector< tmp > arg_tmps{};
+
+                std::vector< argument > call_param_locs{};
                 for ( int i = 0; i < data.args.size(); ++ i )
-                    arg_tmps.push_back( lower_expr( *data.args[ i ] ) );
+                    call_param_locs.push_back( lower_expr( *data.args[ i ] ) );
                 
-                for ( auto tmp : arg_tmps )
+                for ( auto tmp : call_param_locs )
                 {
                     param_data pd{ .arg = tmp };
                     add_instr( pd );
                 }
                 
-                call_data cd{ .callee = callee, .args = static_cast< int >( arg_tmps.size() ), .target = tmp{ get_id() } };
+                call_data cd{ .callee = callee, .args = static_cast< int >( call_param_locs.size() ), .target = tmp{ get_id() } };
                 add_instr( cd );
                 return tmp{ tmp_id - 1 };
             }
@@ -141,7 +138,8 @@ struct builder
                 break;
         }
 
-        return tmp{ -1 };
+        assert( false );
+        return tmp{ - 1};
     }
 
     void lower_stmt( hir::stmt& s )
@@ -167,8 +165,16 @@ struct builder
                 auto data = std::get< hir::stmt::let_data >( s.data );
                 if ( data.value )
                 {
-                    tmp tmp1 = lower_expr( *data.value );
-                    sm.add_var( data.target, tmp1 );
+                    argument arg1 = lower_expr( *data.value );
+                    if ( std::holds_alternative< tmp >( arg1 ) )
+                        sm.add_var( data.target, std::get< tmp >( arg1 ) );
+                    else
+                    {
+                        tmp target{ .id = get_id() };
+                        sm.add_var( data.target, target );
+                        copy_data cd{ .arg1 = arg1, .target = target };
+                        add_instr( cd );
+                    }
                 }
                 else
                     sm.add_var( data.target, tmp{ .id = get_id() } );
@@ -177,7 +183,7 @@ struct builder
             case hir::stmt::kind_t::if_stmt:
             {
                 auto data = std::get< hir::stmt::if_data >( s.data );
-                tmp cond_tmp = lower_expr( data.cond );
+                argument cond_tmp = lower_expr( data.cond );
                 label_id then_label = gen_label();
                 label_id else_label = gen_label();
                 label_id end_label = gen_label();
@@ -233,8 +239,8 @@ struct builder
                 auto data = std::get< hir::stmt::ret_data >( s.data );
                 if ( data.value )
                 {
-                    tmp tmp1 = lower_expr( *data.value );
-                    ret_data rd{ .arg = tmp1 };
+                    argument arg1 = lower_expr( *data.value );
+                    ret_data rd{ .arg = arg1 };
                     add_instr( rd );
                     break;
                 }
