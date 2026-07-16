@@ -2,6 +2,8 @@
 
 #include <cstdint>
 #include <vector>
+#include <set>
+#include <queue>
 #include <map>
 #include <unordered_map>
 #include <variant>
@@ -22,8 +24,7 @@ using bb_ptr = std::unique_ptr< basic_block >;
 struct phi_node
 {
     var_id var;
-    tac::tmp target;
-    std::unordered_map< block_id, tac::tmp > incoming;
+    // std::unordered_map< block_id, tac::tmp > incoming;
 };
 
 struct basic_block
@@ -33,12 +34,15 @@ struct basic_block
     std::vector< tac::instr > instructions;
     std::vector< basic_block* > succ;
     std::vector< basic_block* > pred;
-    std::vector< basic_block* > dom;
+
+    // ssa-specific info
+    std::vector< basic_block* > dom; // every bb that dominates this block
+    basic_block* idom = nullptr; // immediate dominator
 };
 
 struct cfg
 {
-    bb_ptr entry;
+    basic_block* entry = nullptr;
     std::vector< bb_ptr > basic_blocks;
 };
 
@@ -64,10 +68,40 @@ struct cfg_builder
         to->pred.push_back( from );
     }
 
+    void remove_unreachable( cfg& graph )
+    {
+        std::set< block_id > visited{};
+        std::queue< basic_block* > que{};
+        que.push( graph.entry );
+        visited.insert( graph.entry->id );
+
+        while ( !que.empty() )
+        {
+            basic_block* curr = que.front();
+            que.pop();
+            for ( basic_block* s : curr->succ )
+            {
+                if ( visited.contains( s->id ) )
+                    continue;
+                
+                visited.insert( s->id );
+                que.push( s );
+            }
+        }
+
+        std::vector< bb_ptr > blocks = std::move( graph.basic_blocks );
+        graph.basic_blocks.clear();
+
+        for ( auto& bb : blocks )
+        {
+            if ( visited.contains( bb->id ) )
+                graph.basic_blocks.push_back( std::move( bb ) );
+        }
+    }
+
     cfg build( const std::vector< tac::instr >& insns )
     {
         cfg res{};
-        res.entry = std::make_unique< basic_block >();
         if ( insns.empty() )
             return res;
 
@@ -136,9 +170,8 @@ struct cfg_builder
                 connect( bb.get(), res.basic_blocks[ i + 1 ].get() );
         }
 
-        if ( !res.basic_blocks.empty() )
-            connect( res.entry.get(), res.basic_blocks[ 0 ].get() );
-
+        res.entry = res.basic_blocks[ 0 ].get();
+        remove_unreachable( res );
         return res;
     }
 };
@@ -150,7 +183,7 @@ inline program build_cfg( tac::program& tprog )
     for ( auto& fn : tprog.functions )
     {
         cfg_builder cb{};
-        res.fns[ fn.name ] = cb.build( fn.body );
+        res.fns.emplace( fn.name, cb.build( fn.body ) );
     }
     
     return res;

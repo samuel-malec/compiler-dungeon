@@ -10,42 +10,37 @@
 namespace dungeon::tac
 {
 
+using value_id = uint32_t;
 using label_id = uint32_t;
 using fn_id = uint32_t;
-using var_id = uint32_t;
-using tmp_id = uint32_t;
 
-using constant = std::variant< uint64_t, bool >;   
-
-struct tmp { tmp_id id; };
-struct var 
+struct value
 {
-    uint32_t source_name_idx; // idx to symtab, source code name of the variable, eg "x"
-    var_id id; // unique id to each occurence of the same variable name in a function, like "x0", "x1"
+    value_id id;
 };
 
-using loc = std::variant< tmp, var >;
-using argument = std::variant< loc, constant >;
+using constant = std::variant< uint64_t, bool >;   
+using operand = std::variant< constant, value >;
 
 struct unary_data
 {
     dungeon::op_kind op;
-    argument arg1;
-    loc target;
+    operand arg1;
+    value target;
 };
 
 struct binary_data
 {
     dungeon::op_kind op;
-    argument arg1;
-    argument arg2;
-    loc target;
+    operand arg1;
+    operand arg2;
+    value target;
 };
 
 struct copy_data
 {
-    argument arg1;
-    loc target;
+    operand arg1;
+    value target;
 };
 
 struct jump_data
@@ -55,27 +50,27 @@ struct jump_data
 
 struct branch_data
 {
-    argument arg1;
+    operand arg1;
     label_id true_lab;
     label_id false_lab;
 };
 
 struct param_data
 {
-    argument arg;
+    operand arg;
 };
 
 struct get_param_data
 {
     int idx;
-    loc target;
+    value target;
 };
 
 struct call_data
 {
     fn_id callee;
     int args;
-    loc target;
+    value target;
 };
 
 struct label_data
@@ -85,7 +80,7 @@ struct label_data
 
 struct ret_data
 {
-    std::optional< argument > arg;
+    std::optional< operand > arg;
 };
 
 struct instr

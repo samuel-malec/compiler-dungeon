@@ -11,6 +11,7 @@
 #include "../middleend/tac/hir2tac.hpp"
 
 #include "../middleend/cfg/cfg.hpp"
+#include "../middleend/cfg/ssa.hpp"
 
 namespace dungeon
 {
@@ -39,14 +40,21 @@ namespace dungeon
         if ( conf.emit_tac )
             printer.print_tac( tac_ir, sa.st.reverse_map );
 
-        cfg::program program = cfg::build_cfg( tac_ir );
-        if ( conf.emit_cfg )
-            for ( auto& [ fn, cfg ] : program.fns )
+        cfg::program cfgraph = cfg::build_cfg( tac_ir );
+        // cfg::ssa_builder sb{};
+
+        for ( auto& [ fn, cfg ] : cfgraph.fns )
+        {
+            // sb.transform_ssa( cfg );
+            if ( conf.emit_cfg )
             {
                 std::ostringstream os;
                 os << "f" << fn << "_cfg.dot";
                 std::ofstream out( os.str() );
                 printer.export_to_dot( cfg, out, sa.st.reverse_map );
             }
+        }
+
+
     }
 }

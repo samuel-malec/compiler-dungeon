@@ -15,6 +15,7 @@ target_sources(compiler-dungeon
     src/frontend/lexer.cpp
     src/frontend/parser.cpp
     src/common/pretty_printer.cpp
+    src/middleend/cfg/ssa.cpp
 )
 
 function(add_compiler_fixture_tests stage)

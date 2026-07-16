@@ -5,13 +5,24 @@
 namespace dungeon::cfg
 {
 
+enum color
+{ 
+    white, 
+    gray,
+    black
+};
+
 struct ssa_builder
 {
+    using block_id = uint32_t;
+    using order = std::vector< block_id >;
 
+    // TODO: compute reverse-postorder
+    order rpo( cfg& graph );
+    
     // TODO: compute the dominance trees of a cfg
     void dom_tree( cfg& graph )
     {
-        graph.entry->dom.push_back( graph.entry.get( ) );
 
     }
 
@@ -23,7 +34,10 @@ struct ssa_builder
 
     void rename( cfg& graph );
 
-    cfg transform_ssa( cfg& graph );
+    void transform_ssa( cfg& graph ) 
+    {
+    }
+
 };
 
 }

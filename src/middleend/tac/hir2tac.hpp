@@ -20,49 +20,59 @@ struct scope_manager
         label_id break_target;
     };
 
-    using scope = std::map< uint32_t, var_id > ; // source var name -> var id in function
-    var_id next_var_id = 0;
+    using symbol_id = uint32_t;
+    using value_id = uint32_t;
+
+    using scope = std::map< symbol_id, value_id >;
+    value_id next_val_id = 0;
+
     std::vector< scope > scopes;
     std::vector< loop_context > loop_stack;
 
     void push_scope() { scopes.push_back( {} ); }
     void pop_scope() { scopes.pop_back(); }
     
-    var get_var( uint32_t var_name )
+    value lookup( uint32_t symbol_id )
     {
         for ( int i = scopes.size() - 1; i >= 0; --i )
         {
-            auto it = scopes[ i ].find( var_name );
+            auto it = scopes[ i ].find( symbol_id );
             if ( it != scopes[ i ].end() )
-                return var{ .source_name_idx = var_name, .id = it->second };
+                return value{ .id = it->second };
         }
+        assert( false && "unknown variable" );
         return {};
     }
 
-    var add_var( uint32_t source_name_idx )
+    value bind( uint32_t symbol_id )
     {
-        var_id fresh = next_var_id++;
-        scopes.back()[ source_name_idx ] = fresh;
-        return var{ .source_name_idx = source_name_idx, .id = fresh };
+        value_id fresh = next_val_id++;
+        scopes.back()[ symbol_id ] = fresh;
+        return value{ .id = fresh };
     }
 };
 
 struct builder
 {
-    uint32_t tmp_id = 0;
-    uint32_t lab_id = 0;
+    uint32_t next_value = 0;
+    uint32_t next_label = 0;
 
     std::vector< instr > ins;
     scope_manager sm{};
 
-    label_id gen_label() { return lab_id++; }
-    
-    uint32_t get_tmp_id() { return tmp_id++; }
-
-    void add_instr( instr::data_type dt )
+    value create_value()
     {
-        instr i{ .data = dt };
-        ins.push_back( i );
+        return value{ .id = next_value++ };
+    }
+
+    label_id create_label()
+    {
+        return next_label++;
+    }
+
+    void emit( instr::data_type dt )
+    {
+        ins.push_back( instr{ .data = std::move( dt ) } );
     }
 
     void add_label( label_id id )
@@ -72,9 +82,7 @@ struct builder
         ins.push_back( i );
     }
 
-    loc create_tmp() { return tmp{ .id = get_tmp_id() }; }
-
-    argument lower_expr( hir::expr& e )
+    operand lower_expr( hir::expr& e )
     {
         switch ( e.kind )
         {
@@ -89,57 +97,57 @@ struct builder
             case hir::expr::var_ref:
             {
                 auto data = std::get< hir::expr::var_ref_data >( e.data );
-                return sm.get_var( data.id );
+                return sm.lookup( data.id );
             }
             case hir::expr::unary:
             {
                 auto data = std::get< hir::expr::unary_data >( e.data );
-                argument arg1 = lower_expr( *data.sub );
-                auto target = create_tmp();
+                operand arg1 = lower_expr( *data.sub );
+                auto target = create_value();
 
                 unary_data ud{ .op = data.op, .arg1 = lower_expr( *data.sub ), .target = target };
-                add_instr( ud );
+                emit( ud );
                 return target;
             }
             case hir::expr::binary:
             {
                 auto data = std::get< hir::expr::binary_data >( e.data );
-                argument tmp1 = lower_expr( *data.left );
-                argument tmp2 = lower_expr( *data.right );
-                auto target = create_tmp();
+                auto lhs = lower_expr( *data.left );
+                auto rhs = lower_expr( *data.right );
+                auto target = create_value();
             
-                binary_data bd{ .op = data.op, .arg1 = tmp1, .arg2 = tmp2, .target = target };
-                add_instr( bd );
+                binary_data bd{ .op = data.op, .arg1 = lhs, .arg2 = rhs, .target = target };
+                emit( bd );
                 return target;
             }
             case hir::expr::assign:
             {
                 auto data = std::get< hir::expr::assign_data >( e.data );
-                argument arg1 = lower_expr( *data.value );
-                loc tar = sm.get_var( data.target );
+                operand arg1 = lower_expr( *data.value );
+                value target = sm.lookup( data.target );
 
-                copy_data cd{ .arg1 = arg1, .target = tar };
-                add_instr( cd );
-                return tar;
+                copy_data cd{ .arg1 = arg1, .target = target };
+                emit( cd );
+                return target;
             }
             case hir::expr::call:
             {
                 // FIXME: this seems kinda off but I am sleepy so maybe im missing something...
                 auto data = std::get< hir::expr::call_data >( e.data );
                 auto callee = data.target;
-                std::vector< argument > call_param_locs{};
+                std::vector< operand > call_param_locs{};
                 for ( int i = 0; i < data.args.size(); ++ i )
                     call_param_locs.push_back( lower_expr( *data.args[ i ] ) );
                 
                 for ( auto tmp : call_param_locs )
                 {
                     param_data pd{ .arg = tmp };
-                    add_instr( pd );
+                    emit( pd );
                 }
                 
-                auto target = create_tmp();
+                auto target = create_value();
                 call_data cd{ .callee = callee, .args = static_cast< int >( call_param_locs.size() ), .target = target };
-                add_instr( cd );
+                emit( cd );
                 return target;
             }
             case hir::expr::cast:
@@ -174,23 +182,23 @@ struct builder
             case hir::stmt::kind_t::let_stmt:
             {
                 auto data = std::get< hir::stmt::let_data >( s.data );
-                loc target = sm.add_var( data.target ); 
+                value target = sm.bind( data.target ); 
 
                 if ( data.value )
                 {
-                    argument arg1 = lower_expr( *data.value );
+                    operand arg1 = lower_expr( *data.value );
                     copy_data cd{ .arg1 = arg1, .target = target };
-                    add_instr( cd );
+                    emit( cd );
                 }
                 else if ( data.typ.as_primitive() == BOOL )
                 {
                     copy_data cd{ .arg1 = constant{ false }, .target = target };
-                    add_instr( cd );
+                    emit( cd );
                 }
                 else if ( data.typ.as_primitive() == INT )
                 {
                     copy_data cd{ .arg1 = constant{ uint64_t{ 0 } }, .target = target };
-                    add_instr( cd );
+                    emit( cd );
                 }
                 else
                     assert( false );
@@ -199,23 +207,23 @@ struct builder
             case hir::stmt::kind_t::if_stmt:
             {
                 auto data = std::get< hir::stmt::if_data >( s.data );
-                argument cond_tmp = lower_expr( data.cond );
-                label_id then_label = gen_label();
-                label_id else_label = gen_label();
-                label_id end_label = gen_label();
+                operand cond_tmp = lower_expr( data.cond );
+                label_id then_label = create_label();
+                label_id else_label = create_label();
+                label_id end_label = create_label();
                
                 branch_data jd{ .arg1 = cond_tmp, .true_lab = then_label, .false_lab = data.else_branch ? else_label : end_label };
-                add_instr( jd );
+                emit( jd );
 
                 add_label( then_label );
                 lower_stmt( *data.then_branch );
-                add_instr( jump_data{ .label = end_label } );
+                emit( jump_data{ .label = end_label } );
 
                 if ( data.else_branch )
                 {
                     add_label( else_label );
                     lower_stmt( *data.else_branch );
-                    add_instr( jump_data{ .label = end_label } );
+                    emit( jump_data{ .label = end_label } );
                 }
 
                 add_label( end_label );
@@ -224,15 +232,15 @@ struct builder
             case hir::stmt::kind_t::loop_stmt:
             {
                 auto data = std::get< hir::stmt::loop_data >( s.data );
-                auto head_lab = gen_label();
-                auto exit_lab = gen_label();
+                auto head_lab = create_label();
+                auto exit_lab = create_label();
                 sm.loop_stack.push_back( { .continue_target = head_lab, .break_target = exit_lab } );
                 
                 add_label( head_lab );
                 if ( data.body )
                     lower_stmt( *data.body );
                 
-                add_instr( jump_data{ .label = head_lab } );
+                emit( jump_data{ .label = head_lab } );
                 add_label( exit_lab );
 
                 sm.loop_stack.pop_back();
@@ -241,13 +249,13 @@ struct builder
             case hir::stmt::kind_t::brk:
             {
                 auto curr = sm.loop_stack.back();
-                add_instr( jump_data{ .label = curr.break_target } );
+                emit( jump_data{ .label = curr.break_target } );
                 break;
             }
             case hir::stmt::kind_t::cont:
             { 
                 auto curr = sm.loop_stack.back();
-                add_instr( jump_data{ .label = curr.continue_target } );
+                emit( jump_data{ .label = curr.continue_target } );
                 break;
             }
             case hir::stmt::kind_t::ret:
@@ -255,15 +263,15 @@ struct builder
                 auto data = std::get< hir::stmt::ret_data >( s.data );
                 if ( data.value )
                 {
-                    argument arg1 = lower_expr( *data.value );
+                    operand arg1 = lower_expr( *data.value );
                     ret_data rd{ .arg = arg1 };
-                    add_instr( rd );
+                    emit( rd );
                     break;
                 }
                 else
                 {
                     ret_data rd{ .arg = std::nullopt };
-                    add_instr( rd );
+                    emit( rd );
                 }
                 break;
             }
@@ -281,9 +289,9 @@ tac::function lower_to_tac( hir::fn_def& fn )
     b.sm.push_scope();
     for ( int i = 0; i < fn.params.size(); ++i )
     {
-        loc target = b.sm.add_var( fn.params[ i ] );
+        value target = b.sm.lookup( fn.params[ i ] );
         get_param_data gpd{ .idx = i, .target = target };
-        b.add_instr( gpd );
+        b.emit( gpd );
     }
 
     b.lower_stmt( fn.body );

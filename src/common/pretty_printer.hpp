@@ -40,18 +40,9 @@ struct pretty_printer
         std::cout << indent( depth );
     }
 
-    std::string tac_tmp_to_string( const tac::tmp& t )
+    std::string tac_val_to_string( const tac::value& v, const atom_map& am )
     {
-        return "t" + std::to_string( t.id );
-    }
-
-    std::string tac_loc_to_string( const tac::loc& t, const atom_map& am )
-    {
-        if ( std::holds_alternative< tac::tmp >( t ) )
-            return tac_tmp_to_string( std::get< tac::tmp >( t ) );
-        
-        tac::var v = std::get< tac::var >( t );
-        return am.at( v.source_name_idx ) + std::to_string( v.id );
+        return "v" + std::to_string( v.id );
     }
 
     void print_expr( expr& e, int depth );
@@ -66,7 +57,7 @@ struct pretty_printer
 
     void print_hir( hir::program& hir, const atom_map& am );
     
-    std::string tac_arg_to_string( tac::argument& arg, const atom_map& am );
+    std::string tac_operand_to_string( tac::operand& operand, const atom_map& am );
 
     std::string tac_instr_symbolic( tac::instr& i, const atom_map& am );
 

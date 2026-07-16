@@ -365,13 +365,13 @@ void pretty_printer::print_hir( hir::program& hir, const atom_map& am )
     }
 }
 
-std::string pretty_printer::tac_arg_to_string( tac::argument& arg, const atom_map& am )
+std::string pretty_printer::tac_operand_to_string( tac::operand& operand, const atom_map& am )
 {
     return std::visit( [ this, am ]( auto&& value ) -> std::string
     {
         using T = std::decay_t< decltype( value ) >;
-        if constexpr ( std::is_same_v< T, tac::loc > )
-            return tac_loc_to_string( value, am );
+        if constexpr ( std::is_same_v< T, tac::value > )
+            return tac_val_to_string( value, am );
         else
         {
             std::ostringstream out;
@@ -381,7 +381,7 @@ std::string pretty_printer::tac_arg_to_string( tac::argument& arg, const atom_ma
                 out << ( std::get< bool >( value ) ? "true" : "false" );
             return out.str();
         }
-    }, arg );
+    }, operand );
 }
 
 std::string pretty_printer::tac_instr_symbolic( tac::instr& i, const atom_map& am )
@@ -393,21 +393,21 @@ std::string pretty_printer::tac_instr_symbolic( tac::instr& i, const atom_map& a
 
         if constexpr ( std::is_same_v< T, tac::unary_data > )
         {
-            out << tac_loc_to_string( value.target, am ) << " ← "
+            out << tac_val_to_string( value.target, am ) << " ← "
                 << value.op << " "
-                << tac_arg_to_string( value.arg1, am );
+                << tac_operand_to_string( value.arg1, am );
         }
         else if constexpr ( std::is_same_v< T, tac::binary_data > )
         {
-            out << tac_loc_to_string( value.target, am ) << " ← "
-                << tac_arg_to_string( value.arg1, am ) << " "
+            out << tac_val_to_string( value.target, am ) << " ← "
+                << tac_operand_to_string( value.arg1, am ) << " "
                 << value.op << " "
-                << tac_arg_to_string( value.arg2, am );
+                << tac_operand_to_string( value.arg2, am );
         }
         else if constexpr ( std::is_same_v< T, tac::copy_data > )
         {
-            out << tac_loc_to_string( value.target, am ) << " ← "
-                << tac_arg_to_string( value.arg1, am );
+            out << tac_val_to_string( value.target, am ) << " ← "
+                << tac_operand_to_string( value.arg1, am );
         }
         else if constexpr ( std::is_same_v< T, tac::jump_data > )
         {
@@ -416,22 +416,22 @@ std::string pretty_printer::tac_instr_symbolic( tac::instr& i, const atom_map& a
         }
         else if constexpr ( std::is_same_v< T, tac::branch_data > )
         {
-            out << "branch " << tac_arg_to_string( value.arg1, am )
+            out << "branch " << tac_operand_to_string( value.arg1, am )
                 << "  " << value.true_lab << " " << value.false_lab;
         }
         else if constexpr ( std::is_same_v< T, tac::param_data > )
         {
             out << "param ";
-            out << tac_arg_to_string( value.arg, am );
+            out << tac_operand_to_string( value.arg, am );
         }
         else if constexpr ( std::is_same_v< T, tac::get_param_data> )
         {
-            out << tac_loc_to_string( value.target, am ) << " ← get_param "
+            out << tac_val_to_string( value.target, am ) << " ← get_param "
             << value.idx;
         }
         else if constexpr ( std::is_same_v< T, tac::call_data > )
         {
-            out << tac_loc_to_string( value.target, am ) << " ← call "
+            out << tac_val_to_string( value.target, am ) << " ← call "
                 << value.callee << "(" << value.args << " args)";
         }
         else if constexpr ( std::is_same_v< T, tac::label_data > )
@@ -442,7 +442,7 @@ std::string pretty_printer::tac_instr_symbolic( tac::instr& i, const atom_map& a
         {
             out << "ret";
             if ( value.arg.has_value() )
-                out << " " << tac_arg_to_string( value.arg.value(), am );
+                out << " " << tac_operand_to_string( value.arg.value(), am );
         }
 
         return out.str();
