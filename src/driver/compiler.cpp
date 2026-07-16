@@ -41,11 +41,11 @@ namespace dungeon
             printer.print_tac( tac_ir, sa.st.reverse_map );
 
         cfg::program cfgraph = cfg::build_cfg( tac_ir );
-        // cfg::ssa_builder sb{};
+        cfg::ssa_builder sb{};
 
         for ( auto& [ fn, cfg ] : cfgraph.fns )
         {
-            // sb.transform_ssa( cfg );
+            sb.transform_ssa( cfg );
             if ( conf.emit_cfg )
             {
                 std::ostringstream os;

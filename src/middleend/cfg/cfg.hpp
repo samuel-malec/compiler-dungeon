@@ -30,6 +30,8 @@ struct phi_node
 struct basic_block
 {
     block_id id;
+    uint32_t postorder_id;
+
     std::vector< phi_node > phis;
     std::vector< tac::instr > instructions;
     std::vector< basic_block* > succ;
