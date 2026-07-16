@@ -278,7 +278,7 @@ void pretty_printer::print_hir_stmt( hir::stmt& s, int depth, const atom_map& am
         case hir::stmt::kind_t::let_stmt:
         {
             auto data = std::get< hir::stmt::let_data >( s.data );
-            std::cout << "[let_stmt]" << am.at( data.target ) << "\n";
+            std::cout << "[let_stmt] " << data.typ << " " << am.at( data.target ) << "\n";
             if ( data.value ) 
                 print_hir_expr( *data.value, depth + 1, am );
             break;
@@ -355,7 +355,7 @@ void pretty_printer::print_hir( hir::program& hir, const atom_map& am )
 
     for ( auto& fn : hir.functions )
     {
-        std::cout << "fn_def: f" << fn.name << " :: " << fn.sig << " ( ";
+        std::cout << "fn_def: f" << fn.name << " :: " << fn.sig << " params: ( ";
         for ( size_t i = 0; i < fn.params.size(); ++i )
         {
             std::cout << "v" << fn.params[ i ] << ( i == fn.params.size() - 1 ? "" : ", " );
@@ -367,11 +367,11 @@ void pretty_printer::print_hir( hir::program& hir, const atom_map& am )
 
 std::string pretty_printer::tac_arg_to_string( tac::argument& arg, const atom_map& am )
 {
-    return std::visit( [ this ]( auto&& value ) -> std::string
+    return std::visit( [ this, am ]( auto&& value ) -> std::string
     {
         using T = std::decay_t< decltype( value ) >;
-        if constexpr ( std::is_same_v< T, tac::tmp > )
-            return tac_tmp_to_string( value );
+        if constexpr ( std::is_same_v< T, tac::loc > )
+            return tac_loc_to_string( value, am );
         else
         {
             std::ostringstream out;
@@ -393,20 +393,20 @@ std::string pretty_printer::tac_instr_symbolic( tac::instr& i, const atom_map& a
 
         if constexpr ( std::is_same_v< T, tac::unary_data > )
         {
-            out << tac_tmp_to_string( value.target ) << " ← "
+            out << tac_loc_to_string( value.target, am ) << " ← "
                 << value.op << " "
                 << tac_arg_to_string( value.arg1, am );
         }
         else if constexpr ( std::is_same_v< T, tac::binary_data > )
         {
-            out << tac_tmp_to_string( value.target ) << " ← "
+            out << tac_loc_to_string( value.target, am ) << " ← "
                 << tac_arg_to_string( value.arg1, am ) << " "
                 << value.op << " "
                 << tac_arg_to_string( value.arg2, am );
         }
         else if constexpr ( std::is_same_v< T, tac::copy_data > )
         {
-            out << tac_tmp_to_string( value.target ) << " ← "
+            out << tac_loc_to_string( value.target, am ) << " ← "
                 << tac_arg_to_string( value.arg1, am );
         }
         else if constexpr ( std::is_same_v< T, tac::jump_data > )
@@ -426,12 +426,12 @@ std::string pretty_printer::tac_instr_symbolic( tac::instr& i, const atom_map& a
         }
         else if constexpr ( std::is_same_v< T, tac::get_param_data> )
         {
-            out << tac_tmp_to_string( value.target ) << " ← get_param "
+            out << tac_loc_to_string( value.target, am ) << " ← get_param "
             << value.idx;
         }
         else if constexpr ( std::is_same_v< T, tac::call_data > )
         {
-            out << tac_tmp_to_string( value.target ) << " ← call "
+            out << tac_loc_to_string( value.target, am ) << " ← call "
                 << value.callee << "(" << value.args << " args)";
         }
         else if constexpr ( std::is_same_v< T, tac::label_data > )

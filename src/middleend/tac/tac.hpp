@@ -13,16 +13,25 @@ namespace dungeon::tac
 using label_id = uint32_t;
 using fn_id = uint32_t;
 using var_id = uint32_t;
+using tmp_id = uint32_t;
+
 using constant = std::variant< uint64_t, bool >;   
 
-struct tmp { int id; };
-using argument = std::variant< tmp, constant >;
+struct tmp { tmp_id id; };
+struct var 
+{
+    uint32_t source_name_idx; // idx to symtab, source code name of the variable, eg "x"
+    var_id id; // unique id to each occurence of the same variable name in a function, like "x0", "x1"
+};
+
+using loc = std::variant< tmp, var >;
+using argument = std::variant< loc, constant >;
 
 struct unary_data
 {
     dungeon::op_kind op;
     argument arg1;
-    tmp target;
+    loc target;
 };
 
 struct binary_data
@@ -30,13 +39,13 @@ struct binary_data
     dungeon::op_kind op;
     argument arg1;
     argument arg2;
-    tmp target;
+    loc target;
 };
 
 struct copy_data
 {
     argument arg1;
-    tmp target;
+    loc target;
 };
 
 struct jump_data
@@ -59,14 +68,14 @@ struct param_data
 struct get_param_data
 {
     int idx;
-    tmp target;
+    loc target;
 };
 
 struct call_data
 {
     fn_id callee;
     int args;
-    tmp target;
+    loc target;
 };
 
 struct label_data

@@ -64,7 +64,7 @@ struct stmt
     } kind;
 
     struct block_data { std::vector< stmt > stmts; };
-    struct let_data   { var_id target; expr_ptr value; };
+    struct let_data   { type typ; var_id target; expr_ptr value; };
     struct if_data    { expr cond; stmt_ptr then_branch; stmt_ptr else_branch; };
     struct loop_data  { stmt_ptr body; };
     struct ret_data   { expr_ptr value; };

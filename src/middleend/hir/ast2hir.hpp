@@ -252,7 +252,7 @@ hir::stmt lower_stmt_to_hir( ast::stmt& s, symtab& st )
         case ast::stmt::var_dclr:
         {
             res.kind = hir::stmt::kind_t::let_stmt;
-            hir::stmt::let_data ld{ .target = st.get( s.vdecl.name ).idx };
+            hir::stmt::let_data ld{ .typ = s.vdecl.typ, .target = st.get( s.vdecl.name ).idx };
             if ( s.vdecl.e.has_value() )
                 ld.value = std::make_shared< hir::expr >( lower_expr_to_hir( s.vdecl.e.value(), st ) );
             else
