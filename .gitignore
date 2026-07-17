@@ -20,6 +20,8 @@
 *.swp
 *~
 
+build-debug/
+build-asan/
 build/
 bin/
 debug/

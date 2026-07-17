@@ -1,14 +1,13 @@
 int main()
 {
     int a = 10;
-    int b;
     if ( a < 10 )
     {
-        b = 20;
+        a = a + a;
     }
     else
     {
-        b = 30;
+        a = a * a;
     }
-    return b;
+    return a;
 }

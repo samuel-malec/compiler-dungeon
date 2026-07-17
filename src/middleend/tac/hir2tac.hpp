@@ -22,9 +22,7 @@ struct scope_manager
 
     using symbol_id = uint32_t;
     using value_id = uint32_t;
-
     using scope = std::map< symbol_id, value_id >;
-    value_id next_val_id = 0;
 
     std::vector< scope > scopes;
     std::vector< loop_context > loop_stack;
@@ -44,18 +42,17 @@ struct scope_manager
         return {};
     }
 
-    value bind( uint32_t symbol_id )
+    value bind( uint32_t symbol_id, value fresh )
     {
-        value_id fresh = next_val_id++;
-        scopes.back()[ symbol_id ] = fresh;
-        return value{ .id = fresh };
+        scopes.back()[ symbol_id ] = fresh.id;
+        return fresh;
     }
 };
 
 struct builder
 {
     uint32_t next_value = 0;
-    uint32_t next_label = 0;
+    uint32_t next_label = 1;
 
     std::vector< instr > ins;
     scope_manager sm{};
@@ -105,7 +102,7 @@ struct builder
                 operand arg1 = lower_expr( *data.sub );
                 auto target = create_value();
 
-                unary_data ud{ .op = data.op, .arg1 = lower_expr( *data.sub ), .target = target };
+                unary_data ud{ .op = data.op, .arg1 = arg1, .target = target };
                 emit( ud );
                 return target;
             }
@@ -115,7 +112,7 @@ struct builder
                 auto lhs = lower_expr( *data.left );
                 auto rhs = lower_expr( *data.right );
                 auto target = create_value();
-            
+
                 binary_data bd{ .op = data.op, .arg1 = lhs, .arg2 = rhs, .target = target };
                 emit( bd );
                 return target;
@@ -132,7 +129,6 @@ struct builder
             }
             case hir::expr::call:
             {
-                // FIXME: this seems kinda off but I am sleepy so maybe im missing something...
                 auto data = std::get< hir::expr::call_data >( e.data );
                 auto callee = data.target;
                 std::vector< operand > call_param_locs{};
@@ -182,7 +178,7 @@ struct builder
             case hir::stmt::kind_t::let_stmt:
             {
                 auto data = std::get< hir::stmt::let_data >( s.data );
-                value target = sm.bind( data.target ); 
+                value target = sm.bind( data.target, create_value() ); 
 
                 if ( data.value )
                 {
@@ -268,11 +264,8 @@ struct builder
                     emit( rd );
                     break;
                 }
-                else
-                {
-                    ret_data rd{ .arg = std::nullopt };
-                    emit( rd );
-                }
+                ret_data rd{ .arg = std::nullopt };
+                emit( rd );
                 break;
             }
         }
@@ -289,7 +282,7 @@ tac::function lower_to_tac( hir::fn_def& fn )
     b.sm.push_scope();
     for ( int i = 0; i < fn.params.size(); ++i )
     {
-        value target = b.sm.lookup( fn.params[ i ] );
+        value target = b.sm.bind( fn.params[ i ], b.create_value() );
         get_param_data gpd{ .idx = i, .target = target };
         b.emit( gpd );
     }

@@ -12,10 +12,8 @@ struct ssa_builder
 
     order reverse_postorder( cfg& graph );
     
-    // TODO: compute the dominance trees of a cfg
     void compute_dom_tree( cfg& graph );
 
-    // todo: compute dominance frontiers
     void compute_dom_frontiers( cfg& graph );
 
     void insert_phi( cfg& graph );

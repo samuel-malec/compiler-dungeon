@@ -1,5 +1,6 @@
 #pragma once
 
+#include <algorithm>
 #include <cstdint>
 #include <vector>
 #include <set>
@@ -23,8 +24,9 @@ using bb_ptr = std::unique_ptr< basic_block >;
 
 struct phi_node
 {
-    var_id var;
-    // std::unordered_map< block_id, tac::tmp > incoming;
+    uint32_t base_id;
+    tac::value res;
+    std::unordered_map< block_id, tac::value > incoming;
 };
 
 struct basic_block
@@ -37,9 +39,8 @@ struct basic_block
     std::vector< basic_block* > succ;
     std::vector< basic_block* > pred;
 
-    // ssa-specific info
-    std::vector< basic_block* > dom; // every bb that dominates this block
     basic_block* idom = nullptr; // immediate dominator
+    std::vector< basic_block* > df; // dominator frontier  
 };
 
 struct cfg
@@ -95,10 +96,16 @@ struct cfg_builder
         graph.basic_blocks.clear();
 
         for ( auto& bb : blocks )
-        {
             if ( visited.contains( bb->id ) )
-                graph.basic_blocks.push_back( std::move( bb ) );
+                graph.basic_blocks.push_back( std::move( bb ) ); 
+
+        
+        for ( auto& bb : graph.basic_blocks )
+        {
+            auto is_dead = [ & ] ( basic_block* p ) { return !visited.contains( p->id ); };
+            bb->pred.erase( std::remove_if( bb->pred.begin(), bb->pred.end(), is_dead ), bb->pred.end() );
         }
+
     }
 
     cfg build( const std::vector< tac::instr >& insns )

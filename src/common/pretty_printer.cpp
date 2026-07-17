@@ -411,7 +411,7 @@ std::string pretty_printer::tac_instr_symbolic( tac::instr& i, const atom_map& a
         }
         else if constexpr ( std::is_same_v< T, tac::jump_data > )
         {
-            out << "goto ";
+            out << "jump ";
             out << value.label;
         }
         else if constexpr ( std::is_same_v< T, tac::branch_data > )
@@ -461,6 +461,33 @@ void pretty_printer::print_tac( tac::program& tac, const atom_map& am  )
     }
 }
 
+std::string value_to_string( const tac::value& v, const atom_map& am )
+{
+    std::ostringstream os;
+    if ( am.contains( v.id ) )
+        os << am.at( v.id );
+    else
+        os << "v" << v.id;
+    os << "." << v.version;
+    return os.str();
+}
+
+std::string phi_to_string( const cfg::phi_node& phi, const atom_map& am )
+{
+    std::ostringstream os;
+    os << value_to_string( phi.res, am ) << " = φ(";
+    bool first = true;
+    for ( auto& [ pred_id, val ] : phi.incoming )
+    {
+        if ( !first ) os << ", ";
+        os << "bb" << pred_id << ": " << value_to_string( val, am );
+        first = false;
+    }
+    os << ")";
+    return os.str();
+}
+
+
 void pretty_printer::export_to_dot( cfg::cfg& graph, std::ostream& out, const atom_map& am )
 {
     out << "digraph CFG {\n";
@@ -479,9 +506,38 @@ void pretty_printer::export_to_dot( cfg::cfg& graph, std::ostream& out, const at
         out << "BB " << bb->id << "\\n";
         out << "--------------------------------\\n";
         
+        if ( !bb->phis.empty() )
+        {
+            for ( auto& phi : bb->phis )
+            {
+                std::string s = phi_to_string( phi, am );
+                size_t pos = 0;
+                while ( ( pos = s.find( '"', pos ) ) != std::string::npos )
+                {
+                    s.replace( pos, 1, "\\\"" );
+                    pos += 2;
+                }
+                out << s << "\\n";
+            }
+            out << "................................\\n";
+        }
+
         for ( auto& ins : bb->instructions )
         {
-            std::string inst_str = tac_instr_symbolic( ins, am );
+            std::string inst_str = "";
+            
+            if ( std::holds_alternative< tac::branch_data >( ins.data ) )
+            {
+                std::ostringstream os;
+                os << "branch ";
+                auto bd = std::get< tac::branch_data >( ins.data );
+                os << tac_operand_to_string( bd.arg1, am );
+                inst_str = os.str();
+            }
+            else if ( std::holds_alternative< tac::jump_data >( ins.data ) )
+                inst_str = "jump";
+            else
+                inst_str = tac_instr_symbolic( ins, am );
             
             size_t pos = 0;
             while ( ( pos = inst_str.find( '"', pos ) ) != std::string::npos )
