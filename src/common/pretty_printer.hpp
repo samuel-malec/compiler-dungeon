@@ -42,7 +42,7 @@ struct pretty_printer
 
     std::string tac_val_to_string( const tac::value& v, const atom_map& am )
     {
-        return "v" + std::to_string( v.id );
+        return "v" + std::to_string( v.id ) + "." + std::to_string( v.version );
     }
 
     void print_expr( expr& e, int depth );

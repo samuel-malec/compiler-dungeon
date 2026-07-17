@@ -7,6 +7,9 @@
 
 #include "../../frontend/types.hpp"
 
+// TODO: this was designed before ssa and everything was beautiful,
+// now we are forced to do this variant bs, I will probably rewrite instruction into a single struct
+// without variant data once I have time.
 namespace dungeon::tac
 {
 
@@ -16,7 +19,7 @@ using fn_id = uint32_t;
 
 struct value
 {
-    value_id id; // identity of the original definition site
+    value_id id;
     uint32_t version = 0;
 };
 
@@ -92,36 +95,70 @@ struct ret_data
 struct instr
 {
     using data_type = std::variant< 
-                    unary_data,
-                    binary_data,
-                    copy_data,
-                    jump_data,
-                    branch_data,
-                    param_data,
-                    get_param_data,
-                    call_data,
-                    label_data,
-                    ret_data>;
+                        unary_data,
+                        binary_data,
+                        copy_data,
+                        jump_data,
+                        branch_data,
+                        param_data,
+                        get_param_data,
+                        call_data,
+                        label_data,
+                        ret_data >;
     data_type data;
+
+    void for_each_use( auto&& f )   // f(value&) called on every read operand
+    {
+        auto visit_operand = [ & ]( operand& o )
+        {
+            if ( auto* v = std::get_if< value >( &o ) )
+                f( *v );
+        };
+
+        std::visit( [ & ]( auto&& d )
+        {
+            using T = std::decay_t< decltype( d ) >;
+            if constexpr ( std::is_same_v< T, unary_data > )
+                visit_operand( d.arg1 );
+            else if constexpr ( std::is_same_v< T, binary_data > )
+            {
+                visit_operand( d.arg1 );
+                visit_operand( d.arg2 );
+            }
+            else if constexpr ( std::is_same_v< T, copy_data > )
+                visit_operand( d.arg1 );
+            else if constexpr ( std::is_same_v< T, branch_data > )
+                visit_operand( d.arg1 );
+            else if constexpr ( std::is_same_v< T, param_data > )
+                visit_operand( d.arg );
+            else if constexpr ( std::is_same_v< T, ret_data > )
+            {
+                if ( d.arg )
+                    visit_operand( *d.arg );
+            }
+        }, data );
+    }
+
+    void set_target( value new_target )
+    {
+        std::visit( [ & ]( auto&& d )
+        {
+            using T = std::decay_t< decltype( d ) >;
+            if constexpr ( requires { d.target; } )
+                d.target = new_target;
+        }, data );
+    }
 
     std::optional< value > get_target()
     {
-        if ( std::holds_alternative< unary_data >( data ) )
-            return std::get< unary_data >( data ).target;
-
-        if ( std::holds_alternative< binary_data >( data ) )
-            return std::get< binary_data >( data ).target;
-
-        if ( std::holds_alternative< copy_data >( data ) )
-            return std::get< copy_data >( data ).target;
-
-        if ( std::holds_alternative< get_param_data >( data ) )
-            return std::get< get_param_data >( data ).target;
-
-        if ( std::holds_alternative< unary_data >( data ) )
-            return std::get< call_data >( data ).target;
-        
-            return {};
+        return std::visit( [ ]( auto&& d ) -> std::optional< value >
+        {
+            using T = std::decay_t< decltype( d ) >;
+            if constexpr ( requires { d.target; } )
+                return d.target;
+            else
+                return std::nullopt;
+        }, data );
     }
 };
 

@@ -6,7 +6,11 @@
 
 namespace dungeon::cfg
 {
+    using value_id = uint32_t;
     using order = std::vector< basic_block* >;
+
+    using version_map = std::map< value_id, uint32_t >; 
+    using stack = std::map< value_id, std::vector< tac::value > >; 
 
     void dfs( basic_block* bb, order& res, std::set< block_id >& visited )
     {
@@ -18,7 +22,7 @@ namespace dungeon::cfg
         res.push_back( bb );
     }
 
-    order ssa_builder::reverse_postorder( cfg& graph )
+    order reverse_postorder( cfg& graph )
     {
         order res{};
         std::set< block_id > visited{};
@@ -44,7 +48,7 @@ namespace dungeon::cfg
         return bb1;
     }
 
-    void ssa_builder::compute_dom_tree( cfg& graph )
+    void compute_dom_tree( cfg& graph )
     {
         order rpo = reverse_postorder( graph );
         
@@ -78,7 +82,7 @@ namespace dungeon::cfg
                 {
                     if ( p->id == new_idom->id )
                         continue;
-                    
+
                     if ( p->idom != nullptr )
                         new_idom = intersect( graph, p, new_idom );
                 }
@@ -91,18 +95,18 @@ namespace dungeon::cfg
             }
         }
 
-        std::cout << "printing idom\n";
         for ( auto& bb : graph.basic_blocks )
-            std::cout << "idom( bb" << bb->id << " ) = bb" << bb->idom->id << '\n';
+            if ( bb.get() != graph.entry )
+                bb->idom->dom_children.push_back( bb.get() );
     }
 
-    void ssa_builder::compute_dom_frontiers( cfg& graph )
+    void compute_dom_frontiers( cfg& graph )
     {
         for ( auto& bb : graph.basic_blocks )
         {
             if ( bb->pred.size() < 2 )
                 continue;
-            
+
             for ( auto& p : bb->pred )
             {
                 basic_block* runner = p;
@@ -123,7 +127,7 @@ namespace dungeon::cfg
         }
     }
 
-    void ssa_builder::insert_phi( cfg& graph )
+    void insert_phi( cfg& graph )
     {
         std::set< tac::value > vars;
         std::map< uint32_t, std::set< basic_block* > > def_blocks;
@@ -168,12 +172,53 @@ namespace dungeon::cfg
                 }
             }
         }
-
     }
 
-    void ssa_builder::rename( cfg& graph )
+    void rename( basic_block* block, version_map& vm, stack& s )
     {
+        std::map< value_id, int > pushed;
 
+        auto fresh = [ & ]( value_id id ) -> tac::value
+        {
+            tac::value nv{ .id = id, .version = vm[ id ]++ };
+            s[ id ].push_back( nv );
+            pushed[ id ]++;
+            return nv;
+        };
+
+        for ( auto& phi : block->phis )
+            phi.res = fresh( phi.base_id );
+
+        for ( auto& ins : block->instructions )
+        {
+            ins.for_each_use( [ & ]( tac::value& v )
+            {
+                auto& tmp = s[ v.id ];
+                if ( !tmp.empty() )
+                    v = tmp.back();
+                // empty : use before any reaching def
+            } );
+        
+            if ( auto d = ins.get_target() )
+                ins.set_target( fresh( d->id ) );   
+        }
+
+        for ( basic_block* succ : block->succ )
+        {
+            for ( auto& phi : succ->phis )
+            {
+                auto& tmp = s[ phi.base_id ];
+                if ( !tmp.empty() )
+                    phi.incoming[ block->id ] = tmp.back();
+            }
+        }
+
+        for ( basic_block* child : block->dom_children )
+            rename( child, vm, s );
+
+        for ( auto& [ id, n ] : pushed )
+            for ( int k = 0; k < n; ++k )
+                s[ id ].pop_back();
     }
 
     void ssa_builder::transform_ssa( cfg& graph )
@@ -181,6 +226,9 @@ namespace dungeon::cfg
         compute_dom_tree( graph );
         compute_dom_frontiers( graph );
         insert_phi( graph );
-        rename( graph );
+
+        version_map vm;
+        stack s; 
+        rename( graph.entry, vm, s );
     }
 }

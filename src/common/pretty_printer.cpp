@@ -464,11 +464,7 @@ void pretty_printer::print_tac( tac::program& tac, const atom_map& am  )
 std::string value_to_string( const tac::value& v, const atom_map& am )
 {
     std::ostringstream os;
-    if ( am.contains( v.id ) )
-        os << am.at( v.id );
-    else
-        os << "v" << v.id;
-    os << "." << v.version;
+    os << "v" << v.id << "." << v.version;
     return os.str();
 }
 
@@ -486,7 +482,6 @@ std::string phi_to_string( const cfg::phi_node& phi, const atom_map& am )
     os << ")";
     return os.str();
 }
-
 
 void pretty_printer::export_to_dot( cfg::cfg& graph, std::ostream& out, const atom_map& am )
 {

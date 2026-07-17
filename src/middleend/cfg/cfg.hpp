@@ -40,7 +40,8 @@ struct basic_block
     std::vector< basic_block* > pred;
 
     basic_block* idom = nullptr; // immediate dominator
-    std::vector< basic_block* > df; // dominator frontier  
+    std::vector< basic_block* > df; // dominator frontier
+    std::vector< basic_block* > dom_children; 
 };
 
 struct cfg
