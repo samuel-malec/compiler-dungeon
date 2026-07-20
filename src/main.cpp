@@ -7,10 +7,10 @@ int main( int argc, char* const* argv )
 {
     --argc;
     ++argv;
-    dungeon::compiler compiler{};
     try
     {
         auto conf = dungeon::parse_config( argc, argv );
+        dungeon::compiler compiler{};
         compiler.run( conf );
     }
     // todo: create something like diagnostic { warn, err } and catch this diagnostic& and print errors nicely

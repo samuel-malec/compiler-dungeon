@@ -8,7 +8,7 @@
 #include <optional>
 #include <vector>
 
-#include "types.hpp"
+#include "../sema/types.hpp"
 #include "token.hpp"
 
 namespace dungeon::ast {

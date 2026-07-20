@@ -4,12 +4,11 @@
 #include "../common/pretty_printer.hpp"
 
 #include "../frontend/parser.hpp"
-#include "../frontend/semantic.hpp"
+#include "../sema/semantic.hpp"
 #include "../frontend/token.hpp"
 
 #include "../middleend/hir/ast2hir.hpp"
 #include "../middleend/tac/hir2tac.hpp"
-
 #include "../middleend/cfg/cfg.hpp"
 #include "../middleend/cfg/ssa.hpp"
 
@@ -54,7 +53,5 @@ namespace dungeon
                 printer.export_to_dot( cfg, out, sa.st.reverse_map );
             }
         }
-
-
     }
 }

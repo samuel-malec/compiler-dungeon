@@ -10,7 +10,7 @@
 #include <vector>
 
 #include "types.hpp"
-#include "ast.hpp"
+#include "../frontend/ast.hpp"
 
 namespace dungeon
 {

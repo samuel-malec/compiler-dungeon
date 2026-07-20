@@ -9,7 +9,7 @@
 
 #include "ast.hpp"
 #include "lexer.hpp"
-#include "types.hpp"
+#include "../sema/types.hpp"
 
 namespace dungeon
 {

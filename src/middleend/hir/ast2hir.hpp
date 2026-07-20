@@ -3,7 +3,7 @@
 #include <iostream>
 
 #include "../../frontend/ast.hpp"
-#include "../../frontend/types.hpp"
+#include "../../sema/types.hpp"
 #include "hir.hpp"
 
 namespace dungeon::hir

@@ -6,7 +6,7 @@
 #include <variant>
 
 #include "../frontend/ast.hpp"
-#include "../frontend/semantic.hpp"
+#include "../sema/semantic.hpp"
 #include "../middleend/cfg/cfg.hpp"
 #include "../middleend/tac/tac.hpp"
 #include "../middleend/hir/hir.hpp"

@@ -5,11 +5,8 @@
 #include <optional>
 #include <vector>
 
-#include "../../frontend/types.hpp"
+#include "../../sema/types.hpp"
 
-// TODO: this was designed before ssa and everything was beautiful,
-// now we are forced to do this variant bs, I will probably rewrite instruction into a single struct
-// without variant data once I have time.
 namespace dungeon::tac
 {
 
@@ -107,7 +104,7 @@ struct instr
                         ret_data >;
     data_type data;
 
-    void for_each_use( auto&& f )   // f(value&) called on every read operand
+    void for_each_use( auto&& f )
     {
         auto visit_operand = [ & ]( operand& o )
         {
