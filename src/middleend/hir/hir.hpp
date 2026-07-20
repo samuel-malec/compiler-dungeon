@@ -1,5 +1,6 @@
 #pragma once
 
+#include <variant>
 #include <cstdint>
 #include <memory>
 
@@ -19,20 +20,7 @@ using stmt_ptr = std::shared_ptr< stmt >;
 
 struct expr
 {
-    enum kind_t
-    {
-        int_lit,
-        bool_lit,
-        var_ref,
-        unary,
-        binary,
-        assign,
-        call,
-        cast
-    } kind;
-
     type typ;
-
     struct var_ref_data { var_id id; };
     struct unary_data   { op_kind op; expr_ptr sub; };
     struct binary_data  { op_kind op; expr_ptr left; expr_ptr right; };
@@ -52,32 +40,25 @@ struct expr
 
 struct stmt
 {
-    enum class kind_t 
-    {
-        expr_stmt,
-        block,
-        let_stmt,
-        if_stmt,
-        loop_stmt,
-        brk,
-        cont,
-        ret
-    } kind;
-
+    struct expr_data  { expr e; };
     struct block_data { std::vector< stmt > stmts; };
     struct let_data   { type typ; var_id target; expr_ptr value; };
     struct if_data    { expr cond; stmt_ptr then_branch; stmt_ptr else_branch; };
     struct loop_data  { stmt_ptr body; };
     struct ret_data   { expr_ptr value; };
+    struct brk        {};
+    struct cont       {};
 
     std::variant<
-        expr,
+        expr_data,
         block_data,
         let_data,
         if_data,
         loop_data,
         std::monostate,
-        ret_data
+        ret_data,
+        brk,
+        cont
     > data;
 };
 

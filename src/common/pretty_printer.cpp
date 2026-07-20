@@ -4,6 +4,7 @@ namespace dungeon::print
 {
 // TODO: so far we have been using std::cout, but this is no longer the logical thing to do since we are 
 // past the stage of testing small programs, and instead we should focus on dumping the intermediate representations into a file
+// basically, we should remove the std::cout, pass explicit std::ostream& os argument into all of these functions, seems like pain in the ass
 using expr = ast::expr;
 using stmt = ast::stmt;
 using toplevel = ast::toplevel;
@@ -199,143 +200,125 @@ void pretty_printer::print_hir_expr( hir::expr& e, int depth, const atom_map& am
 {
     pad( depth );
     std::cout << "[hir:" << e.typ << "] ";
-
-    switch ( e.kind )
+    if ( std::holds_alternative< uint64_t >( e.data ) )
+        std::cout << "[int_lit] " << std::get< uint64_t >( e.data ) << "\n";
+    else if ( std::holds_alternative< bool >( e.data ) ) 
+        std::cout << "[bool_lit] " << ( std::get< bool >( e.data ) ? "true" : "false" ) << "\n";
+    
+    else if ( std::holds_alternative< hir::expr::var_ref_data >( e.data ) ) 
     {
-        case hir::expr::int_lit:
-            std::cout << "[int_lit] " << std::get< uint64_t >( e.data ) << "\n";
-            break;
-        case hir::expr::bool_lit:
-            std::cout << "[bool_lit] " << ( std::get< bool >( e.data ) ? "true" : "false" ) << "\n";
-            break;
-        case hir::expr::var_ref:
-        {
-            auto data = std::get< hir::expr::var_ref_data >( e.data );
-            std::cout << "[var_ref] " << am.at( data.id ) << "\n";
-            break;
-        }
-        case hir::expr::unary:
-        {
-            auto data = std::get< hir::expr::unary_data >( e.data );
-            std::cout << "[unary " << data.op << "]\n";
-            if ( data.sub ) print_hir_expr( *data.sub, depth + 1, am );
-            break;
-        }
-        case hir::expr::binary:
-        {
-            auto data = std::get< hir::expr::binary_data >( e.data );
-            std::cout << "[binary " << data.op << "]\n";
-            if ( data.left )  print_hir_expr( *data.left, depth + 1, am );
-            if ( data.right ) print_hir_expr( *data.right, depth + 1, am );
-            break;
-        }
-        case hir::expr::assign:
-        {
-            auto data = std::get< hir::expr::assign_data >( e.data );
-            std::cout << "[assign] v" << data.target << "\n";
-            if ( data.value ) print_hir_expr( *data.value, depth + 1, am );
-            break;
-        }
-        case hir::expr::call:
-        {
-            auto data = std::get< hir::expr::call_data >( e.data );
-            std::cout << "[call] f" << data.target << "\n";
-            pad( depth + 1 );
-            std::cout << "[args]\n";
-            for ( const auto& arg : data.args )
-            {
-                if ( arg ) print_hir_expr( *arg, depth + 2, am );
-            }
-            break;
-        }
-        case hir::expr::cast:
-            std::cout << "[cast]\n";
-            break;
+        auto data = std::get< hir::expr::var_ref_data >( e.data );
+        std::cout << "[var_ref] " << am.at( data.id ) << "\n";
     }
+
+    else if ( std::holds_alternative< hir::expr::unary_data >( e.data ) ) 
+    {
+        auto data = std::get< hir::expr::unary_data >( e.data );
+        std::cout << "[unary " << data.op << "]\n";
+        if ( data.sub ) print_hir_expr( *data.sub, depth + 1, am );
+    }
+
+    else if ( std::holds_alternative< hir::expr::binary_data >( e.data ) ) 
+    {
+        auto data = std::get< hir::expr::binary_data >( e.data );
+        std::cout << "[binary " << data.op << "]\n";
+        if ( data.left )  print_hir_expr( *data.left, depth + 1, am );
+        if ( data.right ) print_hir_expr( *data.right, depth + 1, am );
+    }
+
+    else if ( std::holds_alternative< hir::expr::assign_data >( e.data ) ) 
+    {
+        auto data = std::get< hir::expr::assign_data >( e.data );
+        std::cout << "[assign] v" << data.target << "\n";
+        if ( data.value ) print_hir_expr( *data.value, depth + 1, am );
+    }
+
+    else if ( std::holds_alternative< hir::expr::call_data >( e.data ) ) 
+    {
+        auto data = std::get< hir::expr::call_data >( e.data );
+        std::cout << "[call] f" << data.target << "\n";
+        pad( depth + 1 );
+        std::cout << "[args]\n";
+        for ( const auto& arg : data.args )
+            if ( arg ) print_hir_expr( *arg, depth + 2, am );
+    }
+    // case hir::expr::cast:
+    //     std::cout << "[cast]\n";
+    //     break;
+    // }
 }
 
 void pretty_printer::print_hir_stmt( hir::stmt& s, int depth, const atom_map& am )
 {
     pad( depth );
-    switch ( s.kind )
+    if ( std::holds_alternative< hir::stmt::expr_data >( s.data ) )
     {
-        case hir::stmt::kind_t::expr_stmt:
+        std::cout << "[expr_stmt]\n";
+        print_hir_expr( std::get< hir::stmt::expr_data >( s.data ).e, depth + 1, am );
+    }
+    else if ( std::holds_alternative< hir::stmt::block_data >( s.data ) )
+    {
+        std::cout << "[block]\n";
+        auto data = std::get< hir::stmt::block_data >( s.data );
+        for ( auto& sub_stmt : data.stmts )
+            print_hir_stmt( sub_stmt, depth + 1, am );
+    }
+
+    else if ( std::holds_alternative< hir::stmt::let_data >( s.data ) )
+    {
+        auto data = std::get< hir::stmt::let_data >( s.data );
+        std::cout << "[let_stmt] " << data.typ << " " << am.at( data.target ) << "\n";
+        if ( data.value ) 
+            print_hir_expr( *data.value, depth + 1, am );
+    }
+
+    else if ( std::holds_alternative< hir::stmt::if_data >( s.data ) )
+    {
+        auto data = std::get< hir::stmt::if_data >( s.data );
+        std::cout << "[if_stmt]\n";
+        pad( depth + 1 );
+        std::cout << "[cond]\n";
+        print_hir_expr( data.cond, depth + 2, am );
+        
+        if ( data.then_branch )
         {
-            std::cout << "[expr_stmt]\n";
-            print_hir_expr( std::get< hir::expr >( s.data ), depth + 1, am );
-            break;
-        }
-        case hir::stmt::kind_t::block:
-        {
-            std::cout << "[block]\n";
-            auto data = std::get< hir::stmt::block_data >( s.data );
-            for ( auto& sub_stmt : data.stmts )
-            {
-                print_hir_stmt( sub_stmt, depth + 1, am );
-            }
-            break;
-        }
-        case hir::stmt::kind_t::let_stmt:
-        {
-            auto data = std::get< hir::stmt::let_data >( s.data );
-            std::cout << "[let_stmt] " << data.typ << " " << am.at( data.target ) << "\n";
-            if ( data.value ) 
-                print_hir_expr( *data.value, depth + 1, am );
-            break;
-        }
-        case hir::stmt::kind_t::if_stmt:
-        {
-            auto data = std::get< hir::stmt::if_data >( s.data );
-            std::cout << "[if_stmt]\n";
             pad( depth + 1 );
-            std::cout << "[cond]\n";
-            print_hir_expr( data.cond, depth + 2, am );
-            
-            if ( data.then_branch )
-            {
-                pad( depth + 1 );
-                std::cout << "[then]\n";
-                print_hir_stmt( *data.then_branch, depth + 2, am );
-            }
-            if ( data.else_branch )
-            {
-                pad( depth + 1 );
-                std::cout << "[else]\n";
-                print_hir_stmt( *data.else_branch, depth + 2, am );
-            }
-            break;
+            std::cout << "[then]\n";
+            print_hir_stmt( *data.then_branch, depth + 2, am );
         }
-        case hir::stmt::kind_t::loop_stmt:
+        if ( data.else_branch )
         {
-            auto data = std::get< hir::stmt::loop_data >( s.data );
-            std::cout << "[loop_stmt]\n";
-            if ( data.body ) 
-                print_hir_stmt( *data.body, depth + 1, am );
-            break;
+            pad( depth + 1 );
+            std::cout << "[else]\n";
+            print_hir_stmt( *data.else_branch, depth + 2, am );
         }
-        case hir::stmt::kind_t::brk:
-            std::cout << "[break]\n";
-            break;
+    }
 
-        case hir::stmt::kind_t::cont:
-            std::cout << "[continue]\n";
-            break;
+    else if ( std::holds_alternative< hir::stmt::loop_data >( s.data ) )
+    {
+        auto data = std::get< hir::stmt::loop_data >( s.data );
+        std::cout << "[loop_stmt]\n";
+        if ( data.body ) 
+            print_hir_stmt( *data.body, depth + 1, am );
+    }
 
-        case hir::stmt::kind_t::ret:
+    else if ( std::holds_alternative< hir::stmt::brk >( s.data ) )
+        std::cout << "[break]\n";
+
+    else if ( std::holds_alternative< hir::stmt::cont >( s.data ) )
+        std::cout << "[continue]\n";
+
+    else if ( std::holds_alternative< hir::stmt::ret_data >( s.data ) )
+    {
+        auto data = std::get< hir::stmt::ret_data >( s.data );
+        std::cout << "[ret]";
+        if ( data.value )
         {
-            auto data = std::get< hir::stmt::ret_data >( s.data );
-            std::cout << "[ret]";
-            if ( data.value )
-            {
-                std::cout << "\n";
-                print_hir_expr( *data.value, depth + 1, am );
-            }
-            else
-            {
-                std::cout << " {}\n";
-            }
-            break;
+            std::cout << "\n";
+            print_hir_expr( *data.value, depth + 1, am );
         }
+        else
+            std::cout << " {}\n";
     }
 }
 

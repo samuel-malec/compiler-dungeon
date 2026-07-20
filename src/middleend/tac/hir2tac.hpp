@@ -81,195 +81,181 @@ struct builder
 
     operand lower_expr( hir::expr& e )
     {
-        switch ( e.kind )
+        if ( std::holds_alternative< uint64_t >( e.data ) )
+            return constant{ std::get< uint64_t >( e.data ) };
+        if ( std::holds_alternative< bool >( e.data ) )
+            return constant{ std::get< bool >( e.data ) };
+        if ( std::holds_alternative< hir::expr::var_ref_data >( e.data ) )
         {
-            case hir::expr::int_lit:
-            {
-                return constant{ std::get< uint64_t >( e.data ) };
-            }
-            case hir::expr::bool_lit:
-            {
-                return constant{ std::get< bool >( e.data ) };
-            }
-            case hir::expr::var_ref:
-            {
-                auto data = std::get< hir::expr::var_ref_data >( e.data );
-                return sm.lookup( data.id );
-            }
-            case hir::expr::unary:
-            {
-                auto data = std::get< hir::expr::unary_data >( e.data );
-                operand arg1 = lower_expr( *data.sub );
-                auto target = create_value();
-
-                unary_data ud{ .op = data.op, .arg1 = arg1, .target = target };
-                emit( ud );
-                return target;
-            }
-            case hir::expr::binary:
-            {
-                auto data = std::get< hir::expr::binary_data >( e.data );
-                auto lhs = lower_expr( *data.left );
-                auto rhs = lower_expr( *data.right );
-                auto target = create_value();
-
-                binary_data bd{ .op = data.op, .arg1 = lhs, .arg2 = rhs, .target = target };
-                emit( bd );
-                return target;
-            }
-            case hir::expr::assign:
-            {
-                auto data = std::get< hir::expr::assign_data >( e.data );
-                operand arg1 = lower_expr( *data.value );
-                value target = sm.lookup( data.target );
-
-                copy_data cd{ .arg1 = arg1, .target = target };
-                emit( cd );
-                return target;
-            }
-            case hir::expr::call:
-            {
-                auto data = std::get< hir::expr::call_data >( e.data );
-                auto callee = data.target;
-                std::vector< operand > call_param_locs{};
-                for ( int i = 0; i < data.args.size(); ++ i )
-                    call_param_locs.push_back( lower_expr( *data.args[ i ] ) );
-                
-                for ( auto tmp : call_param_locs )
-                {
-                    param_data pd{ .arg = tmp };
-                    emit( pd );
-                }
-                
-                auto target = create_value();
-                call_data cd{ .callee = callee, .args = static_cast< int >( call_param_locs.size() ), .target = target };
-                emit( cd );
-                return target;
-            }
-            case hir::expr::cast:
-            {
-                break;
-            }   
-            default:
-                break;
+            auto data = std::get< hir::expr::var_ref_data >( e.data );
+            return sm.lookup( data.id );
         }
+        if ( std::holds_alternative< hir::expr::unary_data >( e.data ) )
+        {
+            auto data = std::get< hir::expr::unary_data >( e.data );
+            operand arg1 = lower_expr( *data.sub );
+            auto target = create_value();
 
+            unary_data ud{ .op = data.op, .arg1 = arg1, .target = target };
+            emit( ud );
+            return target;
+        }
+        if ( std::holds_alternative< hir::expr::binary_data >( e.data ) )
+        {
+            auto data = std::get< hir::expr::binary_data >( e.data );
+            auto lhs = lower_expr( *data.left );
+            auto rhs = lower_expr( *data.right );
+            auto target = create_value();
+
+            binary_data bd{ .op = data.op, .arg1 = lhs, .arg2 = rhs, .target = target };
+            emit( bd );
+            return target;
+        }
+        if ( std::holds_alternative< hir::expr::assign_data >( e.data ) )
+        {
+            auto data = std::get< hir::expr::assign_data >( e.data );
+            operand arg1 = lower_expr( *data.value );
+            value target = sm.lookup( data.target );
+
+            copy_data cd{ .arg1 = arg1, .target = target };
+            emit( cd );
+            return target;
+        }
+        if ( std::holds_alternative< hir::expr::call_data >( e.data ) )
+        {
+            auto data = std::get< hir::expr::call_data >( e.data );
+            auto callee = data.target;
+            std::vector< operand > call_param_locs{};
+            for ( int i = 0; i < data.args.size(); ++ i )
+                call_param_locs.push_back( lower_expr( *data.args[ i ] ) );
+            
+            for ( auto tmp : call_param_locs )
+            {
+                param_data pd{ .arg = tmp };
+                emit( pd );
+            }
+            
+            auto target = create_value();
+            call_data cd{ .callee = callee, .args = static_cast< int >( call_param_locs.size() ), .target = target };
+            emit( cd );
+            return target;
+        }
+        if ( std::holds_alternative< hir::expr::call_data >( e.data ) )
+            assert( false );
+ 
         assert( false );
     }
 
     void lower_stmt( hir::stmt& s )
     {
-        switch ( s.kind )
+        if ( std::holds_alternative< hir::stmt::expr_data >( s.data ) )
         {
-            case hir::stmt::kind_t::expr_stmt:
-            {
-                lower_expr( std::get< hir::expr >( s.data ) );
-                break;
-            }
-            case hir::stmt::kind_t::block:
-            {
-                auto data = std::get< hir::stmt::block_data >( s.data );
-                sm.push_scope();
-                for ( auto& sub_stmt : data.stmts )
-                    lower_stmt( sub_stmt );
-                sm.pop_scope();
-                break;
-            }
-            case hir::stmt::kind_t::let_stmt:
-            {
-                auto data = std::get< hir::stmt::let_data >( s.data );
-                value target = sm.bind( data.target, create_value() ); 
-
-                if ( data.value )
-                {
-                    operand arg1 = lower_expr( *data.value );
-                    copy_data cd{ .arg1 = arg1, .target = target };
-                    emit( cd );
-                }
-                else if ( data.typ.as_primitive() == BOOL )
-                {
-                    copy_data cd{ .arg1 = constant{ false }, .target = target };
-                    emit( cd );
-                }
-                else if ( data.typ.as_primitive() == INT )
-                {
-                    copy_data cd{ .arg1 = constant{ uint64_t{ 0 } }, .target = target };
-                    emit( cd );
-                }
-                else
-                    assert( false );
-                break;
-            }
-            case hir::stmt::kind_t::if_stmt:
-            {
-                auto data = std::get< hir::stmt::if_data >( s.data );
-                operand cond_tmp = lower_expr( data.cond );
-                label_id then_label = create_label();
-                label_id else_label = create_label();
-                label_id end_label = create_label();
-               
-                branch_data jd{ .arg1 = cond_tmp, .true_lab = then_label, .false_lab = data.else_branch ? else_label : end_label };
-                emit( jd );
-
-                add_label( then_label );
-                lower_stmt( *data.then_branch );
-                emit( jump_data{ .label = end_label } );
-
-                if ( data.else_branch )
-                {
-                    add_label( else_label );
-                    lower_stmt( *data.else_branch );
-                    emit( jump_data{ .label = end_label } );
-                }
-
-                add_label( end_label );
-                break;
-            }
-            case hir::stmt::kind_t::loop_stmt:
-            {
-                auto data = std::get< hir::stmt::loop_data >( s.data );
-                auto head_lab = create_label();
-                auto exit_lab = create_label();
-                sm.loop_stack.push_back( { .continue_target = head_lab, .break_target = exit_lab } );
-                
-                add_label( head_lab );
-                if ( data.body )
-                    lower_stmt( *data.body );
-                
-                emit( jump_data{ .label = head_lab } );
-                add_label( exit_lab );
-
-                sm.loop_stack.pop_back();
-                break;
-            }
-            case hir::stmt::kind_t::brk:
-            {
-                auto curr = sm.loop_stack.back();
-                emit( jump_data{ .label = curr.break_target } );
-                break;
-            }
-            case hir::stmt::kind_t::cont:
-            { 
-                auto curr = sm.loop_stack.back();
-                emit( jump_data{ .label = curr.continue_target } );
-                break;
-            }
-            case hir::stmt::kind_t::ret:
-            {
-                auto data = std::get< hir::stmt::ret_data >( s.data );
-                if ( data.value )
-                {
-                    operand arg1 = lower_expr( *data.value );
-                    ret_data rd{ .arg = arg1 };
-                    emit( rd );
-                    break;
-                }
-                ret_data rd{ .arg = std::nullopt };
-                emit( rd );
-                break;
-            }
+            lower_expr( std::get< hir::stmt::expr_data >( s.data ).e );
+            return;
         }
-    }     
+        if ( std::holds_alternative< hir::stmt::block_data >( s.data ) )
+        {
+            auto data = std::get< hir::stmt::block_data >( s.data );
+            sm.push_scope();
+            for ( auto& sub_stmt : data.stmts )
+                lower_stmt( sub_stmt );
+            sm.pop_scope();
+            return;
+        }
+        if ( std::holds_alternative< hir::stmt::let_data >( s.data ) )
+        {
+            auto data = std::get< hir::stmt::let_data >( s.data );
+            value target = sm.bind( data.target, create_value() ); 
+
+            if ( data.value )
+            {
+                operand arg1 = lower_expr( *data.value );
+                copy_data cd{ .arg1 = arg1, .target = target };
+                emit( cd );
+            }
+            else if ( data.typ.as_primitive() == BOOL )
+            {
+                copy_data cd{ .arg1 = constant{ false }, .target = target };
+                emit( cd );
+            }
+            else if ( data.typ.as_primitive() == INT )
+            {
+                copy_data cd{ .arg1 = constant{ uint64_t{ 0 } }, .target = target };
+                emit( cd );
+            }
+            else
+                assert( false );
+            return;
+        }
+        if ( std::holds_alternative< hir::stmt::if_data >( s.data ) )
+        {
+            auto data = std::get< hir::stmt::if_data >( s.data );
+            operand cond_tmp = lower_expr( data.cond );
+            label_id then_label = create_label();
+            label_id else_label = create_label();
+            label_id end_label = create_label();
+            
+            branch_data jd{ .arg1 = cond_tmp, .true_lab = then_label, .false_lab = data.else_branch ? else_label : end_label };
+            emit( jd );
+
+            add_label( then_label );
+            lower_stmt( *data.then_branch );
+            emit( jump_data{ .label = end_label } );
+
+            if ( data.else_branch )
+            {
+                add_label( else_label );
+                lower_stmt( *data.else_branch );
+                emit( jump_data{ .label = end_label } );
+            }
+
+            add_label( end_label );
+            return;
+        }
+        if ( std::holds_alternative< hir::stmt::loop_data >( s.data ) )
+        {
+            auto data = std::get< hir::stmt::loop_data >( s.data );
+            auto head_lab = create_label();
+            auto exit_lab = create_label();
+            sm.loop_stack.push_back( { .continue_target = head_lab, .break_target = exit_lab } );
+            
+            add_label( head_lab );
+            if ( data.body )
+                lower_stmt( *data.body );
+            
+            emit( jump_data{ .label = head_lab } );
+            add_label( exit_lab );
+
+            sm.loop_stack.pop_back();
+            return;
+        }
+        if ( std::holds_alternative< hir::stmt::brk >( s.data ) )
+        {
+            auto curr = sm.loop_stack.back();
+            emit( jump_data{ .label = curr.break_target } );
+            return;
+        }
+        if ( std::holds_alternative< hir::stmt::cont >( s.data ) )
+        { 
+            auto curr = sm.loop_stack.back();
+            emit( jump_data{ .label = curr.continue_target } );
+            return;
+        }
+        if ( std::holds_alternative< hir::stmt::brk >( s.data ) )
+        {
+            auto data = std::get< hir::stmt::ret_data >( s.data );
+            if ( data.value )
+            {
+                operand arg1 = lower_expr( *data.value );
+                ret_data rd{ .arg = arg1 };
+                emit( rd );
+                return;
+            }
+            ret_data rd{ .arg = std::nullopt };
+            emit( rd );
+            return;
+        }
+    }
 };
 
 tac::function lower_to_tac( hir::fn_def& fn )

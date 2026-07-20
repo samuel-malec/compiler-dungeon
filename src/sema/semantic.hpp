@@ -49,7 +49,7 @@ struct symtab
     };
     
     std::map< std::string, uint32_t, std::less<> > map;
-    std::map< uint32_t, std::string > reverse_map; // this one is for debugging/printing purposes, we should remove it in the future
+    std::map< uint32_t, std::string > reverse_map;
 
     std::vector< scope > scopes;
 
