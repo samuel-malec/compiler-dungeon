@@ -1,0 +1,3 @@
+Incomplete list of known issues/potential things I want to improve:
+1. It was nice experimenting with union-style ast, but I think that it will become impractical once we add structs, enum declarations -> separate concerns and create variants for ast-node-specific data
+2. Currently the semantical analysis is the weakest part, the symbol currently contains only the type; it should contain more sophisticated information

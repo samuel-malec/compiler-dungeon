@@ -13,6 +13,7 @@ int main( int argc, char* const* argv )
         dungeon::compiler compiler{};
         compiler.run( conf );
     }
+
     // todo: create something like diagnostic { warn, err } and catch this diagnostic& and print errors nicely
     catch( const std::exception& e )
     {

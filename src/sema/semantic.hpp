@@ -12,6 +12,8 @@
 #include "types.hpp"
 #include "../frontend/ast.hpp"
 
+// TODO: we should make this more sophisticated, 
+// like create a proper symbol struct and use it instead of a plain name -> type mapping...
 namespace dungeon
 {
 
@@ -341,7 +343,7 @@ struct semantic_analyzer
 
                 for ( int i = 3; i < s.subs.size(); ++ i )
                     resolve_stmt( s.subs[ i ], st );
-                
+                st.pop_scope(); 
                 break;
             }
 
@@ -357,6 +359,7 @@ struct semantic_analyzer
                 st.push_scope( { .cat = scope_cat::loop } );
                 for ( auto& sub : s.subs )
                     resolve_stmt( sub, st );
+                st.pop_scope();
                 break;
             }
             
@@ -371,6 +374,7 @@ struct semantic_analyzer
 
                 st.push_scope( { .cat = scope_cat::loop } );
                 resolve_stmt( s[ 0 ], st );
+                st.pop_scope();
                 break;
             }
 
