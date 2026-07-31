@@ -5,7 +5,7 @@
 #include <optional>
 #include <vector>
 
-#include "../../sema/types.hpp"
+#include "../sema/types.hpp"
 
 namespace dungeon::tac
 {

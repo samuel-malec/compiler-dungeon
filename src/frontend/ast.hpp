@@ -44,7 +44,7 @@ struct expr
     std::vector< expr > subs{};
     type typ;
     op_kind op;
-    
+ 
     expr& operator[]( int n )
     {
         assert( n < subs.size() );

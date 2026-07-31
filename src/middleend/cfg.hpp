@@ -9,7 +9,7 @@
 #include <unordered_map>
 #include <variant>
 
-#include "../tac/tac.hpp"
+#include "tac.hpp"
 
 namespace dungeon::cfg
 {

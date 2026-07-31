@@ -36,7 +36,7 @@ inline config parse_config( int argc, char* const* argv )
     if ( strcmp( argv[ 0 ], "-h" ) == 0 )
     {
         help();
-        exit( 0 ); // ehh, this is probably not really what we want 
+        exit( 0 );
     }
 
     std::string file_in = argv[ 0 ];

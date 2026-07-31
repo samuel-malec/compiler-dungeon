@@ -7,10 +7,10 @@
 #include "../sema/semantic.hpp"
 #include "../frontend/token.hpp"
 
-#include "../middleend/hir/ast2hir.hpp"
-#include "../middleend/tac/hir2tac.hpp"
-#include "../middleend/cfg/cfg.hpp"
-#include "../middleend/cfg/ssa.hpp"
+#include "../middleend/lower/ast2hir.hpp"
+#include "../middleend/lower/hir2tac.hpp"
+#include "../middleend/cfg.hpp"
+#include "../middleend/ssa.hpp"
 
 namespace dungeon
 {

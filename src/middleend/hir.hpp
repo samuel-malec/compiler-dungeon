@@ -4,7 +4,7 @@
 #include <cstdint>
 #include <memory>
 
-#include "../../sema/types.hpp"
+#include "../sema/types.hpp"
 
 // TODO: we could refactor this into a flat list of expressions and use ids to this list instead of shared_ptr...
 namespace dungeon::hir

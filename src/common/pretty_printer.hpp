@@ -7,9 +7,9 @@
 
 #include "../frontend/ast.hpp"
 #include "../sema/semantic.hpp"
-#include "../middleend/cfg/cfg.hpp"
-#include "../middleend/tac/tac.hpp"
-#include "../middleend/hir/hir.hpp"
+#include "../middleend/cfg.hpp"
+#include "../middleend/tac.hpp"
+#include "../middleend/hir.hpp"
 
 // Right now this is a utility printer for debugging purposes, later
 // we should add a more sophisticated logging system, which would allow us to

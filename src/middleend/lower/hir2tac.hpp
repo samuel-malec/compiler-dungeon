@@ -6,8 +6,8 @@
 #include <string>
 #include <vector>
 
-#include "../hir/hir.hpp"
-#include "tac.hpp"
+#include "../hir.hpp"
+#include "../tac.hpp"
 
 namespace dungeon::tac
 {

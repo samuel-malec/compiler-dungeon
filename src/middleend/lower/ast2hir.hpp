@@ -4,7 +4,7 @@
 
 #include "../../frontend/ast.hpp"
 #include "../../sema/types.hpp"
-#include "hir.hpp"
+#include "../hir.hpp"
 
 namespace dungeon::hir
 {
