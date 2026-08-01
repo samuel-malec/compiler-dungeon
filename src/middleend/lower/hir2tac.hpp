@@ -218,8 +218,8 @@ struct builder
             auto head_lab = create_label();
             auto exit_lab = create_label();
             sm.loop_stack.push_back( { .continue_target = head_lab, .break_target = exit_lab } );
-            
             add_label( head_lab );
+
             if ( data.body )
                 lower_stmt( *data.body );
             

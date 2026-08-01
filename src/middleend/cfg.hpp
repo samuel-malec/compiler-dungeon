@@ -39,8 +39,8 @@ struct basic_block
     std::vector< basic_block* > succ;
     std::vector< basic_block* > pred;
 
-    basic_block* idom = nullptr; // immediate dominator
-    std::vector< basic_block* > df; // dominator frontier
+    basic_block* idom = nullptr;
+    std::vector< basic_block* > df;
     std::vector< basic_block* > dom_children; 
 };
 

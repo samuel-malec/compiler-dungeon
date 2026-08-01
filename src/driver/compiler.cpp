@@ -7,10 +7,11 @@
 #include "../sema/semantic.hpp"
 #include "../frontend/token.hpp"
 
+#include "../middleend/analysis/pipeline.hpp"
+
 #include "../middleend/lower/ast2hir.hpp"
 #include "../middleend/lower/hir2tac.hpp"
 #include "../middleend/cfg.hpp"
-#include "../middleend/ssa.hpp"
 
 namespace dungeon
 {
@@ -40,18 +41,10 @@ namespace dungeon
             printer.print_tac( tac_ir, sa.st.reverse_map );
 
         cfg::program cfgraph = cfg::build_cfg( tac_ir );
-        cfg::ssa_builder sb{};
 
-        for ( auto& [ fn, cfg ] : cfgraph.fns )
-        {
-            sb.transform_ssa( cfg );
-            if ( conf.emit_cfg )
-            {
-                std::ostringstream os;
-                os << "f" << fn << "_cfg.dot";
-                std::ofstream out( os.str() );
-                printer.export_to_dot( cfg, out, sa.st.reverse_map );
-            }
-        }
+
+        // TODO: should the analysis pipeline just be inlined here ? 
+        dungeon::analysis anal{};
+        anal.run_pipeline();
     }
 }

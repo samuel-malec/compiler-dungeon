@@ -4,14 +4,41 @@
 #include <cassert>
 #include <iostream>
 
-#include "cfg.hpp"
+#include "analysis.hpp"
+#include "../cfg.hpp"
 
 namespace dungeon::cfg
 {
 
+struct ssa_analysis : analysis
+{
+    void before( cfg& graph ) override { return; }
+
+    void run( cfg& graph ) override
+    {
+        ssa_builder sb{};
+        for ( auto& [ fn, cfg ] : graph.fns )
+        {
+            sb.transform_ssa( cfg );
+            // eh, that's what I'm saying we need some better tooling to allow us
+            // to dump graphs.
+            // In compiler.hpp, create a logger based on the config, 
+            // and expose this logger to rest of the code
+            // if ( conf.emit_cfg )
+            // {
+            //     std::ostringstream os;
+            //     os << "f" << fn << "_cfg.dot";
+            //     std::ofstream out( os.str() );
+            //     printer.export_to_dot( cfg, out, sa.st.reverse_map );
+            // }
+        }
+    } 
+
+    void after( cfg& graph ) override { return; }
+};
+
 struct ssa_builder
 {
-
     using value_id = uint32_t;
     using order = std::vector< basic_block* >;
 
