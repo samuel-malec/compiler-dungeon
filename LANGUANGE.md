@@ -1,144 +1,256 @@
 # Kerosene Language Specification
 
-
 ## Grammar ( EBNF )
 ```ebnf
+program
+    ::= toplevel* EOF
+    ;
 
-program : toplevel+ EOF;
+toplevel
+    ::= functionDeclaration
+     | structDeclaration
+     | enumDeclaration
+     | globalVariableDeclaration
+    ;
 
-toplevel : fnDeclaration | structDeclaration | enumDeclaration | globalVarDeclaration
+functionDeclaration
+    ::= "fn" IDENTIFIER "(" parameterList? ")" returnType? block
+    ;
 
-fnDeclaration : 'fn' IDENTIFIER '(' paramList ')' block
+returnType
+    ::= "->" type
+    ;
 
-structDeclaration : 'struct' IDENTIFIER '{' fieldList '}'  ;
+parameterList
+    ::= parameter ("," parameter)*
+    ;
 
-enumDeclaration : 'enum' IDENTIFIER '{ enumList '}';
+parameter
+    ::= IDENTIFIER ":" type
+    ;
 
-globalVarDeclaration : 'let global' IDENTIFIER '=' expression;
+structDeclaration
+    ::= "struct" IDENTIFIER "{" field* "}"
+    ;
 
-fieldList : field* ; 
+field
+    ::= IDENTIFIER ":" type ";"
+    ;
 
-field : IDENTIFER : type;
+enumDeclaration
+    ::= "enum" IDENTIFIER "{"
+            enumMember ("," enumMember)* ","?
+        "}"
+    ;
 
-enumList : IDENTIFIER*;
+enumMember
+    ::= IDENTIFIER
+    ;
+
+globalVariableDeclaration
+    ::= "let" "global" IDENTIFIER (":" type)? "=" expression ";"
+    ;
+
+block
+    ::= "{"
+            statement*
+        "}"
+    ;
 
 statement
-    : '{' block '}'
-    | returnStatement
-    | ifStatement
-    | whileStatement
-    | breakStatement
-    | continueStatement
-    | expressionStatement
-    | varDeclaration
+    ::= block
+     | variableDeclaration
+     | returnStatement
+     | ifStatement
+     | whileStatement
+     | breakStatement
+     | continueStatement
+     | expressionStatement
     ;
 
+variableDeclaration
+    ::= "let" "mut"? IDENTIFIER
+        (":" type)?
+        ("=" expression)?
+        ";"
+    ;
 
-returnStatement : 'return' expression ';' ;
+returnStatement
+    ::= "return" expression? ";"
+    ;
 
-ifStatement : 'if' '(' expression ')' statement ('else' statement)? ;
+ifStatement
+    ::= "if" expression statement
+        ("else" statement)?
+    ;
 
-whileStatement : 'while' '(' expression ')' statement ;
+whileStatement
+    ::= "while" expression statement
+    ;
 
-breakStatement : 'break' ';' ;
+breakStatement
+    ::= "break" ";"
+    ;
 
-continueStatement : 'continue' ';' ;
+continueStatement
+    ::= "continue" ";"
+    ;
 
 expressionStatement
-    : type IDENTIFIER ';'
-    | type IDENTIFIER '=' expression ';'
-    |      IDENTIFIER '=' expression ';'
-    |                     expression
+    ::= expression ";"
     ;
+```
 
-varDeclaration: 'let' IDENTIFIER : type = expression;
-
-PRIMTYPE
-    : 'int'
-    | 'i8'
-    | 'i16'
-    | 'i32'
-    | 'i64'
-    | 'u8'
-    | 'u16'
-    | 'u32'
-    | 'flt'
-    | 'f32'
-    | 'f64'
-    | 'bool'
-    ;
-
+### Types
+```ebnf
 type
-    : PRIMTYPE
-    | typeName '?'?
-    | typeName nestedArray+
+    ::= primitiveType
+     | namedType
+     | arrayType
+     ;
+
+primitiveType
+    ::= "i8"
+     | "i16"
+     | "i32"
+     | "i64"
+     | "u8"
+     | "u16"
+     | "u32"
+     | "u64"
+     | "bool"
     ;
 
-nestedArray : '?'?  '[]'* ;
-
-typeName : IDENTIFIER ;
-
-
-expression : bitWiseExpression ;
-
-bitWiseExpression
-    : comparisonExpression ( '&' | '|' | '^' ) comparisonExpression)*
+namedType
+    ::= IDENTIFIER "?"?
     ;
-    
-comparisonExpression
-    : shiftExpression (('==' | '!='| '>'| '<'| '>='| '<=') shiftExpression)*
+
+arrayType
+    ::= type "[" "]"
+    ;
+
+```
+
+### Expression
+```ebnf
+expression
+    ::= assignmentExpression
+    ;
+
+assignmentExpression
+    ::= logicalOrExpression
+        (assignmentOperator assignmentExpression)?
+    ;
+
+assignmentOperator
+    ::= "="
+     | "+="
+     | "-="
+     | "*="
+     | "/="
+    ;
+
+logicalOrExpression
+    ::= logicalAndExpression
+        ("||" logicalAndExpression)*
+    ;
+
+logicalAndExpression
+    ::= bitwiseOrExpression
+        ("&&" bitwiseOrExpression)*
+    ;
+
+bitwiseOrExpression
+    ::= bitwiseXorExpression
+        ("|" bitwiseXorExpression)*
+    ;
+
+bitwiseXorExpression
+    ::= bitwiseAndExpression
+        ("^" bitwiseAndExpression)*
+    ;
+
+bitwiseAndExpression
+    ::= equalityExpression
+        ("&" equalityExpression)*
+    ;
+
+equalityExpression
+    ::= relationalExpression
+        (("==" | "!=") relationalExpression)*
+    ;
+
+relationalExpression
+    ::= shiftExpression
+        (("<" | "<=" | ">" | ">=") shiftExpression)*
     ;
 
 shiftExpression
-    : additiveExpression ( '<<' | '>>>' | '>>' ) additiveExpression)*
+    ::= additiveExpression
+        (("<<" | ">>") additiveExpression)*
     ;
-    
+
 additiveExpression
-    : multiplicativeExpression (('+' | '-') multiplicativeExpression)*
+    ::= multiplicativeExpression
+        (("+" | "-") multiplicativeExpression)*
     ;
 
 multiplicativeExpression
-    : unaryExpression (('*' | '/') unaryExpression)*
+    ::= unaryExpression
+        (("*" | "/" | "%") unaryExpression)*
     ;
 
 unaryExpression
-    : ('-') unaryExpression
-    | '!' unaryExpression
-    | primaryExpression postAssign
+    ::= ("-" | "!" | "~") unaryExpression
+     | postfixExpression
+    ;
+
+postfixExpression
+    ::= primaryExpression postfixOperator*
+    ;
+
+postfixOperator
+    ::= "." IDENTIFIER
+     | "[" expression "]"
+     | "(" argumentList? ")"
+    ;
+
+argumentList
+    ::= expression ("," expression)*
     ;
 
 primaryExpression
-    : INTEGER_LITERAL
-    | FLOAT_LITERAL
-    | '(' expression ')'
-    | 'true'
-    | 'false'
-    | 'null'
-    | newExpression
-    | IDENTIFIER
+    ::= INTEGER_LITERAL
+     | "true"
+     | "false"
+     | "null"
+     | IDENTIFIER
+     | "(" expression ")"
     ;
+```
 
-newExpression 
-    : 'new' IDENTIFIER [ '{' block '}' ]
-    | 'new' IDENTIFIER '[' expression ']'
-    ;
+## Example program
+```
+fn fib(n: i32) -> i32 {
+    if n <= 1 {
+        return n;
+    }
 
-postAssign : postFix [ '=' expression ] | [ '#' ];
+    let mut a = 0;
+    let mut b = 1;
 
-postFix
-    : '.' IDENTIFIER      postFix
-    | '[' expression ']'  postFix
-    ;
+    while n > 1 {
+        let next = a + b;
+        a = b;
+        b = next;
+        n -= 1;
+    }
 
+    return b;
+}
 
-IDENTIFIER : NON_DIGIT (NON_DIGIT | DIGIT)*  ;
-
-INTEGER_LITERAL
-    : [1-9]DIGIT*
-    | [0]
-    ;
-
-NON_DIGIT: [a-zA-Z_];
-DIGIT: [0-9];
-
+fn main() {
+    let value = fib(10);
+    print(value);
+}
 ```

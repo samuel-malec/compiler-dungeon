@@ -7,7 +7,7 @@
 #include <memory>
 
 #include "token.hpp"
-
+// TODO: refactor the lexer so that it lexes all tokens and only then pass these tokens to the parser
 namespace dungeon
 {
 
