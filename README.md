@@ -2,8 +2,8 @@
 This project is aimed at learning and utilizing various compiler techniques to create an optimizing compiler for further research and experimental purposes.
 
 My current goals for this project are:
-- Handwrite a recursive descent parser ( or explor Pratt-parsing )
-- Play with intermediate representations and their conversions : AST -> HIR -> TAC -> CFG -> SSA-CFG and AST -> SON 
+- Handwrite a recursive descent parser ( or explore Pratt-parsing ) ✔️
+- Play with intermediate representations and their conversions: AST -> HIR -> TAC -> CFG -> SSA-CFG and AST -> SON 
 - Learn algorithms for to-SSA and from-SSA conversion
 - Learn Sea of Nodes concepts and construct a SoN representation from AST
 - Perform optimizations on the SSA CFG as well as SoN and compare the difficulty of implementing optimizations in both of these representations
