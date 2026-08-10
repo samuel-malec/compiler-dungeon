@@ -653,7 +653,6 @@ namespace dungeon
 
     std::optional< toplevel > parser::parse_toplevel()
     {
-        // TODO: structs and enums later ( hopefully )
         return parse_fn_decl();
     }
 }

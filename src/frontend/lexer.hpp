@@ -2,19 +2,23 @@
 
 #include <cassert>
 #include <charconv>
+#include <memory>
 #include <string>
 #include <set>
-#include <memory>
+#include <vector>
 
 #include "token.hpp"
-// TODO: refactor the lexer so that it lexes all tokens and only then pass these tokens to the parser
+
 namespace dungeon
 {
 
 static const std::set< std::string_view > keywords = {
-    "if", "else", "for", "do", "while", "switch", "break",
+    "fn", "if", "else", "for", "do", "while", "switch", "break",
     "continue", "case", "return", "assert", "struct", "enum",
-    "int", "bool", "void", "true", "false",
+    "i8", "i16", "i32", "i64",
+    "u8", "u16", "u32", "u64",
+    "unit", 
+    "true", "false",
 };
 
 static const std::set< std::string_view > punct = {
@@ -32,29 +36,29 @@ struct lexer
 
     location loc;
     sv_t sv;
-    token_sink& out;
+    std::vector< token > toks;
     int ptr = 0;
 
-    lexer( source_ptr doc, token_sink& out ) : 
+    lexer( source_ptr doc ) : 
         loc{ doc },
-        sv{ doc->data },
-        out{ out }
-    {}
+        sv{ doc->data } {}
 
-    void lex()
+    std::vector< token > lex()
     {
         while ( !empty() )
         {
             next();
             advance();
         }
+
+        return std::move( toks );
     }
 
     void next();
 
     bool empty() const { return ptr == sv.size(); }
 
-    void push( cat c ) { out.push( token{ loc, sv.substr( 0, ptr ), c } ); }
+    void push( cat c ) { toks.emplace_back( token{ loc, sv.substr( 0, ptr ), c } ); }
 
     void advance( int offset = 0 )
     {

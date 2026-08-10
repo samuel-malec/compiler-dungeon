@@ -64,9 +64,4 @@ inline std::ostream& operator<<( std::ostream& os, const token& t )
     return os;
 }
 
-struct token_sink
-{
-    virtual void push( token tok ) = 0;
-};
-
 }

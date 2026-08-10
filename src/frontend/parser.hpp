@@ -14,7 +14,7 @@
 namespace dungeon
 {
 
-struct parser : token_sink
+struct parser
 {
     using cat = token::cat_t;
     using expr = ast::expr;
@@ -27,9 +27,9 @@ struct parser : token_sink
     token current;
     size_t pos = 0;
     source_ptr doc;
-    lexer lex;
+    std::vector< token > toks;
 
-    parser( source_ptr doc ) : doc{ doc }, lex{ doc, *this } {}
+    parser( std::vector< token > toks ) : toks{ toks } {}
 
     template < typename... Args >
     void error( Args... args )
@@ -54,6 +54,7 @@ struct parser : token_sink
         return tok;
     }
 
+    // TODO; i don't really know anymore
     std::optional< type > type_from_str( std::string_view data )
     {
         if ( data == "bool" )
@@ -122,32 +123,26 @@ struct parser : token_sink
 
     token peek()
     {
-        if ( current.cat != cat::invalid )
-            return current;
-
-        assert( !lex.empty() );
-        while ( !lex.empty() && current.cat == cat::invalid )
-            lex.next();
-
-        return current;
+        assert( pos < toks.size() );
+        return toks[ pos ];
     }
 
     token fetch()
     {
         auto rv = peek();
-        current = {};
+        ++pos;
         return rv;
     }
 
-    void push( token t ) override 
-    { 
-        current = std::move( t );
+    bool empty() 
+    {
+        return pos >= toks.size();
     }
 
     ast::program parse()
     {
         program prog{};        
-        while ( !lex.empty() )
+        while ( !empty() )
         {
             if ( peek().cat == cat::invalid )
                 break;
@@ -216,7 +211,6 @@ struct parser : token_sink
 
     std::optional< fn_decl > parse_fn_decl();
 
-    // todo: structs, enums, comma operator ;-), etc...
     std::optional< toplevel > parse_toplevel();
 };
 

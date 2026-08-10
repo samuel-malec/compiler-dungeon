@@ -1,13 +1,8 @@
-int main()
+bool main( int v )
 {
-    int a = 10;
-    if ( a < 10 )
-    {
-        a = a + a;
+    if ( v % 2 == 0 ) {
+        return true;
+    } else {
+        return false;
     }
-    else
-    {
-        a = a * a;
-    }
-    return a;
 }

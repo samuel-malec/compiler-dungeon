@@ -21,30 +21,38 @@ namespace dungeon
         std::string out_name = conf.out_name;
         
         source_ptr doc = std::make_shared< source_file >( in_name, read_file( in_name ) ); 
+        lexer l{ doc };
+        std::vector< token > toks = l.lex();
+        if ( conf.emit_tokens )
+        {
+            for ( auto& t : toks )
+                std::cout << t << " ";
+        }
+        std::cout << '\n';
 
         print::pretty_printer printer{};
-        parser p{ doc };
+        parser p{ std::move( toks ) };
         
-        auto ast = p.parse();
-        if ( conf.emit_ast )
-            printer.print_ast( ast );
+        // auto ast = p.parse();
+        // if ( conf.emit_ast )
+        //     printer.print_ast( ast );
 
-        semantic_analyzer sa{};
-        sa.run( ast );
+        // semantic_analyzer sa{};
+        // sa.run( ast );
         
-        hir::program hir = hir::lower_ast_to_hir( ast, sa.st );
-        if ( conf.emit_hir )
-            printer.print_hir( hir, sa.st.reverse_map );
+        // hir::program hir = hir::lower_ast_to_hir( ast, sa.st );
+        // if ( conf.emit_hir )
+        //     printer.print_hir( hir, sa.st.reverse_map );
         
-        tac::program tac_ir = tac::lower_to_tac( hir );
-        if ( conf.emit_tac )
-            printer.print_tac( tac_ir, sa.st.reverse_map );
+        // tac::program tac_ir = tac::lower_to_tac( hir );
+        // if ( conf.emit_tac )
+        //     printer.print_tac( tac_ir, sa.st.reverse_map );
 
-        cfg::program cfgraph = cfg::build_cfg( tac_ir );
+        // cfg::program cfgraph = cfg::build_cfg( tac_ir );
 
 
         // TODO: should the analysis pipeline just be inlined here ? 
-        dungeon::analysis anal{};
-        anal.run_pipeline();
+        // dungeon::analysis anal{};
+        // anal.run_pipeline();
     }
 }
