@@ -1,4 +1,4 @@
-int main( void a )
+int main( a : unit )
 {
     return @b;
 }

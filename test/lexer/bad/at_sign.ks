@@ -1,4 +1,4 @@
-int main( void a )
+fn main ( a: int ) -> int
 {
     return 0@1;
 }
