@@ -1,14 +1,14 @@
 #pragma once
 
 #include <format>
-#include <iostream>
-#include <vector>
-#include <optional>
 #include <memory>
+#include <optional>
 #include <sstream>
+#include <vector>
 
 #include "ast.hpp"
 #include "lexer.hpp"
+#include "../diag/diag.hpp"
 #include "../sema/types.hpp"
 
 namespace dungeon
@@ -22,78 +22,25 @@ struct parser
     using toplevel = ast::toplevel;
     using fn_decl = ast::fn_decl;
     using var_decl = ast::var_decl;
+    using module = ast::module;
     using program = ast::program;
 
     token current;
     size_t pos = 0;
-    source_ptr doc;
     std::vector< token > toks;
 
     parser( std::vector< token > toks ) : toks{ toks } {}
-
-    template < typename... Args >
-    void error( Args... args )
-    {
-        std::stringstream buf{};
-        ( ( ( buf << " " ) << args ), ... );
-
-        if ( current.cat != cat::invalid )
-            buf << current.loc << '\n';
-        throw std::runtime_error( buf.str() );
-    }
 
     token require( cat c, std::string_view data = "" )
     {
         auto tok = fetch();
         if ( tok.cat != c )
-            error( tok, "Expected category: ", c, data.empty() ? "" : ", data: ", data );
+            diag::error( tok, "Expected category: ", c, data.empty() ? "" : ", data: ", data );
         
         if ( !data.empty() && tok.data != data )
-            error( tok, "Expected: ", data );
+            diag::error( tok, "Expected: ", data );
         
         return tok;
-    }
-
-    // TODO; i don't really know anymore
-    std::optional< type > type_from_str( std::string_view data )
-    {
-        if ( data == "bool" )
-            return type{ .data = BOOL };
-        if ( data == "int" )
-            return type{ .data = INT };
-        if ( data == "void" )
-            return type{ .data = VOID };
-        return {};
-    }
-
-    op_kind op_kind_from_str( std::string_view data )
-    {
-        if ( data == "+"   )   return op_kind::ADD;
-        if ( data == "-"   )   return op_kind::SUB;
-        if ( data == "*"   )   return op_kind::MUL;
-        if ( data == "/"   )   return op_kind::DIV;
-        if ( data == "%"   )   return op_kind::MOD;
-        if ( data == "<<"  )   return op_kind::SHL;
-        if ( data == ">>"  )   return op_kind::SHR;
-        if ( data == "=="  )   return op_kind::EQ;
-        if ( data == "!="  )   return op_kind::NEQ;
-        if ( data == "<"   )   return op_kind::LT;
-        if ( data == "<="  )   return op_kind::LEQ;
-        if ( data == ">"   )   return op_kind::GT;
-        if ( data == ">="  )   return op_kind::GEQ;
-        if ( data == "!"   )   return op_kind::NOT;
-        if ( data == "&&"  )   return op_kind::AND;
-        if ( data == "||"  )   return op_kind::OR;
-        if ( data == "="   )   return op_kind::EQ;
-        if ( data == "+="  )   return op_kind::ADD_EQ;
-        if ( data == "-="  )   return op_kind::SUB_EQ;
-        if ( data == "*="  )   return op_kind::MUL_EQ;
-        if ( data == "%="  )   return op_kind::MOD_EQ;
-        if ( data == "/="  )   return op_kind::DIV_EQ;
-        if ( data == "<<=" )   return op_kind::SHL_EQ;
-        if ( data == ">>=" )   return op_kind::SHR_EQ;
-        error( "Unknown operator:", data );
-        return op_kind::ADD;
     }
 
     bool match( cat c, std::string_view data = "" )
@@ -134,30 +81,59 @@ struct parser
         return rv;
     }
 
-    bool empty() 
+    bool empty() const
     {
         return pos >= toks.size();
     }
 
-    ast::program parse()
+    ast::expr make_compound_assignment( ast::expr&& lhs, ast::expr&& rhs, std::string_view op )
     {
-        program prog{};        
-        while ( !empty() )
-        {
-            if ( peek().cat == cat::invalid )
-                break;
+        auto* v = std::get_if< ast::identifier_data >( &lhs.data );
+        if ( !v )
+            diag::error( "Left-hand side of compound assignment must be an identifier" );
 
-            std::optional< toplevel > d = parse_toplevel();
-            if ( !d )
-                error( "Expected a toplevel declaration " );
+        ast::identifier_data id = *v;
+        location loc = lhs.src_loc;
+        std::string_view base_op = op.substr( 0, op.size() - 1 );
 
-            prog.toplevel_items.push_back( d.value() );
-        }
+        ast::expr bin = make_binary( std::move( lhs ), std::move( rhs ), op_kind_from_str( base_op ) );
 
-        return prog;
+        return ast::expr{
+            .src_loc = loc,
+            .data = ast::assign_data{
+                .id = id,
+                .val = make_expr( std::move( bin ) ),
+            }
+        };
     }
 
-    expr make_expr_node( expr::cat_t cat, type typ = {} );
+    ast::expr make_relational( expr&& lhs, expr&& rhs, op_kind op )
+    {
+        ast::relational_data bd{};
+        bd.lhs = make_expr( std::move( lhs ) );
+        bd.rhs = make_expr( std::move( rhs ) );
+        bd.op = op;
+        return expr{ .src_loc =  bd.lhs->src_loc, .data = std::move( bd ) };
+    }
+
+    ast::expr make_binary( expr&& lhs, expr&& rhs, op_kind op )
+    {
+        ast::binary_data bd{};
+        bd.lhs = make_expr( std::move( lhs ) );
+        bd.rhs = make_expr( std::move( rhs ) );
+        bd.op = op;
+        return expr{ .src_loc =  bd.lhs->src_loc, .data = std::move( bd ) };
+    }
+
+    ast::stmt_ptr make_stmt( stmt&& s )
+    {
+        return std::make_unique< stmt >( std::move( s ) );
+    }
+
+    ast::expr_ptr make_expr( expr&& e )
+    {
+        return std::make_unique< expr >( std::move( e ) );
+    }
 
     std::optional< expr > parse_primary();
 
@@ -212,6 +188,10 @@ struct parser
     std::optional< fn_decl > parse_fn_decl();
 
     std::optional< toplevel > parse_toplevel();
+
+    std::optional< module > parse_module();
+
+    // std::optional< program > parse_program();
 };
 
 }

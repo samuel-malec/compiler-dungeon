@@ -6,112 +6,54 @@
 #include <vector>
 #include <variant>
 
+#include "../diag/diag.hpp"
+
 namespace dungeon
 {
 
-enum prim_type
+// TODO: implement types as a singleton, so that every i32 type is only one obect
+
+
+struct type{};
+
+struct type_manager
 {
-    INT,
-    BOOL,
-    VOID,
-    UNKNOWN,
+
 };
 
-inline std::ostream& operator<<( std::ostream& os, const prim_type& typ )
-{
-    switch ( typ )
-    {
-        case INT:
-            return os << "int";
-        case BOOL:
-            return os << "bool";
-        case VOID:
-            return os << "void";
-        default:
-            break;
-    }
-    return os << "UNKNOWN";
-}
+//
+// enum prim_type
+// {
+//     INT,
+//     BOOL,
+//     VOID,
+//     UNKNOWN,
+// };
 
-struct function_type
-{
-    prim_type ret_type;
-    std::vector< prim_type > params;
-};
-
-inline std::ostream& operator<< ( std::ostream& os, const function_type& sig )
-{
-    os << "(";
-    for ( int i = 0; i < sig.params.size(); ++i )
-        os << sig.params[ i ] << " x ";
-    os << ") -> ";
-    os << sig.ret_type;
-    return os << '\n';
-}
-
-inline bool operator==( const function_type& lhs, const function_type& rhs )
-{
-    return lhs.ret_type == rhs.ret_type && lhs.params == rhs.params;
-}
-
-struct type
-{
-    std::variant< prim_type, function_type > data = prim_type::UNKNOWN;
-
-    bool is_primitive() const { return std::holds_alternative< prim_type >( data ); }
-
-    bool is_function() const { return std::holds_alternative< function_type >( data ); }
-
-    prim_type as_primitive() const { return std::get< prim_type >( data ); }
-
-    function_type as_function() const { return std::get< function_type >( data ); }
-
-    std::string describe() const
-    {
-        std::ostringstream oss;
-        if ( is_primitive() )
-            oss << as_primitive();
-        else
-            oss << as_function();
-
-        return oss.str();
-    }
-};
-
-inline bool operator==( const type& lhs, const type& rhs )
-{
-    if ( lhs.is_primitive() && rhs.is_primitive() )
-        return lhs.as_primitive() == rhs.as_primitive();
-
-    if ( lhs.is_function() && rhs.is_function() )
-    {
-        function_type fn_lhs = lhs.as_function();
-        function_type fn_rhs = rhs.as_function();
-        return fn_lhs.ret_type == fn_rhs.ret_type && fn_lhs.params == fn_rhs.params;
-    }
-
-    return false;
-}
-
-inline std::ostream& operator<<( std::ostream& os, const type& typ )
-{
-    return os << typ.describe();
-}
-
-enum op_kind 
+enum op_kind
 {
     ADD, SUB, MUL, DIV, MOD, SHL, SHR,
 
     ADD_EQ, SUB_EQ, MUL_EQ, DIV_EQ, MOD_EQ, SHL_EQ, SHR_EQ,
 
     EQ, NEQ, LT, LEQ, GT, GEQ,
-    
+
     NOT, AND, OR,
 };
 
 inline bool is_rel_op( op_kind op )
 {
     return op == EQ || op == NEQ || op == LT || op == LEQ || op == GT || op == GEQ;
+}
+
+inline bool is_unary_op( op_kind op )
+{
+    return false;
+}
+
+inline bool is_binary_op( op_kind op )
+{
+    return false;
 }
 
 inline bool is_numerical_op( op_kind op )
@@ -139,6 +81,37 @@ inline op_kind op_from_compound_asn( op_kind op )
     throw std::runtime_error( "should not reach here, expected a compound assignment!" );
 }
 
+op_kind op_kind_from_str( std::string_view data )
+{
+    if ( data == "+"   )   return op_kind::ADD;
+    if ( data == "-"   )   return op_kind::SUB;
+    if ( data == "*"   )   return op_kind::MUL;
+    if ( data == "/"   )   return op_kind::DIV;
+    if ( data == "%"   )   return op_kind::MOD;
+    if ( data == "<<"  )   return op_kind::SHL;
+    if ( data == ">>"  )   return op_kind::SHR;
+    if ( data == "=="  )   return op_kind::EQ;
+    if ( data == "!="  )   return op_kind::NEQ;
+    if ( data == "<"   )   return op_kind::LT;
+    if ( data == "<="  )   return op_kind::LEQ;
+    if ( data == ">"   )   return op_kind::GT;
+    if ( data == ">="  )   return op_kind::GEQ;
+    if ( data == "!"   )   return op_kind::NOT;
+    if ( data == "&&"  )   return op_kind::AND;
+    if ( data == "||"  )   return op_kind::OR;
+    if ( data == "="   )   return op_kind::EQ;
+    if ( data == "+="  )   return op_kind::ADD_EQ;
+    if ( data == "-="  )   return op_kind::SUB_EQ;
+    if ( data == "*="  )   return op_kind::MUL_EQ;
+    if ( data == "%="  )   return op_kind::MOD_EQ;
+    if ( data == "/="  )   return op_kind::DIV_EQ;
+    if ( data == "<<=" )   return op_kind::SHL_EQ;
+    if ( data == ">>=" )   return op_kind::SHR_EQ;
+    diag::error( "Unknown operator:", data );
+    return op_kind::ADD;
+}
+
+ 
 inline std::ostream& operator<<( std::ostream& os, const op_kind op )
 {
     switch ( op )

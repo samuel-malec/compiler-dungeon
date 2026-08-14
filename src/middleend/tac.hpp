@@ -162,7 +162,6 @@ struct instr
 struct function
 {
     fn_id name;
-    function_type sig;
     std::vector< instr > body;
 };
 

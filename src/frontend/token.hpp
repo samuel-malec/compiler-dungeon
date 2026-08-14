@@ -10,7 +10,6 @@ namespace dungeon
 struct source_file
 {
     std::string name, data;
-        
     source_file( std::string name, std::string data ) :
             name{ std::move( name ) },
             data{ std::move( data ) }
@@ -19,6 +18,7 @@ struct source_file
 
 using source_ptr = std::shared_ptr< source_file >;
 
+/* Location in the source-code */
 struct location
 {
     source_ptr doc;

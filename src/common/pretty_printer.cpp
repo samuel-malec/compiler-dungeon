@@ -1,10 +1,10 @@
+#include <optional>
+
 #include "pretty_printer.hpp"
+#include "../frontend/ast.hpp"
 
 namespace dungeon::print
 {
-// TODO: so far we have been using std::cout, but this is no longer the logical thing to do since we are 
-// past the stage of testing small programs, and instead we should focus on dumping the intermediate representations into a file
-// basically, we should remove the std::cout, pass explicit std::ostream& os argument into all of these functions, seems like pain in the ass
 using expr = ast::expr;
 using stmt = ast::stmt;
 using toplevel = ast::toplevel;
@@ -14,159 +14,46 @@ using enum_decl = ast::enum_decl;
 using struct_decl = ast::struct_decl; 
 using atom_map = std::map< uint32_t, std::string >;
 
+// TODO: complete the printing
 void pretty_printer::print_expr( expr& e, int depth )
 {
-    pad( depth );
-    std::cout << e.typ << " ";
-    switch ( e.cat )
-    {
-        case expr::num_lit:
-            std::cout << "[ num_lit ] " << std::get< uint64_t >( e.val );
-            break;
-        case expr::bool_lit:
-            std::cout << "[ bool_lit ] " << std::get< bool >( e.val );
-            break;
-        case expr::identifier:
-            std::cout << "[ id ] " << e.id;
-            break;
-        case expr::unary:
-            std::cout << "[ unary " << e.op << " ]\n";
-            print_expr( e[ 0 ], depth + 1 );
-            return;
-        case expr::binary:
-            std::cout << "[ binary " << e.op << " ]\n";
-            print_expr( e[ 0 ], depth + 1 );
-            print_expr( e[ 1 ], depth + 1 );
-            return;
-        case expr::relational:
-            std::cout << "[ rel " << e.op << " ]\n";
-            print_expr( e[ 0 ], depth + 1 );
-            print_expr( e[ 1 ], depth + 1 );
-            return;
-        case expr::assign:
-            std::cout << "[ assign (" << e.op << ") ]\n";
-            print_expr( e[ 0 ], depth + 1 );
-            print_expr( e[ 1 ], depth + 1 );
-            return;
-        case expr::call:
-            std::cout << "[ call ]\n";
-            print_expr( e.subs[ 0 ], depth + 1 );
-            pad( depth + 1 );
-            std::cout << "[ params ]\n";
-            for ( int i = 1; i < e.subs.size(); ++ i )
-                print_expr( e.subs[ i ], depth + 2 );
-            return;
-
-        default:
-            break;
-    }
-    std::cout << '\n';
+    // if ( auto t = std::get_if< ast::num_lit_data >( e.data ) )
+    // {}
+    // if ( auto t = std::get_if< ast::bool_lit_data >( e.data ) )
+    // {}
+    // if ( auto t = std::get_if< ast::identifier_data >( e.data ) )
+    // {}
+    // if ( auto t = std::get_if< ast::unary_data >( e.data ) )
+    // {}
+    // if ( auto t = std::get_if< ast::binary_data >( e.data ) )
+    // {}
+    // if ( auto t = std::get_if< ast::relational_data >( e.data ) )
+    // {}
+    // if ( auto t = std::get_if< ast::assign_data >( e.data ) )
+    // {}
+    // if ( auto t = std::get_if< ast::call_data >( e.data ) )
+    // {}
 }
 
+// TODO: complete the printing
 void pretty_printer::print_stmt( stmt& s, int depth )
 {
-    pad( depth );
-    switch ( s.cat )
-    {
-        case stmt::ret:
-            std::cout << "[ ret ]";
-            if  ( s.e.has_value() )
-            {
-                std::cout << "\n";
-                print_expr( s.e.value(), depth + 1 );
-            }
-            else
-                std::cout << " {}\n";
-            return;
-        
-        case stmt::if_stmt:
-            std::cout << "[ if_stmt ]\n";
-            pad( depth + 1 );
-            std::cout << "[ cond ]\n";
-            if  ( s.e.has_value() )
-                print_expr( s.e.value(), depth + 2 );
-            else
-                std::cout << "{}";
-            
-            print_stmt( s[ 0 ], depth + 1 );
-            if ( s.subs.size() > 1 )
-            {
-                pad( depth );
-                std::cout << "[ else ]\n";
-                print_stmt( s[ 1 ], depth + 1 );
-            }
-            return;
-        
-        case stmt::for_stmt:
-            std::cout << "[ for_stmt ]\n";
-            for ( auto& se : s.subs )
-                print_stmt( se, depth + 1 );
-            return;
-
-        case stmt::while_stmt:
-            std::cout << "[ while_stmt ]\n";
-            pad( depth );
-            std::cout << "[ cond ]\n";
-            if ( !s.e.has_value() )
-                std::cout << " {} ";
-            else
-                print_expr( s.e.value(), depth );
-
-            std::cout << "\n";
-            print_stmt( s[ 0 ], depth + 1 );
-            return;
-
-        case stmt::do_while_stmt:
-            std::cout << " [ do_while ]\n";
-            print_stmt( s[ 0 ], depth + 1 );
-            pad( depth );
-            std::cout << "[ cond ]\n";
-            if ( !s.e.has_value() )
-                std::cout << " {} ";
-            else
-                print_expr( s.e.value(), depth );
-            return;
-
-        case stmt::cont:
-            std::cout << "[ continue ]";
-            break;
-
-        case stmt::brk:
-            std::cout << "[ break ]";
-            break;
-
-        case stmt::block:
-            std::cout << "[ block ]\n";
-            for ( auto& se : s.subs )
-                print_stmt( se, depth + 1 );
-            return;
-
-        case stmt::var_dclr:
-            std::cout << "[ var_decl ]\n";
-            pad( depth + 1 );
-            std::cout << "[ var ] " << s.vdecl.typ << " " << s.vdecl.name << '\n';
-            if ( s.vdecl.e.has_value() )
-                print_expr( s.vdecl.e.value(), depth + 1 );
-            return;
-
-        case stmt::expr_stmt:
-            std::cout << "[ expr_stmt ]\n";
-            if ( !s.e.has_value() )
-                std::cout << " {} ";
-            else
-                print_expr( s.e.value(), depth + 1 );
-            return;
-
-        default:
-            break;
-    }
-
-    std::cout << "\n";
+    // if ( auto t = std::get_if< ast::ret_data >( s.data ) ) {}
+    // if ( auto t = std::get_if< ast::if_data >( s.data ) ) {}
+    // if ( auto t = std::get_if< ast::for_data >( s.data ) ) {}
+    // if ( auto t = std::get_if< ast::while_data >( s.data ) ) {}
+    // if ( auto t = std::get_if< ast::do_while_data >( s.data ) ) {}
+    // if ( auto t = std::get_if< ast::cont_data >( s.data ) ) {}
+    // if ( auto t = std::get_if< ast::brk_data >( s.data ) ) {}
+    // if ( auto t = std::get_if< ast::block_data >( s.data ) ) {}
+    // if ( auto t = std::get_if< ast::var_decl >( s.data ) ) {}
+    // if ( auto t = std::get_if< ast::expr_stmt_data >( s.data ) ) {}
 }
 
-void pretty_printer::print_ast( ast::program& ast )
+void pretty_printer::print_ast_module(ast::module& ast_module)
 {
-    for ( auto& decl : ast.toplevel_items )
+
+    for ( auto& decl : ast_module.toplevel_items )
     {
         std::visit( [ this ]( auto&& arg )
         {
@@ -179,9 +66,9 @@ void pretty_printer::print_ast( ast::program& ast )
                 for ( size_t i = 0; i < fn.params.size(); ++i )
                 {
                     auto& p = fn.params[ i ];
-                    std::cout << p.typ << " " << p.name << ( i == fn.params.size() - 1 ?  "" : ", " );
+                    // std::cout << p.typ << " " << p.name << ( i == fn.params.size() - 1 ?  "" : ", " );
                 }
-                
+
                 std::cout << " )\n";
                 for ( auto& s : fn.body )
                     print_stmt( s, 1 );

@@ -11,11 +11,6 @@
 #include "../middleend/tac.hpp"
 #include "../middleend/hir.hpp"
 
-// Right now this is a utility printer for debugging purposes, later
-// we should add a more sophisticated logging system, which would allow us to
-// log information about compiler phases, such as duration of the phase,
-// and specific metadata.
-
 namespace dungeon::print
 {
 
@@ -49,13 +44,13 @@ struct pretty_printer
 
     void print_stmt( stmt& s, int depth );
 
-    void print_ast( ast::program& ast );
+    void print_ast_module( ast::module& ast_module );
 
-    void print_hir_expr( hir::expr& e, int depth, const atom_map& am );
+    // void print_hir_expr( hir::expr& e, int depth, const atom_map& am );
 
-    void print_hir_stmt( hir::stmt& s, int depth, const atom_map& am );
+    // void print_hir_stmt( hir::stmt& s, int depth, const atom_map& am );
 
-    void print_hir( hir::program& hir, const atom_map& am );
+    // void print_hir( hir::program& hir, const atom_map& am );
     
     std::string tac_operand_to_string( tac::operand& operand, const atom_map& am );
 

@@ -1,6 +1,16 @@
 #pragma once
-// TODO: think about how to display errors nicely...
 namespace dungeon::diag
 {
+    template < typename... Args >
+    void error( Args... args )
+    {
+        std::stringstream buf{};
+        ( ( ( buf << " " ) << args ), ... );
+        throw std::runtime_error( buf.str() );
+    }
 
+struct diag
+{
+
+};
 }

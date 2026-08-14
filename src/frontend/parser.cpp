@@ -1,4 +1,3 @@
-#include <iostream>
 #include <charconv>
 
 #include "parser.hpp"
@@ -11,21 +10,8 @@ namespace dungeon
     using toplevel = ast::toplevel;
     using fn_decl = ast::fn_decl;
     using var_decl = ast::var_decl;
+    using module = ast::module;
     using program = ast::program;
-
-    expr parser::make_expr_node( expr::cat_t cat, type typ )
-    {
-        return expr{
-            .cat = cat,
-            .val_kind = expr::rvalue,
-            .src_loc = peek().loc,
-            .val = std::monostate{},
-            .id = {},
-            .subs = {},
-            .typ = typ,
-            .op = op_kind::ADD,
-        };
-    }
 
     std::optional< expr > parser::parse_primary()
     {
@@ -43,36 +29,28 @@ namespace dungeon
             uint64_t n{};
             auto [ p, ec ] = std::from_chars( tok.data.data(), tok.data.data() + tok.data.size(), n );
             if ( ec != std::errc() || p != tok.data.data() + tok.data.size() )
-                error( tok, "Invalid numeric literal" );
+                diag::error( tok, "Invalid numeric literal" );
 
-            auto e = make_expr_node( expr::num_lit, type{ .data = INT } );
-            e.val = n;
-            e.val_kind = expr::rvalue;
-            return e;
+            return ast::expr{ .src_loc = tok.loc, .data = ast::num_lit_data{ .value = n } };
         }
 
         if ( auto t = match_any( cat::keyword, "true", "false" ) )
         {
-            fetch();
+            auto tok = fetch();
             bool value = t.value().data == "true";
-            auto e = make_expr_node( expr::bool_lit, type{ .data = BOOL } );
-            e.val = value;
-            e.val_kind = expr::rvalue;
-            return e;
+            return ast::expr{ .src_loc = tok.loc, .data = ast::bool_lit_data{ .value = value } };
         }
 
         if ( match( cat::ident ) )
         {
             auto tok = fetch();
-            auto e = make_expr_node( expr::identifier );
-            e.id = tok.data;
-            e.val_kind = expr::lvalue;
-            return e;
+            return ast::expr{ .src_loc = tok.loc, .data = ast::identifier_data{ .id = tok.data } };
         }
 
         return {};
     }
 
+    // TODO
     std::optional< expr > parser::parse_postfix()
     {
         auto e = parse_primary();
@@ -83,20 +61,21 @@ namespace dungeon
         {
             fetch();
 
-            expr call = make_expr_node( expr::call );
-            call.id = e->id;
-            call.subs.push_back( e.value() );
+            ast::call_data cd{};
+            ast::identifier_data eid;
+            if ( eid = std::get_if< ast::identifier_data >( *e->data ) )
+                diag::error("Expected an identifier as a callee" );
 
+            cd.callee = make_expr( std::move( *e ) );
             if ( !match( cat::punct, ")" ) )
             {
                 while ( true )
                 {
                     auto arg = parse_expr();
                     if ( !arg )
-                        error( "Expected function argument" );
+                        diag::error( "Expected function argument" );
 
-                    call.subs.push_back( arg.value() );
-
+                    cd.args.push_back( make_expr( std::move( arg.value() ) ) );
                     if ( !match( cat::punct, "," ) )
                         break;
                     fetch();
@@ -104,7 +83,7 @@ namespace dungeon
             }
 
             require( cat::punct, ")" );
-            e = call;
+            e = expr{ .src_loc = *e->src_loc, .data = std::move( cd ) };
         }
 
         return e;
@@ -117,12 +96,12 @@ namespace dungeon
             fetch();
             auto rhs = parse_unary();
             if ( !rhs )
-                error( "Expected unary operand" );
+                diag::error( "Expected unary operand" );
 
-            expr out = make_expr_node( expr::unary );
-            out.op = op_kind_from_str( t->data );
-            out.subs.push_back( rhs.value() );
-            return out;
+            ast::unary_data ud{};
+            ud.lhs = make_expr( std::move( rhs.value() ) );
+            ud.op = op_kind_from_str( t->data );
+            return expr{ .src_loc = t->loc, .data = std::move( ud ) };
         }
 
         return parse_postfix();
@@ -139,13 +118,9 @@ namespace dungeon
             fetch();
             auto rhs = parse_unary();
             if ( !rhs )
-                error( "Expected rhs for multiplicative expression" );
+                diag::error( "Expected rhs for multiplicative expression" );
 
-            expr tmp = make_expr_node( expr::binary );
-            tmp.op = op_kind_from_str( t->data );
-            tmp.subs.push_back( e.value() );
-            tmp.subs.push_back( rhs.value() );
-            e = std::move( tmp );
+            e = std::move( make_binary( std::move( e.value() ), std::move( rhs.value() ), op_kind_from_str( t->data ) ) );
         }
 
         return e;
@@ -162,13 +137,9 @@ namespace dungeon
             fetch();
             auto rhs = parse_factor();
             if ( !rhs )
-                error( "Expected rhs for additive expression" );
+                diag::error( "Expected rhs for additive expression" );
 
-            expr tmp = make_expr_node( expr::binary );
-            tmp.op = op_kind_from_str( t->data );
-            tmp.subs.push_back( e.value() );
-            tmp.subs.push_back( rhs.value() );
-            e = std::move( tmp );
+            e = std::move( make_binary( std::move( e.value() ), std::move( rhs.value() ), op_kind_from_str( t->data ) ) );
         }
 
         return e;
@@ -185,13 +156,9 @@ namespace dungeon
             fetch();
             auto rhs = parse_term();
             if ( !rhs )
-                error( "Expected rhs for shift expression" );
+                diag::error( "Expected rhs for shift expression" );
 
-            expr tmp = make_expr_node( expr::binary );
-            tmp.op = op_kind_from_str( t->data );
-            tmp.subs.push_back( e.value() );
-            tmp.subs.push_back( rhs.value() );
-            e = std::move( tmp );
+            e = std::move( make_binary( std::move( e.value() ), std::move( rhs.value() ), op_kind_from_str( t->data ) ) );
         }
 
         return e;
@@ -208,13 +175,9 @@ namespace dungeon
             fetch();
             auto rhs = parse_shift();
             if ( !rhs )
-                error( "Expected rhs for comparison expression" );
+                diag::error( "Expected rhs for comparison expression" );
 
-            auto tmp = make_expr_node( expr::relational );
-            tmp.op = op_kind_from_str( t->data );
-            tmp.subs.push_back( e.value() );
-            tmp.subs.push_back( rhs.value() );
-            e = std::move( tmp );
+            e = std::move( make_relational( std::move( e.value() ), std::move( rhs.value() ), op_kind_from_str( t->data ) ) );
         }
 
         return e;
@@ -231,13 +194,9 @@ namespace dungeon
             fetch();
             auto rhs = parse_comparison();
             if ( !rhs )
-                error( "Expected rhs for equality expression" );
+                diag::error( "Expected rhs for equality expression" );
 
-            auto tmp = make_expr_node( expr::relational );
-            tmp.op = op_kind_from_str( t.value().data );
-            tmp.subs.push_back( e.value() );
-            tmp.subs.push_back( rhs.value() );
-            e = tmp;
+            e = std::move( make_relational( std::move( e.value() ), std::move( rhs.value() ), op_kind_from_str( t->data ) ) );
         }
 
         return e;
@@ -254,13 +213,23 @@ namespace dungeon
             fetch();
             auto rhs = parse_assignment();
             if ( !rhs )
-                error( "Expected rhs for assignment expression" );
+                diag::error( "Expected rhs for assignment expression" );
 
-            auto tmp = make_expr_node( expr::assign );
-            tmp.op = op_kind_from_str( t->data );
-            tmp.subs.push_back( e.value() );
-            tmp.subs.push_back( rhs.value() );
-            e = std::move( tmp );
+            ast::assign_data ad{};
+            if ( t->data == "==" )
+            {
+                if ( auto i = std::get_if< ast::assign_data >( *e->data ) )
+                    diag::error( "Lhs of an assignment must be an identifier");
+                // TODO: parse equality
+            }
+            else
+            {
+                // make_compound_assignment( std::move( e ), std::move( rhs.value() ), std::move( ad ) );
+            }
+
+            ad.id = t->data;
+            ad.val = make_expr( std::move( rhs.value() ) );
+            e = expr{ .src_loc = e->src_loc, .data = std::move( ad ) };
         }
 
         return e;    
@@ -277,13 +246,9 @@ namespace dungeon
             fetch();
             auto rhs = parse_assignment();
             if ( !rhs )
-                error( "Expected rhs for assignment expression" );
+                diag::error( "Expected rhs for assignment expression" );
 
-            auto tmp = make_expr_node( expr::binary );
-            tmp.op = op_kind_from_str( t->data );
-            tmp.subs.push_back( e.value() );
-            tmp.subs.push_back( rhs.value() );
-            e = std::move( tmp );
+            e = std::move( make_binary( std::move( e.value() ), std::move( rhs.value() ), op_kind_from_str( t->data )) );
         }
 
         return e;  
@@ -300,13 +265,9 @@ namespace dungeon
             fetch();
             auto rhs = parse_assignment();
             if ( !rhs )
-                error( "Expected rhs for assignment expression" );
+                diag::error( "Expected rhs for assignment expression" );
 
-            auto tmp = make_expr_node( expr::binary );
-            tmp.op = op_kind_from_str( t->data );
-            tmp.subs.push_back( e.value() );
-            tmp.subs.push_back( rhs.value() );
-            e = std::move( tmp );
+            e = std::move( make_binary( std::move( e.value() ), std::move( rhs.value() ), op_kind_from_str( t->data ) ) );
         }
 
         return e;  
@@ -323,8 +284,8 @@ namespace dungeon
         if ( !e )
             return {};
 
-        require( cat::punct, ";" );            
-        return stmt{ .cat = stmt::expr_stmt, .e = e.value() };
+        require( cat::punct, ";" );
+        return stmt{ .loc = e->src_loc, .data = ast::expr_stmt_data{ .expr = make_expr( std::move( *e ) ) } };
     }
 
     std::optional< stmt > parser::parse_block()
@@ -333,19 +294,18 @@ namespace dungeon
             return {};
 
         fetch();
-        stmt res{ .cat = stmt::block };
+        ast::block_data bd{};
 
         while ( !match( cat::punct, "}" ) )
         {
             auto s = parse_stmt();
             if ( !s )
-                error( "Parsing statement inside a block: " );
-
-            res.subs.push_back( s.value() );
+                diag::error( "Parsing statement inside a block: " );
+            bd.stmts.push_back( make_stmt( std::move( *s ) ) );
         }
 
         fetch();
-        return res;
+        return  stmt{ .data = std::move( bd ) };
     }
     
     std::optional< stmt > parser::parse_if() 
@@ -358,14 +318,14 @@ namespace dungeon
 
         auto cond = parse_expr();
         if ( !cond )
-            error( "Expected condition after if" );
+            diag::error( "Expected condition after if" );
 
         require( cat::punct, ")" );
         auto then_body = parse_stmt();
         if ( !then_body )
-            error( "Empty body inside if block" );
+            diag::error( "Empty body inside if block" );
 
-        stmt res{ .cat = stmt::if_stmt, .e = cond.value() };
+        stmt res{ if_stmt, .e = cond.value() };
         res.subs.push_back( std::move( then_body.value() ) );
         if ( !match( cat::keyword, "else" ) )
             return res;
@@ -373,7 +333,7 @@ namespace dungeon
         fetch();
         auto else_body = parse_stmt();
         if ( !else_body )
-            error( "Empty else body" );
+            diag::error( "Empty else body" );
 
         res.subs.push_back( std::move( else_body.value() ) );
         return res;
@@ -395,7 +355,7 @@ namespace dungeon
 
         auto e = parse_expr();
         if ( !e )
-            error( "Expected expression" );
+            diag::error( "Expected expression" );
             
         res.e = e.value();
         require( cat::punct, ";" );
@@ -438,7 +398,7 @@ namespace dungeon
             {
                 auto ie = parse_expr();
                 if ( !ie )
-                    error( "Invalid for loop initializer" );
+                    diag::error( "Invalid for loop initializer" );
 
                 init = stmt{ .cat = stmt::expr_stmt, .e = ie.value() };
                 require( cat::punct, ";" );
@@ -456,7 +416,7 @@ namespace dungeon
         {
             auto ce = parse_expr();
             if ( !ce )
-                error( "Invalid for loop condition" );
+                diag::error( "Invalid for loop condition" );
 
             cond.e = ce.value();
         }
@@ -474,7 +434,7 @@ namespace dungeon
         require( cat::punct, ")" );
         auto body = parse_stmt();
         if ( !body )
-            error( "Empty body in for loop" );
+            diag::error( "Empty body in for loop" );
 
         stmt res{ .cat = stmt::for_stmt };
         res.subs.push_back( std::move( init ) );
@@ -493,12 +453,12 @@ namespace dungeon
         require( cat::punct, "(" );
         auto e = parse_expr();
         if ( !e )
-            error( "Empty condition in while" );
+            diag::error( "Empty condition in while" );
 
         require( cat::punct, ")" );
         auto body = parse_stmt();
         if ( !body )
-            error( "Empty body in while" );
+            diag::error( "Empty body in while" );
 
         stmt res{ .cat = stmt::while_stmt, .e = e.value() };
         res.subs.push_back( std::move( body.value() ) );
@@ -513,13 +473,13 @@ namespace dungeon
         fetch();
         auto s = parse_stmt();
         if ( !s )
-            error( "Empty body in do_while" );
+            diag::error( "Empty body in do_while" );
 
         require( cat::keyword, "while" );
         require( cat::punct, "(" );
         auto e = parse_expr();
         if ( !e )
-            error( "Empty condition in do_while" );
+            diag::error( "Empty condition in do_while" );
 
         require( cat::punct, ")" );
         require( cat::punct, ";" );
@@ -550,9 +510,8 @@ namespace dungeon
                 require( cat::punct, "," );
 
             auto t = require( cat::keyword );
-            auto tk = type_from_str( t.data );
             if ( !tk )
-                error( t, "Expected a type" );
+                diag::error( t, "Expected a type" );
             
             auto id = require( cat::ident );
             var_decl tmp{ .name = id.data, .typ = tk.value() };
@@ -603,7 +562,7 @@ namespace dungeon
     std::optional< stmt > parser::parse_stmt()
     {
         std::optional< stmt > res{};
-        if ( ( res = parse_loop_stmt() ) 
+        if ( ( res = parse_loop_stmt() )
             || ( res = parse_block() ) 
             || ( res = parse_if() )
             || ( res = parse_ret() )
@@ -622,7 +581,7 @@ namespace dungeon
 
         auto tk = type_from_str( current.data );
         if ( !tk )
-            error( "Expected a type" );
+            diag::error( "Expected a type" );
         fetch();
 
         auto id = require( cat::ident );
@@ -655,4 +614,27 @@ namespace dungeon
     {
         return parse_fn_decl();
     }
+
+    std::optional< ast::module > parse_module()
+    {
+        ast::module mod{};
+        while ( !empty() )
+        {
+            if ( peek().cat == cat::invalid )
+                break;
+
+            std::optional< toplevel > d = parse_toplevel();
+            if ( !d )
+                error( "Expected a toplevel declaration " );
+
+            mod.toplevel_items.push_back( d.value() );
+        }
+
+        return mod;
+    }
+
+    // ast::program parse_program()
+    // {
+    //
+    // }
 }
