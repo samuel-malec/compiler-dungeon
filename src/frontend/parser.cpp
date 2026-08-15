@@ -3,15 +3,15 @@
 #include "parser.hpp"
 
 namespace dungeon
-{   
+{
     using cat = token::cat_t;
     using expr = ast::expr;
     using stmt = ast::stmt;
     using toplevel = ast::toplevel;
     using fn_decl = ast::fn_decl;
-    using var_decl = ast::var_decl;
-    using module = ast::module;
-    using program = ast::program;
+    using var_decl = ast::let_data;
+    using enum_decl = ast::enum_decl;
+    using struct_decl = ast::struct_decl;
 
     std::optional< expr > parser::parse_primary()
     {
@@ -59,11 +59,12 @@ namespace dungeon
 
         while ( match( cat::punct, "(" ) )
         {
+            location loc = e->src_loc;
             fetch();
 
             ast::call_data cd{};
-            ast::identifier_data eid;
-            if ( eid = std::get_if< ast::identifier_data >( *e->data ) )
+            auto* eid = std::get_if< ast::identifier_data >( &e->data );
+            if ( !eid )
                 diag::error("Expected an identifier as a callee" );
 
             cd.callee = make_expr( std::move( *e ) );
@@ -83,7 +84,7 @@ namespace dungeon
             }
 
             require( cat::punct, ")" );
-            e = expr{ .src_loc = *e->src_loc, .data = std::move( cd ) };
+            e = expr{ .src_loc = loc, .data = std::move( cd ) };
         }
 
         return e;
@@ -163,7 +164,7 @@ namespace dungeon
 
         return e;
     }
-    
+
     std::optional< expr > parser::parse_comparison()
     {
         auto e = parse_shift();
@@ -182,7 +183,7 @@ namespace dungeon
 
         return e;
     }
- 
+
     std::optional< expr > parser::parse_equality()
     {
         auto e = parse_comparison();
@@ -215,24 +216,23 @@ namespace dungeon
             if ( !rhs )
                 diag::error( "Expected rhs for assignment expression" );
 
-            ast::assign_data ad{};
-            if ( t->data == "==" )
+            auto* eid = std::get_if< ast::identifier_data >( &e->data );
+            if ( !eid )
+                diag::error( "Lhs of an assignment must be an identifier");
+
+            if ( t->data == "=" )
             {
-                if ( auto i = std::get_if< ast::assign_data >( *e->data ) )
-                    diag::error( "Lhs of an assignment must be an identifier");
-                // TODO: parse equality
+                ast::assign_data ad{};
+                ad.id = *eid;
+                ad.val = make_expr( std::move( rhs.value() ) );
+                location loc = e->src_loc;
+                e = expr{ .src_loc = e->src_loc, .data = std::move( ad ) };
             }
             else
-            {
-                // make_compound_assignment( std::move( e ), std::move( rhs.value() ), std::move( ad ) );
-            }
-
-            ad.id = t->data;
-            ad.val = make_expr( std::move( rhs.value() ) );
-            e = expr{ .src_loc = e->src_loc, .data = std::move( ad ) };
+                e = make_compound_assignment( std::move( e.value() ), std::move( rhs.value() ), t->data );
         }
 
-        return e;    
+        return e;
     }
 
     std::optional< expr > parser::parse_and()
@@ -251,7 +251,7 @@ namespace dungeon
             e = std::move( make_binary( std::move( e.value() ), std::move( rhs.value() ), op_kind_from_str( t->data )) );
         }
 
-        return e;  
+        return e;
     }
 
     std::optional< expr > parser::parse_or()
@@ -270,11 +270,11 @@ namespace dungeon
             e = std::move( make_binary( std::move( e.value() ), std::move( rhs.value() ), op_kind_from_str( t->data ) ) );
         }
 
-        return e;  
+        return e;
     }
 
-    std::optional< expr > parser::parse_expr() 
-    { 
+    std::optional< expr > parser::parse_expr()
+    {
         return parse_or();
     }
 
@@ -285,7 +285,7 @@ namespace dungeon
             return {};
 
         require( cat::punct, ";" );
-        return stmt{ .loc = e->src_loc, .data = ast::expr_stmt_data{ .expr = make_expr( std::move( *e ) ) } };
+        return stmt{ .src_loc = e->src_loc, .data = ast::expr_stmt_data{ .expr = make_expr( std::move( *e ) ) } };
     }
 
     std::optional< stmt > parser::parse_block()
@@ -307,13 +307,13 @@ namespace dungeon
         fetch();
         return  stmt{ .data = std::move( bd ) };
     }
-    
-    std::optional< stmt > parser::parse_if() 
+
+    std::optional< stmt > parser::parse_if()
     {
         if ( !match( cat::keyword, "if" ) )
             return {};
 
-        fetch();
+        auto t = fetch();
         require( cat::punct, "(" );
 
         auto cond = parse_expr();
@@ -325,41 +325,42 @@ namespace dungeon
         if ( !then_body )
             diag::error( "Empty body inside if block" );
 
-        stmt res{ if_stmt, .e = cond.value() };
-        res.subs.push_back( std::move( then_body.value() ) );
+        ast::if_data ifd{};
+        ifd.cond = make_expr( std::move( cond.value() ) );
+        ifd.then_body = make_stmt( std::move( then_body ).value() );
         if ( !match( cat::keyword, "else" ) )
-            return res;
+            return stmt{ .src_loc = t.loc, .data = std::move( ifd ) };
 
         fetch();
         auto else_body = parse_stmt();
         if ( !else_body )
             diag::error( "Empty else body" );
 
-        res.subs.push_back( std::move( else_body.value() ) );
-        return res;
+        ifd.else_body = make_stmt( std::move( else_body.value() ) );
+        return stmt{ .src_loc = t.loc, .data = std::move( ifd ) };
     }
-  
-    std::optional< stmt > parser::parse_ret() 
+
+    std::optional< stmt > parser::parse_ret()
     {
         if ( !match( cat::keyword, "return" ) )
             return {};
 
-        fetch();
-        auto res = stmt{ .cat = stmt::ret };
-        
+        auto t = fetch();
+
+        ast::ret_data rd{};
         if ( match( cat::punct, ";" ) )
         {
             fetch();
-            return res;
+            return stmt{ .data = std::move( rd ) };
         }
 
         auto e = parse_expr();
         if ( !e )
             diag::error( "Expected expression" );
-            
-        res.e = e.value();
+
+        rd.val = make_expr( std::move( e.value() ) );
         require( cat::punct, ";" );
-        return res;
+        return stmt{ .data = std::move( rd ) };
     }
 
     std::optional< stmt > parser::parse_control_stmt()
@@ -368,67 +369,66 @@ namespace dungeon
         {
             fetch();
             require( cat::punct, ";" );
-            return stmt{ .cat = stmt::brk };
+            return stmt{ .data = ast::brk_data{} };
         }
 
         if ( match( cat::keyword, "continue" ) )
         {
             fetch();
             require( cat::punct, ";" );
-            return stmt{ .cat = stmt::cont };
+            return stmt{ .data = ast::cont_data{} };
         }
 
         return {};
     }
 
-    std::optional< stmt > parser::parse_for() 
+    std::optional< stmt > parser::parse_for()
     {
         if ( !match( cat::keyword, "for" ) )
             return {};
 
-        fetch();
-        require( cat::punct, "(" );
-        stmt init{};
+        auto t = fetch();
+        location loc = t.loc;
 
+        require( cat::punct, "(" );
+        ast::for_data fd{};
+        fd.init = nullptr;
         if ( !match( cat::punct, ";" ) )
         {
             if ( auto v = parse_var_decl() )
-                init = std::move( v.value() );
+                fd.init = make_stmt( std::move( v.value() ) );
             else
             {
+                // todo: what to actually consider as an initializer ? Allowing only assignment seems rather too restrictive...
                 auto ie = parse_expr();
                 if ( !ie )
                     diag::error( "Invalid for loop initializer" );
 
-                init = stmt{ .cat = stmt::expr_stmt, .e = ie.value() };
+                stmt tmp{ .data = ast::expr_stmt_data{ .expr = make_expr( std::move( ie.value() ) ) } };
+                fd.init = make_stmt( std::move( tmp ) );
                 require( cat::punct, ";" );
             }
         }
         else
             fetch();
-        
-        auto cond_expr = make_expr_node( expr::bool_lit, type{ .data = BOOL } );
-        cond_expr.val = true;
-        cond_expr.val_kind = expr::rvalue;
-        stmt cond{ .cat = stmt::expr_stmt, .e = cond_expr };
-        
+
+        fd.cond = nullptr;
         if ( !match( cat::punct, ";" ) )
         {
             auto ce = parse_expr();
             if ( !ce )
                 diag::error( "Invalid for loop condition" );
-
-            cond.e = ce.value();
+            fd.cond = make_expr( std::move( ce.value() ) );
         }
 
         require( cat::punct, ";" );
-        stmt update{ .cat = stmt::expr_stmt };
+        fd.update = nullptr;
         if ( !match( cat::punct, ")" ) )
         {
             auto ue = parse_expr();
             if ( !ue )
-                error( "Invalid for loop update" );
-            update.e = ue.value(); 
+                diag::error( "Invalid for loop update" );
+           fd.update = make_expr( std::move( ue.value() ) );
         }
 
         require( cat::punct, ")" );
@@ -436,20 +436,17 @@ namespace dungeon
         if ( !body )
             diag::error( "Empty body in for loop" );
 
-        stmt res{ .cat = stmt::for_stmt };
-        res.subs.push_back( std::move( init ) );
-        res.subs.push_back( std::move( cond ) );
-        res.subs.push_back( std::move( update ) );
-        res.subs.push_back( std::move( body.value() ) );
+        fd.body = make_stmt( std::move( body ).value() );
+        stmt res{ .src_loc = loc, .data = std::move( fd ) };
         return res;
     }
 
-    std::optional< stmt > parser::parse_while() 
+    std::optional< stmt > parser::parse_while()
     {
         if ( !match( cat::keyword, "while" ) )
             return {};
         fetch();
-        
+
         require( cat::punct, "(" );
         auto e = parse_expr();
         if ( !e )
@@ -460,12 +457,14 @@ namespace dungeon
         if ( !body )
             diag::error( "Empty body in while" );
 
-        stmt res{ .cat = stmt::while_stmt, .e = e.value() };
-        res.subs.push_back( std::move( body.value() ) );
+        ast::while_data wd{};
+        wd.cond = make_expr( std::move( e.value() ) );
+        wd.body = make_stmt( std::move( body ).value() );
+        stmt res{ .data = std::move( wd ) };
         return res;
-    } 
+    }
 
-    std::optional < stmt > parser::parse_do_while() 
+    std::optional < stmt > parser::parse_do_while()
     {
         if ( !match( cat::keyword, "do" ) )
             return {};
@@ -484,12 +483,14 @@ namespace dungeon
         require( cat::punct, ")" );
         require( cat::punct, ";" );
 
-        stmt res{ .cat = stmt::do_while_stmt, .e = e.value() };
-        res.subs.push_back( std::move( s.value() ) );
+        ast::do_while_data dw{};
+        dw.cond = make_expr( std::move( e.value() ) );
+        dw.body = make_stmt( std::move( s.value() ) );
+        stmt res{ .data = std::move( dw ) };
         return res;
     }
 
-    std::optional< stmt > parser::parse_loop_stmt() 
+    std::optional< stmt > parser::parse_loop_stmt()
     {
         std::optional< stmt > res{};
         if ( ( res = parse_for() )
@@ -497,9 +498,9 @@ namespace dungeon
             || ( res = parse_do_while() ) )
             return res;
 
-        return {}; 
+        return {};
     }
-    
+
     std::vector< var_decl > parser::parse_var_decl_list()
     {
         std::vector< var_decl > var_decls{};
@@ -512,7 +513,7 @@ namespace dungeon
             auto t = require( cat::keyword );
             if ( !tk )
                 diag::error( t, "Expected a type" );
-            
+
             auto id = require( cat::ident );
             var_decl tmp{ .name = id.data, .typ = tk.value() };
             var_decls.push_back( tmp );
@@ -529,23 +530,23 @@ namespace dungeon
         auto tk = type_from_str( peek().data );
         if ( !tk )
             return {};
-        
+
         fetch();
         auto id = require( cat::ident );
         var_decl vdecl{ .name = id.data, .typ = tk.value(), .e = std::nullopt };
 
         if ( match( cat::punct, ";" ) )
             return vdecl;
-    
+
         if ( !match( cat::punct, "=" ) )
-            error( "Unexpected symbol in variable declaration" );
-        
+            diag::error( "Unexpected symbol in variable declaration" );
+
         fetch();
         auto e = parse_expr();
         if ( !e )
             return {};
 
-        vdecl.e = e.value();        
+        vdecl.e = e.value();
         return vdecl;
     }
 
@@ -563,78 +564,47 @@ namespace dungeon
     {
         std::optional< stmt > res{};
         if ( ( res = parse_loop_stmt() )
-            || ( res = parse_block() ) 
+            || ( res = parse_block() )
             || ( res = parse_if() )
             || ( res = parse_ret() )
             || ( res = parse_control_stmt() )
             || ( res = parse_var_decl() )
-            || ( res = parse_expr_stmt() ) ) 
+            || ( res = parse_expr_stmt() ) )
             return res;
-        
+
         return {};
+    }
+
+    std::optional<var_decl> parser::parse_global_var_decl()
+    {
     }
 
     std::optional< fn_decl > parser::parse_fn_decl()
     {
-        if ( !match( cat::keyword ) )
-            return {};
+        return {};
+    }
 
-        auto tk = type_from_str( current.data );
-        if ( !tk )
-            diag::error( "Expected a type" );
-        fetch();
+    std::optional< enum_decl > parser::parse_enum_decl() {
+        return {};
+    }
 
-        auto id = require( cat::ident );
-        require( cat::punct, "(" );
-
-        fn_decl res{ .name = id.data };
-        res.params = std::move( parse_var_decl_list() );
-        
-        require( cat::punct, ")" );
-        require( cat::punct, "{" );
-
-        function_type fn_typ{ .ret_type = tk.value().as_primitive() };
-        for ( var_decl& dec : res.params )
-            fn_typ.params.push_back( dec.typ.as_primitive() );
-        
-        res.sig = fn_typ;
-        while ( !match( cat::punct, "}" ) )
-        {
-            auto s = parse_stmt();
-            if ( !s )
-                error( "Parsing statement in function: ", id );
-            res.body.push_back( s.value() );
-        }
-
-        fetch();
-        return res;
+    std::optional< struct_decl > parser::parse_struct_decl() {
+        return {};
     }
 
     std::optional< toplevel > parser::parse_toplevel()
     {
-        return parse_fn_decl();
+        std::optional< toplevel > res{};
+        if ( ( res = parse_fn_decl() )
+            || ( res = parse_enum_decl() )
+            || ( res = parse_struct_decl() ) )
+        return res;
     }
 
     std::optional< ast::module > parse_module()
     {
-        ast::module mod{};
-        while ( !empty() )
-        {
-            if ( peek().cat == cat::invalid )
-                break;
-
-            std::optional< toplevel > d = parse_toplevel();
-            if ( !d )
-                error( "Expected a toplevel declaration " );
-
-            mod.toplevel_items.push_back( d.value() );
-        }
-
-        return mod;
+        ast::module m{};
+        return m;
     }
 
-    // ast::program parse_program()
-    // {
-    //
-    // }
 }

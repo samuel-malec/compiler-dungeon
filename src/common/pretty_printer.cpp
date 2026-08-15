@@ -8,7 +8,7 @@ namespace dungeon::print
 using expr = ast::expr;
 using stmt = ast::stmt;
 using toplevel = ast::toplevel;
-using var_decl = ast::var_decl;
+using var_decl = ast::let_data;
 using fn_decl = ast::fn_decl;
 using enum_decl = ast::enum_decl;
 using struct_decl = ast::struct_decl; 
@@ -53,186 +53,46 @@ void pretty_printer::print_stmt( stmt& s, int depth )
 void pretty_printer::print_ast_module(ast::module& ast_module)
 {
 
-    for ( auto& decl : ast_module.toplevel_items )
-    {
-        std::visit( [ this ]( auto&& arg )
-        {
-            using T = std::decay_t< decltype( arg ) >;
-            if constexpr ( std::is_same_v< T, fn_decl > )
-            {
-                std::cout << "fn_decl: ";
-                fn_decl fn = arg;
-                std::cout << fn.sig.ret_type << " " << fn.name << "( ";
-                for ( size_t i = 0; i < fn.params.size(); ++i )
-                {
-                    auto& p = fn.params[ i ];
-                    // std::cout << p.typ << " " << p.name << ( i == fn.params.size() - 1 ?  "" : ", " );
-                }
-
-                std::cout << " )\n";
-                for ( auto& s : fn.body )
-                    print_stmt( s, 1 );
-            }
-            else if constexpr ( std::is_same_v< T, struct_decl > )
-                std::cout << "struct_decl\n";
-            else if constexpr ( std::is_same_v< T, enum_decl > )
-                std::cout << "enum_decl\n";
-            else
-                static_assert( false, "non-exhaustive visitor!" );
-        }, decl );
-    }
+    // for ( auto& decl : ast_module.toplevel_items )
+    // {
+    //     std::visit( [ this ]( auto&& arg )
+    //     {
+    //         using T = std::decay_t< decltype( arg ) >;
+    //         if constexpr ( std::is_same_v< T, fn_decl > )
+    //         {
+    //             std::cout << "fn_decl: ";
+    //             fn_decl fn = arg;
+    //             std::cout << fn.sig.ret_type << " " << fn.name << "( ";
+    //             for ( size_t i = 0; i < fn.params.size(); ++i )
+    //             {
+    //                 auto& p = fn.params[ i ];
+    //                 // std::cout << p.typ << " " << p.name << ( i == fn.params.size() - 1 ?  "" : ", " );
+    //             }
+    //
+    //             std::cout << " )\n";
+    //             for ( auto& s : fn.body )
+    //                 print_stmt( s, 1 );
+    //         }
+    //         else if constexpr ( std::is_same_v< T, struct_decl > )
+    //             std::cout << "struct_decl\n";
+    //         else if constexpr ( std::is_same_v< T, enum_decl > )
+    //             std::cout << "enum_decl\n";
+    //         else
+    //             static_assert( false, "non-exhaustive visitor!" );
+    //     }, decl );
+    // }
 }
 
 void pretty_printer::print_hir_expr( hir::expr& e, int depth, const atom_map& am )
 {
-    pad( depth );
-    std::cout << "[hir:" << e.typ << "] ";
-    if ( std::holds_alternative< uint64_t >( e.data ) )
-        std::cout << "[int_lit] " << std::get< uint64_t >( e.data ) << "\n";
-    else if ( std::holds_alternative< bool >( e.data ) ) 
-        std::cout << "[bool_lit] " << ( std::get< bool >( e.data ) ? "true" : "false" ) << "\n";
-    
-    else if ( std::holds_alternative< hir::expr::var_ref_data >( e.data ) ) 
-    {
-        auto data = std::get< hir::expr::var_ref_data >( e.data );
-        std::cout << "[var_ref] " << am.at( data.id ) << "\n";
-    }
-
-    else if ( std::holds_alternative< hir::expr::unary_data >( e.data ) ) 
-    {
-        auto data = std::get< hir::expr::unary_data >( e.data );
-        std::cout << "[unary " << data.op << "]\n";
-        if ( data.sub ) print_hir_expr( *data.sub, depth + 1, am );
-    }
-
-    else if ( std::holds_alternative< hir::expr::binary_data >( e.data ) ) 
-    {
-        auto data = std::get< hir::expr::binary_data >( e.data );
-        std::cout << "[binary " << data.op << "]\n";
-        if ( data.left )  print_hir_expr( *data.left, depth + 1, am );
-        if ( data.right ) print_hir_expr( *data.right, depth + 1, am );
-    }
-
-    else if ( std::holds_alternative< hir::expr::assign_data >( e.data ) ) 
-    {
-        auto data = std::get< hir::expr::assign_data >( e.data );
-        std::cout << "[assign] v" << data.target << "\n";
-        if ( data.value ) print_hir_expr( *data.value, depth + 1, am );
-    }
-
-    else if ( std::holds_alternative< hir::expr::call_data >( e.data ) ) 
-    {
-        auto data = std::get< hir::expr::call_data >( e.data );
-        std::cout << "[call] f" << data.target << "\n";
-        pad( depth + 1 );
-        std::cout << "[args]\n";
-        for ( const auto& arg : data.args )
-            if ( arg ) print_hir_expr( *arg, depth + 2, am );
-    }
-    // case hir::expr::cast:
-    //     std::cout << "[cast]\n";
-    //     break;
-    // }
 }
 
 void pretty_printer::print_hir_stmt( hir::stmt& s, int depth, const atom_map& am )
 {
-    pad( depth );
-    if ( std::holds_alternative< hir::stmt::expr_data >( s.data ) )
-    {
-        std::cout << "[expr_stmt]\n";
-        print_hir_expr( std::get< hir::stmt::expr_data >( s.data ).e, depth + 1, am );
-    }
-    else if ( std::holds_alternative< hir::stmt::block_data >( s.data ) )
-    {
-        std::cout << "[block]\n";
-        auto data = std::get< hir::stmt::block_data >( s.data );
-        for ( auto& sub_stmt : data.stmts )
-            print_hir_stmt( sub_stmt, depth + 1, am );
-    }
-
-    else if ( std::holds_alternative< hir::stmt::let_data >( s.data ) )
-    {
-        auto data = std::get< hir::stmt::let_data >( s.data );
-        std::cout << "[let_stmt] " << data.typ << " " << am.at( data.target ) << "\n";
-        if ( data.value ) 
-            print_hir_expr( *data.value, depth + 1, am );
-    }
-
-    else if ( std::holds_alternative< hir::stmt::if_data >( s.data ) )
-    {
-        auto data = std::get< hir::stmt::if_data >( s.data );
-        std::cout << "[if_stmt]\n";
-        pad( depth + 1 );
-        std::cout << "[cond]\n";
-        print_hir_expr( data.cond, depth + 2, am );
-        
-        if ( data.then_branch )
-        {
-            pad( depth + 1 );
-            std::cout << "[then]\n";
-            print_hir_stmt( *data.then_branch, depth + 2, am );
-        }
-        if ( data.else_branch )
-        {
-            pad( depth + 1 );
-            std::cout << "[else]\n";
-            print_hir_stmt( *data.else_branch, depth + 2, am );
-        }
-    }
-
-    else if ( std::holds_alternative< hir::stmt::loop_data >( s.data ) )
-    {
-        auto data = std::get< hir::stmt::loop_data >( s.data );
-        std::cout << "[loop_stmt]\n";
-        if ( data.body ) 
-            print_hir_stmt( *data.body, depth + 1, am );
-    }
-
-    else if ( std::holds_alternative< hir::stmt::brk >( s.data ) )
-        std::cout << "[break]\n";
-
-    else if ( std::holds_alternative< hir::stmt::cont >( s.data ) )
-        std::cout << "[continue]\n";
-
-    else if ( std::holds_alternative< hir::stmt::ret_data >( s.data ) )
-    {
-        auto data = std::get< hir::stmt::ret_data >( s.data );
-        std::cout << "[ret]";
-        if ( data.value )
-        {
-            std::cout << "\n";
-            print_hir_expr( *data.value, depth + 1, am );
-        }
-        else
-            std::cout << " {}\n";
-    }
 }
 
 void pretty_printer::print_hir( hir::program& hir, const atom_map& am )
 {
-    if ( !hir.globals.empty() )
-    {
-        std::cout << "Globals:\n";
-        for ( const auto& global : hir.globals )
-        {
-            pad( 1 );
-            std::cout << "let v" << global.target << "\n";
-            if ( global.value ) 
-                print_hir_expr( *global.value, 2, am );
-        }
-    }
-
-    for ( auto& fn : hir.functions )
-    {
-        std::cout << "fn_def: f" << fn.name << " :: " << fn.sig << " params: ( ";
-        for ( size_t i = 0; i < fn.params.size(); ++i )
-        {
-            std::cout << "v" << fn.params[ i ] << ( i == fn.params.size() - 1 ? "" : ", " );
-        }
-        std::cout << " )\n";
-        print_hir_stmt( fn.body, 1, am );
-    }
 }
 
 std::string pretty_printer::tac_operand_to_string( tac::operand& operand, const atom_map& am )
@@ -324,8 +184,6 @@ void pretty_printer::print_tac( tac::program& tac, const atom_map& am  )
 {
     for ( auto& fn : tac.functions )
     {
-        std::cout << "f" << fn.name << " :: ";
-        std::cout << fn.sig;
         for ( auto& i : fn.body )
             print_tac_inst( i, am );
     }

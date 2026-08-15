@@ -9,7 +9,8 @@
 
 namespace dungeon::hir
 {
-    struct epxr_id { uint32_t idx; };
+    struct var_id { uint32_t idx; };
+    struct expr_id { uint32_t idx; };
     struct stmt_id { uint32_t idx; };
 
     struct expr
@@ -63,8 +64,8 @@ namespace dungeon::hir
         std::vector< expr > exprs;
         std::vector< stmt > stmts;
 
-        expr& get(int idx) { assert( idx >= 0 && idx < exprs.size() ); return exprs[idx]; }
-        expr& get(int idx) { assert( idx >= 0 && idx < exprs.size() ); return stmts[idx]; }
+        expr& get_expr( int idx ) { assert( idx >= 0 && idx < exprs.size() ); return exprs[ idx ]; }
+        stmt& get_stmt( int idx ) { assert( idx >= 0 && idx < stmts.size() ); return stmts[ idx ]; }
 
     };
 

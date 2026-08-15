@@ -5,7 +5,6 @@
 program
     ::= toplevel* EOF
     ;
-
 toplevel
     ::= functionDeclaration
      | structDeclaration
@@ -14,100 +13,58 @@ toplevel
     ;
 
 functionDeclaration
-    ::= "fn" IDENTIFIER "(" parameterList? ")" returnType? block
+    ::= "fn" IDENTIFIER genericParams? "(" parameterList? ")" returnType? block
     ;
-
-returnType
-    ::= "->" type
+genericParams
+    ::= "<" IDENTIFIER ("," IDENTIFIER)* ">"
     ;
-
 parameterList
     ::= parameter ("," parameter)*
     ;
-
 parameter
     ::= IDENTIFIER ":" type
     ;
-
-structDeclaration
-    ::= "struct" IDENTIFIER "{" field* "}"
+returnType
+    ::= "->" type effectRow?
+    ;
+effectRow
+    ::= "/" IDENTIFIER ("+" IDENTIFIER)*
     ;
 
+structDeclaration
+    ::= "struct" IDENTIFIER genericParams? "{" (field ("," field)* ","?)? "}"
+    ;
 field
-    ::= IDENTIFIER ":" type ";"
+    ::= IDENTIFIER ":" type
     ;
 
 enumDeclaration
-    ::= "enum" IDENTIFIER "{"
+    ::= "enum" IDENTIFIER genericParams? "{"
             enumMember ("," enumMember)* ","?
         "}"
     ;
-
 enumMember
-    ::= IDENTIFIER
+    ::= IDENTIFIER ("(" type ("," type)* ")")?
     ;
 
 globalVariableDeclaration
-    ::= "let" "global" IDENTIFIER (":" type)? "=" expression ";"
-    ;
+    ::= "static" "mut"? IDENTIFIER ":" type "=" expression ";"
+    
+ ```
 
-block
-    ::= "{"
-            statement*
-        "}"
-    ;
-
-statement
-    ::= block
-     | variableDeclaration
-     | returnStatement
-     | ifStatement
-     | whileStatement
-     | breakStatement
-     | continueStatement
-     | expressionStatement
-    ;
-
-variableDeclaration
-    ::= "let" "mut"? IDENTIFIER
-        (":" type)?
-        ("=" expression)?
-        ";"
-    ;
-
-returnStatement
-    ::= "return" expression? ";"
-    ;
-
-ifStatement
-    ::= "if" expression statement
-        ("else" statement)?
-    ;
-
-whileStatement
-    ::= "while" expression statement
-    ;
-
-breakStatement
-    ::= "break" ";"
-    ;
-
-continueStatement
-    ::= "continue" ";"
-    ;
-
-expressionStatement
-    ::= expression ";"
-    ;
-```
-
-### Types
+ ### Types
 ```ebnf
 type
     ::= primitiveType
      | namedType
      | arrayType
-     ;
+     | ::= IDENTIFIER genericArgs?
+     | "&" "mut"? type
+    ;
+
+genericArgs
+    ::= "<" type ("," type)* ">"
+    ;;
 
 primitiveType
     ::= "i8"
@@ -136,121 +93,106 @@ arrayType
 expression
     ::= assignmentExpression
     ;
-
 assignmentExpression
-    ::= logicalOrExpression
-        (assignmentOperator assignmentExpression)?
+    ::= logicalOrExpression (assignOp assignmentExpression)?
     ;
-
-assignmentOperator
-    ::= "="
-     | "+="
-     | "-="
-     | "*="
-     | "/="
+assignOp
+    ::= "=" | "+=" | "-=" | "*=" | "/="
     ;
-
 logicalOrExpression
-    ::= logicalAndExpression
-        ("||" logicalAndExpression)*
+    ::= logicalAndExpression ("||" logicalAndExpression)*
     ;
-
 logicalAndExpression
-    ::= bitwiseOrExpression
-        ("&&" bitwiseOrExpression)*
+    ::= equalityExpression ("&&" equalityExpression)*
     ;
-
-bitwiseOrExpression
-    ::= bitwiseXorExpression
-        ("|" bitwiseXorExpression)*
-    ;
-
-bitwiseXorExpression
-    ::= bitwiseAndExpression
-        ("^" bitwiseAndExpression)*
-    ;
-
-bitwiseAndExpression
-    ::= equalityExpression
-        ("&" equalityExpression)*
-    ;
-
 equalityExpression
-    ::= relationalExpression
-        (("==" | "!=") relationalExpression)*
+    ::= relationalExpression (("==" | "!=") relationalExpression)*
     ;
-
 relationalExpression
-    ::= shiftExpression
-        (("<" | "<=" | ">" | ">=") shiftExpression)*
+    ::= additiveExpression (("<" | "<=" | ">" | ">=") additiveExpression)*
     ;
-
-shiftExpression
-    ::= additiveExpression
-        (("<<" | ">>") additiveExpression)*
-    ;
-
 additiveExpression
-    ::= multiplicativeExpression
-        (("+" | "-") multiplicativeExpression)*
+    ::= multiplicativeExpression (("+" | "-") multiplicativeExpression)*
     ;
-
 multiplicativeExpression
-    ::= unaryExpression
-        (("*" | "/" | "%") unaryExpression)*
+    ::= unaryExpression (("*" | "/" | "%") unaryExpression)*
     ;
-
 unaryExpression
-    ::= ("-" | "!" | "~") unaryExpression
+    ::= ("-" | "!" | "&" "mut"?) unaryExpression
      | postfixExpression
     ;
-
 postfixExpression
-    ::= primaryExpression postfixOperator*
+    ::= primaryExpression postfixOp*
     ;
-
-postfixOperator
+postfixOp
     ::= "." IDENTIFIER
-     | "[" expression "]"
      | "(" argumentList? ")"
+     | "[" expression "]"
     ;
-
 argumentList
     ::= expression ("," expression)*
     ;
-
 primaryExpression
-    ::= INTEGER_LITERAL
-     | "true"
-     | "false"
-     | "null"
+    ::= literal
      | IDENTIFIER
+     | structLiteral
      | "(" expression ")"
+     | ifExpression
+     | matchExpression
+     | loopExpression
+     | whileExpression
+     | block
+    ;
+
+structLiteral
+    ::= IDENTIFIER "{" (structLiteralField ("," structLiteralField)* ","?)? "}"
+    ;
+structLiteralField
+    ::= IDENTIFIER ":" expression
+    ;
+
+ifExpression
+    ::= "if" expression block
+        ("else" (ifExpression | block))?
+    ;
+
+matchExpression
+    ::= "match" expression "{"
+            matchArm ("," matchArm)* ","?
+        "}"
+    ;
+matchArm
+    ::= pattern "=>" expression
+    ;
+pattern
+    ::= IDENTIFIER ("(" pattern ("," pattern)* ")")?
+     | literal
+     | "_"
+    ;
+
+loopExpression
+    ::= "loop" block
+    ;
+whileExpression
+    ::= "while" expression block
+    ;
+
+literal
+    ::= INTEGER | FLOAT | STRING | "true" | "false"
     ;
 ```
 
 ## Example program
 ```
-fn fib(n: i32) -> i32 {
-    if n <= 1 {
-        return n;
-    }
-
-    let mut a = 0;
-    let mut b = 1;
-
-    while n > 1 {
-        let next = a + b;
-        a = b;
-        b = next;
-        n -= 1;
-    }
-
-    return b;
+fn max(a: i32, b: i32) -> i32 {
+    if a > b { a } else { b }
 }
 
-fn main() {
-    let value = fib(10);
-    print(value);
+fn fib(n: i32) -> i32 {
+    if n < 2 {
+        n
+    } else {
+        fib(n - 1) + fib(n - 2)
+    }
 }
 ```

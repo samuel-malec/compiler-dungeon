@@ -9,7 +9,7 @@
 #include "../sema/semantic.hpp"
 #include "../middleend/cfg.hpp"
 #include "../middleend/tac.hpp"
-#include "../middleend/hir.hpp"
+#include "../hir/hir.hpp"
 
 namespace dungeon::print
 {
@@ -19,7 +19,7 @@ struct pretty_printer
     using expr = ast::expr;
     using stmt = ast::stmt;
     using toplevel = ast::toplevel;
-    using var_decl = ast::var_decl;
+    using var_decl = ast::let_data;
     using fn_decl = ast::fn_decl;
     using enum_decl = ast::enum_decl;
     using struct_decl = ast::struct_decl;
@@ -46,11 +46,11 @@ struct pretty_printer
 
     void print_ast_module( ast::module& ast_module );
 
-    // void print_hir_expr( hir::expr& e, int depth, const atom_map& am );
+    void print_hir_expr( hir::expr& e, int depth, const atom_map& am );
 
-    // void print_hir_stmt( hir::stmt& s, int depth, const atom_map& am );
+    void print_hir_stmt( hir::stmt& s, int depth, const atom_map& am );
 
-    // void print_hir( hir::program& hir, const atom_map& am );
+    void print_hir( hir::program& hir, const atom_map& am );
     
     std::string tac_operand_to_string( tac::operand& operand, const atom_map& am );
 

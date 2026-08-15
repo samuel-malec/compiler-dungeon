@@ -16,6 +16,14 @@ namespace dungeon
 
 struct type{};
 
+struct int_type : type
+{
+    bool sign = false;
+    size_t width = 8;
+};
+
+struct bool_type : type {};
+
 struct type_manager
 {
 

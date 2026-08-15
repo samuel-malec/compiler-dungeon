@@ -21,9 +21,9 @@ struct parser
     using stmt = ast::stmt;
     using toplevel = ast::toplevel;
     using fn_decl = ast::fn_decl;
-    using var_decl = ast::var_decl;
-    using module = ast::module;
-    using program = ast::program;
+    using var_decl = ast::let_data;
+    using enum_decl = ast::enum_decl;
+    using struct_decl = ast::struct_decl;
 
     token current;
     size_t pos = 0;
@@ -95,7 +95,6 @@ struct parser
         ast::identifier_data id = *v;
         location loc = lhs.src_loc;
         std::string_view base_op = op.substr( 0, op.size() - 1 );
-
         ast::expr bin = make_binary( std::move( lhs ), std::move( rhs ), op_kind_from_str( base_op ) );
 
         return ast::expr{
@@ -185,11 +184,17 @@ struct parser
 
     std::optional< stmt > parse_stmt();
 
+    std::optional< var_decl > parse_global_var_decl();
+
     std::optional< fn_decl > parse_fn_decl();
+
+    std::optional < enum_decl > parse_enum_decl();
+
+    std::optional < struct_decl > parse_struct_decl();
 
     std::optional< toplevel > parse_toplevel();
 
-    std::optional< module > parse_module();
+    std::optional< ast::module > parse_module();
 
     // std::optional< program > parse_program();
 };
