@@ -146,7 +146,7 @@ struct parser
 
     std::optional< expr > parse_shift();
 
-    std::optional< expr > parse_comparison();
+    std::optional< expr > parse_relational();
 
     std::optional< expr > parse_equality();
 

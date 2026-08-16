@@ -1,4 +1,4 @@
-#include <charconv>
+#enclude <charconv>
 
 #include "parser.hpp"
 
@@ -165,7 +165,7 @@ namespace dungeon
         return e;
     }
 
-    std::optional< expr > parser::parse_comparison()
+    std::optional< expr > parser::parse_relational()
     {
         auto e = parse_shift();
         if ( !e )
@@ -186,14 +186,14 @@ namespace dungeon
 
     std::optional< expr > parser::parse_equality()
     {
-        auto e = parse_comparison();
+        auto e = parse_relational();
         if ( !e )
             return {};
 
         while ( auto t = match_any( cat::punct, "==", "!=" ) )
         {
             fetch();
-            auto rhs = parse_comparison();
+            auto rhs = parse_relational();
             if ( !rhs )
                 diag::error( "Expected rhs for equality expression" );
 
@@ -203,13 +203,51 @@ namespace dungeon
         return e;
     }
 
-    std::optional< expr > parser::parse_assignment()
+    std::optional< expr > parser::parse_and()
     {
         auto e = parse_equality();
         if ( !e )
             return {};
 
-        while ( auto t = match_any( cat::punct, "=", "+=", "-=", "*=", "<<=", ">>=" ) )
+        while ( auto t = match_any( cat::punct, "&&" ) )
+        {
+            fetch();
+            auto rhs = parse_equality();
+            if ( !rhs )
+                diag::error( "Expected rhs for assignment expression" );
+
+            e = std::move( make_binary( std::move( e.value() ), std::move( rhs.value() ), op_kind_from_str( t->data )) );
+        }
+
+        return e;
+    }
+
+    std::optional< expr > parser::parse_or()
+    {
+        auto e = parse_and();
+        if ( !e )
+            return {};
+
+        while ( auto t = match_any( cat::punct, "||" ) )
+        {
+            fetch();
+            auto rhs = parse_and();
+            if ( !rhs )
+                diag::error( "Expected rhs for assignment expression" );
+
+            e = std::move( make_binary( std::move( e.value() ), std::move( rhs.value() ), op_kind_from_str( t->data ) ) );
+        }
+
+        return e;
+    }
+
+    std::optional< expr > parser::parse_assignment()
+    {
+        auto e = parse_or();
+        if ( !e )
+            return {};
+
+        while ( auto t = match_any( cat::punct, "=", "+=", "-=", "*=", "/=" ) )
         {
             fetch();
             auto rhs = parse_assignment();
@@ -235,47 +273,9 @@ namespace dungeon
         return e;
     }
 
-    std::optional< expr > parser::parse_and()
-    {
-        auto e = parse_assignment();
-        if ( !e )
-            return {};
-
-        while ( auto t = match_any( cat::punct, "&&" ) )
-        {
-            fetch();
-            auto rhs = parse_assignment();
-            if ( !rhs )
-                diag::error( "Expected rhs for assignment expression" );
-
-            e = std::move( make_binary( std::move( e.value() ), std::move( rhs.value() ), op_kind_from_str( t->data )) );
-        }
-
-        return e;
-    }
-
-    std::optional< expr > parser::parse_or()
-    {
-        auto e = parse_and();
-        if ( !e )
-            return {};
-
-        while ( auto t = match_any( cat::punct, "||" ) )
-        {
-            fetch();
-            auto rhs = parse_assignment();
-            if ( !rhs )
-                diag::error( "Expected rhs for assignment expression" );
-
-            e = std::move( make_binary( std::move( e.value() ), std::move( rhs.value() ), op_kind_from_str( t->data ) ) );
-        }
-
-        return e;
-    }
-
     std::optional< expr > parser::parse_expr()
     {
-        return parse_or();
+        return parse_assignment();
     }
 
     std::optional< stmt > parser::parse_expr_stmt()
