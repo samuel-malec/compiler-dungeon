@@ -39,7 +39,6 @@ struct expr
     data_t data;
 };
 
-// TODO: hopefully improve this;
 struct type_annotation
 {
     std::string_view base_name;
@@ -54,12 +53,17 @@ struct cont_data{};
 struct brk_data{};
 struct block_data{ std::vector< stmt_ptr > stmts; };
 
-struct let_data
+struct var_decl
 {
     enum mut_t { mut, imut } mut_modifier;
-    enum scope_t { loc, stat } scope_modifier;
     std::string_view name;
     type_annotation ty;
+    expr_ptr initializer;
+};
+
+struct let_data
+{
+    var_decl decl;
 };
 
 struct expr_stmt_data{ expr_ptr expr; };
@@ -80,13 +84,18 @@ struct stmt
     data_t data;
 };
 
-struct enum_decl
+struct enum_member
 {
-    std::string_view id;
-    std::vector< std::string_view > fields;
+    // TODO;
 };
 
-struct field_decl
+struct enum_decl
+{
+    std::string_view name;
+    std::vector< enum_member > members;
+};
+
+struct struct_field
 {
     std::string_view name;
     type_annotation ty;
@@ -95,7 +104,7 @@ struct field_decl
 struct struct_decl
 {
     std::string_view name;
-    std::vector< field_decl > fields;
+    std::vector< struct_field > fields;
 };
 
 struct param
@@ -104,18 +113,29 @@ struct param
     type_annotation ty;
 };
 
+struct param_list
+{
+    std::vector< param > params;
+};
+
 struct fn_decl
 {
     std::string_view name;
-    std::vector< stmt_ptr > body;
-    std::vector< param > params;
+    param_list params;
     type_annotation ret_ty;
+    std::vector< std::string_view > generics;
+    stmt_ptr body;
+};
+
+struct global_var
+{
+    var_decl decl;
 };
 
 struct toplevel
 {
     location loc;
-    using data_t =  std::variant< fn_decl, enum_decl, struct_decl >;
+    using data_t = std::variant< fn_decl, enum_decl, struct_decl, global_var >;
     data_t data;
 };
 

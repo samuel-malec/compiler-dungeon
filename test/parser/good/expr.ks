@@ -1,7 +1,7 @@
-int main()
+fn main() -> i32
 {
-    int x = 10;
-    x = x + 5;
-    int y = x * 2;
+    let x : i32 = 10;
+    x = x + 10;
+    let y : i32 = x * 2;
     return y;
 }

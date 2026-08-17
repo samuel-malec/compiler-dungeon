@@ -89,7 +89,7 @@ inline op_kind op_from_compound_asn( op_kind op )
     throw std::runtime_error( "should not reach here, expected a compound assignment!" );
 }
 
-op_kind op_kind_from_str( std::string_view data )
+inline op_kind op_kind_from_str( std::string_view data )
 {
     if ( data == "+"   )   return op_kind::ADD;
     if ( data == "-"   )   return op_kind::SUB;

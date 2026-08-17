@@ -12,7 +12,7 @@ namespace dungeon
 
 struct compiler
 {
-    void run( config& conf );
+    static void run( config& conf );
 };
 
 }
