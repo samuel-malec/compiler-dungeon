@@ -22,8 +22,7 @@ namespace dungeon {
         std::vector<token> toks = l.lex();
         if (conf.emit_tokens)
             for (auto &t: toks)
-                std::cout << t << " ";
-        std::cout << '\n';
+                std::cout << t << "\n";
 
         print::pretty_printer printer{};
         parser p{std::move(toks)};

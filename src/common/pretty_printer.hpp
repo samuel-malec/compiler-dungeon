@@ -22,12 +22,12 @@ namespace dungeon::print {
         using struct_decl = ast::struct_decl;
         using atom_map = std::map<uint32_t, std::string>;
 
-        std::string indent(int depth) {
+        std::string indent(std::ostream &out, int depth) {
             return std::string(depth * 2, ' ');
         }
 
-        void pad(int depth) {
-            std::cout << indent(depth);
+        void pad(std::ostream &out, int depth) {
+            out << indent(out, depth);
         }
 
         std::string tac_val_to_string(const tac::value &v, const atom_map &am) {
@@ -50,12 +50,16 @@ namespace dungeon::print {
 
         std::string tac_instr_symbolic(tac::instr &i, const atom_map &am);
 
-        void print_tac_inst(tac::instr &i, const atom_map &am) {
-            std::holds_alternative<tac::label_data>(i.data) ? pad(2) : pad(4);
-            std::cout << tac_instr_symbolic(i, am) << '\n';
+        void print_tac_inst(std::ostream &out, tac::instr &i, const atom_map &am) {
+            std::holds_alternative<tac::label_data>(i.data) ? pad(out, 2) : pad(out, 4);
+            out << tac_instr_symbolic(i, am) << '\n';
         }
 
         void print_tac(tac::program &tac, const atom_map &am);
+
+        std::string value_to_string(const tac::value &v, const atom_map &am);
+
+        std::string phi_to_string(const cfg::phi_node &phi, const atom_map &am);
 
         void export_to_dot(cfg::cfg &graph, std::ostream &out, const atom_map &am);
     };

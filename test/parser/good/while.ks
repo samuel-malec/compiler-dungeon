@@ -1,6 +1,6 @@
 fn main() -> i32
 {
-    let mut i = 0;
+    let mut i: i32 = 0;
 
     while( i < 100 ) 
     {

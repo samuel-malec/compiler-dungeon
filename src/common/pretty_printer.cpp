@@ -6,73 +6,283 @@
 namespace dungeon::print {
     using atom_map = std::map<uint32_t, std::string>;
 
-    void pretty_printer::print_expr(std::ostream &out, expr &e, int depth) {
+    std::string_view op_to_str(op_kind op) {
+        switch (op) {
+            case op_kind::ADD: return "+";
+            case op_kind::SUB: return "-";
+            case op_kind::MUL: return "*";
+            case op_kind::DIV: return "/";
+            case op_kind::MOD: return "%";
+            case op_kind::LT: return "<";
+            case op_kind::LEQ: return "<=";
+            case op_kind::GT: return ">";
+            case op_kind::GEQ: return ">=";
+            case op_kind::EQ: return "==";
+            case op_kind::NEQ: return "!=";
+            case op_kind::AND: return "&&";
+            case op_kind::OR: return "||";
+            case op_kind::NOT: return "!";
+            case op_kind::ADD_EQ: return "+=";
+            case op_kind::SUB_EQ: return "-=";
+            case op_kind::MUL_EQ: return "*=";
+            case op_kind::DIV_EQ: return "/=";
+            case op_kind::MOD_EQ: return "%=";
+            default: return "<?op?>";
+        }
+    }
+
+    void print_type_annotation(std::ostream &out, const ast::type_annotation &ty) {
+        out << ty.base_name;
+    }
+
+    void dungeon::print::pretty_printer::print_expr(std::ostream &out, expr &e, int depth) {
+        indent(out, depth);
+
         if (auto t = std::get_if<ast::num_lit_data>(&e.data)) {
-            out << t->value << '\n';
+            out << "NumLit " << t->value << '\n';
+            return;
         }
         if (auto t = std::get_if<ast::bool_lit_data>(&e.data)) {
+            out << "BoolLit " << (t->value ? "true" : "false") << '\n';
+            return;
         }
         if (auto t = std::get_if<ast::identifier_data>(&e.data)) {
+            out << "Identifier " << t->id << '\n';
+            return;
         }
         if (auto t = std::get_if<ast::unary_data>(&e.data)) {
+            out << "Unary '" << op_to_str(t->op) << "'\n";
+            if (t->lhs)
+                print_expr(out, *t->lhs, depth + 1);
+            return;
         }
         if (auto t = std::get_if<ast::binary_data>(&e.data)) {
+            out << "Binary '" << op_to_str(t->op) << "'\n";
+            if (t->lhs)
+                print_expr(out, *t->lhs, depth + 1);
+            if (t->rhs)
+                print_expr(out, *t->rhs, depth + 1);
+            return;
         }
         if (auto t = std::get_if<ast::relational_data>(&e.data)) {
+            out << "Relational '" << op_to_str(t->op) << "'\n";
+            if (t->lhs)
+                print_expr(out, *t->lhs, depth + 1);
+            if (t->rhs)
+                print_expr(out, *t->rhs, depth + 1);
+            return;
         }
         if (auto t = std::get_if<ast::assign_data>(&e.data)) {
+            out << "Assign " << t->id.id << '\n';
+            if (t->val)
+                print_expr(out, *t->val, depth + 1);
+            return;
         }
         if (auto t = std::get_if<ast::call_data>(&e.data)) {
+            out << "Call\n";
+            if (t->callee) {
+                indent(out, depth + 1);
+                out << "callee:\n";
+                print_expr(out, *t->callee, depth + 2);
+            }
+            if (!t->args.empty()) {
+                indent(out, depth + 1);
+                out << "args:\n";
+                for (auto &arg: t->args)
+                    if (arg)
+                        print_expr(out, *arg, depth + 2);
+            }
+            return;
         }
+
+        out << "<unknown expr>\n";
     }
 
-    void pretty_printer::print_stmt(std::ostream &out, stmt &s, int depth) {
+    void dungeon::print::pretty_printer::print_stmt(std::ostream &out, stmt &s, int depth) {
+        indent(out, depth);
+
         if (auto t = std::get_if<ast::ret_data>(&s.data)) {
+            out << "Return\n";
+            if (t->val)
+                print_expr(out, *t->val, depth + 1);
+            return;
         }
         if (auto t = std::get_if<ast::if_data>(&s.data)) {
+            out << "If\n";
+            if (t->cond) {
+                indent(out, depth + 1);
+                out << "cond:\n";
+                print_expr(out, *t->cond, depth + 2);
+            }
+            if (t->then_body) {
+                indent(out, depth + 1);
+                out << "then:\n";
+                print_stmt(out, *t->then_body, depth + 2);
+            }
+            if (t->else_body) {
+                indent(out, depth + 1);
+                out << "else:\n";
+                print_stmt(out, *t->else_body, depth + 2);
+            }
+            return;
         }
         if (auto t = std::get_if<ast::for_data>(&s.data)) {
+            out << "For\n";
+            if (t->init) {
+                indent(out, depth + 1);
+                out << "init:\n";
+                print_stmt(out, *t->init, depth + 2);
+            }
+            if (t->cond) {
+                indent(out, depth + 1);
+                out << "cond:\n";
+                print_expr(out, *t->cond, depth + 2);
+            }
+            if (t->update) {
+                indent(out, depth + 1);
+                out << "update:\n";
+                print_expr(out, *t->update, depth + 2);
+            }
+            if (t->body) {
+                indent(out, depth + 1);
+                out << "body:\n";
+                print_stmt(out, *t->body, depth + 2);
+            }
+            return;
         }
         if (auto t = std::get_if<ast::while_data>(&s.data)) {
+            out << "While\n";
+            if (t->cond) {
+                indent(out, depth + 1);
+                out << "cond:\n";
+                print_expr(out, *t->cond, depth + 2);
+            }
+            if (t->body) {
+                indent(out, depth + 1);
+                out << "body:\n";
+                print_stmt(out, *t->body, depth + 2);
+            }
+            return;
         }
         if (auto t = std::get_if<ast::do_while_data>(&s.data)) {
+            out << "DoWhile\n";
+            if (t->body) {
+                indent(out, depth + 1);
+                out << "body:\n";
+                print_stmt(out, *t->body, depth + 2);
+            }
+            if (t->cond) {
+                indent(out, depth + 1);
+                out << "cond:\n";
+                print_expr(out, *t->cond, depth + 2);
+            }
+            return;
         }
-        if (auto t = std::get_if<ast::cont_data>(&s.data)) {
+        if (std::get_if<ast::cont_data>(&s.data)) {
+            out << "Continue\n";
+            return;
         }
-        if (auto t = std::get_if<ast::brk_data>(&s.data)) {
+        if (std::get_if<ast::brk_data>(&s.data)) {
+            out << "Break\n";
+            return;
         }
         if (auto t = std::get_if<ast::block_data>(&s.data)) {
+            out << "Block\n";
+            for (auto &st: t->stmts)
+                if (st)
+                    print_stmt(out, *st, depth + 1);
+            return;
         }
         if (auto t = std::get_if<ast::let_data>(&s.data)) {
+            out << "Let " << t->decl.name
+                    << (t->decl.mut_modifier == ast::var_decl::mut_t::mut ? " (mut)" : " (imut)")
+                    << " : ";
+            print_type_annotation(out, t->decl.ty);
+            out << '\n';
+            if (t->decl.initializer) {
+                indent(out, depth + 1);
+                out << "init:\n";
+                print_expr(out, *t->decl.initializer, depth + 2);
+            }
+            return;
         }
         if (auto t = std::get_if<ast::expr_stmt_data>(&s.data)) {
+            out << "ExprStmt\n";
+            if (t->expr)
+                print_expr(out, *t->expr, depth + 1);
+            return;
         }
+
+        out << "<unknown stmt>\n";
     }
 
-    void pretty_printer::print_ast_module(std::ostream &out, ast::module &ast_module) {
+    void dungeon::print::pretty_printer::print_ast_module(std::ostream &out, ast::module &ast_module) {
         for (auto &toplevel: ast_module.toplevel_items) {
             if (auto t = std::get_if<ast::fn_decl>(&toplevel.data)) {
-
+                out << "Fn " << t->name;
+                if (!t->generics.empty()) {
+                    out << "<";
+                    for (size_t i = 0; i < t->generics.size(); ++i) {
+                        if (i)
+                            out << ", ";
+                        out << t->generics[i];
+                    }
+                    out << ">";
+                }
+                out << "(";
+                for (size_t i = 0; i < t->params.params.size(); ++i) {
+                    if (i)
+                        out << ", ";
+                    out << t->params.params[i].name << ": ";
+                    print_type_annotation(out, t->params.params[i].ty);
+                }
+                out << ") -> ";
+                print_type_annotation(out, t->ret_ty);
+                out << '\n';
+                if (t->body)
+                    print_stmt(out, *t->body, 1);
+                continue;
             }
             if (auto t = std::get_if<ast::struct_decl>(&toplevel.data)) {
+                out << "Struct " << t->name << '\n';
+                for (auto &f: t->fields) {
+                    indent(out, 1);
+                    out << f.name << ": ";
+                    print_type_annotation(out, f.ty);
+                    out << '\n';
+                }
+                continue;
             }
             if (auto t = std::get_if<ast::enum_decl>(&toplevel.data)) {
+                out << "Enum " << t->name << '\n';
+                // enum_member is still a TODO in your ast — nothing to print yet.
+                continue;
             }
             if (auto t = std::get_if<ast::global_var>(&toplevel.data)) {
+                out << "Static " << t->decl.name
+                        << (t->decl.mut_modifier == ast::var_decl::mut_t::mut ? " (mut)" : " (imut)")
+                        << " : ";
+                print_type_annotation(out, t->decl.ty);
+                out << '\n';
+                if (t->decl.initializer)
+                    print_expr(out, *t->decl.initializer, 1);
+                continue;
             }
+
+            out << "<unknown toplevel>\n";
         }
     }
 
-    void pretty_printer::print_hir_expr(hir::expr &e, int depth, const atom_map &am) {
+    void dungeon::print::pretty_printer::print_hir_expr(hir::expr &e, int depth, const atom_map &am) {
     }
 
-    void pretty_printer::print_hir_stmt(hir::stmt &s, int depth, const atom_map &am) {
+    void dungeon::print::pretty_printer::print_hir_stmt(hir::stmt &s, int depth, const atom_map &am) {
     }
 
-    void pretty_printer::print_hir(hir::program &hir, const atom_map &am) {
+    void dungeon::print::pretty_printer::print_hir(hir::program &hir, const atom_map &am) {
     }
 
-    std::string pretty_printer::tac_operand_to_string(tac::operand &operand, const atom_map &am) {
+    std::string dungeon::print::pretty_printer::tac_operand_to_string(tac::operand &operand, const atom_map &am) {
         return std::visit([ this, am ](auto &&value) -> std::string {
             using T = std::decay_t<decltype( value )>;
             if constexpr (std::is_same_v<T, tac::value>)
@@ -88,7 +298,7 @@ namespace dungeon::print {
         }, operand);
     }
 
-    std::string pretty_printer::tac_instr_symbolic(tac::instr &i, const atom_map &am) {
+    std::string dungeon::print::pretty_printer::tac_instr_symbolic(tac::instr &i, const atom_map &am) {
         return std::visit([ this, am ](auto &&value) -> std::string {
             using T = std::decay_t<decltype( value )>;
             std::ostringstream out;
@@ -133,20 +343,20 @@ namespace dungeon::print {
     }
 
 
-    void pretty_printer::print_tac(tac::program &tac, const atom_map &am) {
+    void dungeon::print::pretty_printer::print_tac(tac::program &tac, const atom_map &am) {
         for (auto &fn: tac.functions) {
             for (auto &i: fn.body)
-                print_tac_inst(i, am);
+                print_tac_inst(std::cout, i, am);
         }
     }
 
-    std::string value_to_string(const tac::value &v, const atom_map &am) {
+    std::string dungeon::print::pretty_printer::value_to_string(const tac::value &v, const atom_map &am) {
         std::ostringstream os;
         os << "v" << v.id << "." << v.version;
         return os.str();
     }
 
-    std::string phi_to_string(const cfg::phi_node &phi, const atom_map &am) {
+    std::string dungeon::print::pretty_printer::phi_to_string(const cfg::phi_node &phi, const atom_map &am) {
         std::ostringstream os;
         os << value_to_string(phi.res, am) << " = φ(";
         bool first = true;
@@ -159,7 +369,7 @@ namespace dungeon::print {
         return os.str();
     }
 
-    void pretty_printer::export_to_dot(cfg::cfg &graph, std::ostream &out, const atom_map &am) {
+    void dungeon::print::pretty_printer::export_to_dot(cfg::cfg &graph, std::ostream &out, const atom_map &am) {
         out << "digraph CFG {\n";
         out << "    node [shape=box, fontname=\"Courier New\", fontsize=10, style=filled, fillcolor=\"#f9f9f9\"];\n";
         out << "    edge [fontname=\"Courier New\", fontsize=9];\n\n";
@@ -241,4 +451,4 @@ namespace dungeon::print {
 
         out << "}\n";
     }
-};
+}

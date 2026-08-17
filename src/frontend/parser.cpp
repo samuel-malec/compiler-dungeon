@@ -314,13 +314,14 @@ namespace dungeon {
     }
 
     std::optional<parser::stmt> parser::parse_let() {
-        if ( !match(cat::keyword, "let"))
+        if (!match(cat::keyword, "let"))
             return {};
-        fetch();
+
+        auto loc = fetch().loc;
         auto vd = parse_var_decl_data();
         if (!vd)
             diag::error("Invalid variable declaration");
-        return stmt{.data = ast::let_data{.decl = std::move(vd.value())}};
+        return stmt{.src_loc = loc, .data = ast::let_data{.decl = std::move(vd.value())}};
     }
 
     std::optional<ast::stmt> parser::parse_for() {
@@ -434,7 +435,35 @@ namespace dungeon {
     }
 
     std::optional<ast::var_decl> parser::parse_var_decl_data() {
-        return std::nullopt;
+        var_decl vd{};
+        if (auto t = match(cat::keyword, "mut")) {
+            vd.mut_modifier = var_decl::mut_t::mut;
+            fetch();
+        } else if (match(cat::ident)) {
+            vd.mut_modifier = var_decl::mut_t::imut;
+        } else
+            diag::error("Unexpected variable declaration");
+
+        auto name = require(cat::ident).data;
+        vd.name = name;
+        require(cat::punct, ":");
+        auto ty = parse_type_annotation();
+        if (!ty)
+            diag::error("Invalid type");
+        vd.ty = std::move(ty.value());
+
+        if (match(cat::punct, ";")) {
+            fetch();
+            return vd;
+        }
+
+        require(cat::punct, "=");
+        auto e = parse_expr();
+        if (!e)
+            diag::error("Invalid expression");
+        vd.initializer = make_expr(std::move(e.value()));
+        require(cat::punct, ";");
+        return vd;
     }
 
     std::optional<ast::type_annotation> parser::parse_type_annotation() {
@@ -505,6 +534,7 @@ namespace dungeon {
         if (!match(cat::punct, "<"))
             return gp;
 
+        fetch();
         auto id = require(cat::ident);
         gp.push_back(id.data);
 
