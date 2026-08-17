@@ -1,8 +1,8 @@
-void main()
+fn main() -> unit
 {
-    int a;
-    bool b;
-    void c;
+    let a: i32;
+    let b: bool;
+    let c: unit;
     a = 4;
     b = false;
 }

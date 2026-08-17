@@ -314,6 +314,9 @@ namespace dungeon {
     }
 
     std::optional<parser::stmt> parser::parse_let() {
+        if ( !match(cat::keyword, "let"))
+            return {};
+        fetch();
         auto vd = parse_var_decl_data();
         if (!vd)
             diag::error("Invalid variable declaration");
@@ -435,14 +438,22 @@ namespace dungeon {
     }
 
     std::optional<ast::type_annotation> parser::parse_type_annotation() {
-        auto t = require(cat::ident);
+        token t;
+        if (match(cat::ident)) {
+            t = fetch();
+        } else if (match(cat::keyword)) {
+            t = fetch();
+        } else {
+            diag::error("Invalid type annotation");
+        }
+
         return ast::type_annotation{.base_name = t.data};
     }
 
     std::optional<ast::param> parser::parse_param() {
         ast::param p{};
         p.name = require(cat::ident).data;
-        require(cat::punct, ";");
+        require(cat::punct, ":");
         auto ty = parse_type_annotation();
         if (!ty)
             diag::error("Invalid type");

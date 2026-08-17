@@ -1,9 +1,9 @@
-int main()
+fn main() -> i32
 {
-    int a = 5;
+    let a : i32 = 5;
     else
     {
-        a = 4;
+        let b : i32 = 4;
     }
     return a;
 }

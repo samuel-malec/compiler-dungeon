@@ -1,3 +1,3 @@
-int main( void a )
+fn main( void a ) -> i32
 {
-    return
+    return 0;

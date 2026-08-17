@@ -1,4 +1,4 @@
-main( void a )
+fn main()
 {
     return 0;
 }

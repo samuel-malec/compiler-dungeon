@@ -1,4 +1,4 @@
-int main()
+fn main() -> i32
 {
     return foo( 1, 2;
 }

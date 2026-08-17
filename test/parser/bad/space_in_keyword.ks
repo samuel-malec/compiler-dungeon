@@ -1,4 +1,4 @@
-int main( void a )
+fn main() -> i32
 {
     retur n 0;
 }

@@ -1,5 +1,5 @@
-int main()
+fn main() -> i32
 {
     return 3;
-    int a = 5 + 5;
+    let a = 5 + 5;
 }

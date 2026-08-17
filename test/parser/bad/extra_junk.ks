@@ -1,4 +1,4 @@
-int main(void)
+fn main(void) -> i32
 {
     return 2;
 }

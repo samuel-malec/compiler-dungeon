@@ -1,7 +1,7 @@
-int main()
+fn main() -> i32
 {
-    int sum = 0;
-    for ( int i = 0; i < 10; i += 1 )
+    let sum = 0;
+    for ( let i = 0; i < 10; i += 1 )
     {
         sum += i;
     }

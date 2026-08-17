@@ -1,6 +1,4 @@
-// TODO: fix this
-
-int main()
+fn main() -> i32
 {
     while ( true ) { continue; }
 

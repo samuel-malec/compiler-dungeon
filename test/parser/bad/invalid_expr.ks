@@ -1,4 +1,4 @@
-int main( void )
+int main() -> i32
 {
     return int;
 }

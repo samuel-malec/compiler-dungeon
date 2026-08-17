@@ -1,4 +1,4 @@
-int main ( void a )
+nt main ( void a )
 {
     return 8434325;
 }

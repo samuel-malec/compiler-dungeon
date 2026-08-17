@@ -1,6 +1,6 @@
-int main()
+fn main() -> i32
 {
-    int a = 0;
+    let a = 0;
     if ( a < 10 )
     {
         if ( a == 0 )
@@ -10,7 +10,7 @@ int main()
     }
     else
     {
-        int b = 10;
+        let b = 10;
     }
     return 0;
 }

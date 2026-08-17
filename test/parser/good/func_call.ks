@@ -1,9 +1,9 @@
-int add( int a, int b )
+fn add( a: i32, b: i32 ) -> i32
 {
     return a + b;
 }
 
-int main()
+fn main() -> i32
 {
     return add( 1, 2 );
 }
