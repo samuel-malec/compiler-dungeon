@@ -499,9 +499,6 @@ namespace dungeon {
             require(cat::punct, ")");
         }
 
-        // The AST still represents patterns as expressions. Retaining the
-        // constructor's name preserves the existing representation while the
-        // recursive descent above validates the full pattern grammar.
         return ast::expr{.src_loc = name.loc,
             .data = ast::identifier_data{.id = name.data}};
     }

@@ -81,12 +81,12 @@ namespace dungeon::print {
         if (auto t = std::get_if<ast::call_data>(&e.data)) {
             out << "Call\n";
             if (t->callee) {
-                indent(out, depth + 1);
+                pad(out, depth + 1);
                 out << "callee:\n";
                 print_expr(out, *t->callee, depth + 2);
             }
             if (!t->args.empty()) {
-                indent(out, depth + 1);
+                pad(out, depth + 1);
                 out << "args:\n";
                 for (auto &arg: t->args)
                     if (arg)
@@ -302,7 +302,6 @@ namespace dungeon::print {
             }
             if (auto t = std::get_if<ast::enum_decl>(&toplevel.data)) {
                 out << "Enum " << t->name << '\n';
-                // enum_member is still a TODO in your ast — nothing to print yet.
                 continue;
             }
             if (auto t = std::get_if<ast::global_var>(&toplevel.data)) {
