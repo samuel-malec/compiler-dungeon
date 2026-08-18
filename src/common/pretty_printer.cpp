@@ -8,25 +8,25 @@ namespace dungeon::print {
 
     std::string_view op_to_str(op_kind op) {
         switch (op) {
-            case op_kind::ADD: return "+";
-            case op_kind::SUB: return "-";
-            case op_kind::MUL: return "*";
-            case op_kind::DIV: return "/";
-            case op_kind::MOD: return "%";
-            case op_kind::LT: return "<";
-            case op_kind::LEQ: return "<=";
-            case op_kind::GT: return ">";
-            case op_kind::GEQ: return ">=";
-            case op_kind::EQ: return "==";
-            case op_kind::NEQ: return "!=";
-            case op_kind::AND: return "&&";
-            case op_kind::OR: return "||";
-            case op_kind::NOT: return "!";
-            case op_kind::ADD_EQ: return "+=";
-            case op_kind::SUB_EQ: return "-=";
-            case op_kind::MUL_EQ: return "*=";
-            case op_kind::DIV_EQ: return "/=";
-            case op_kind::MOD_EQ: return "%=";
+            case ADD: return "+";
+            case SUB: return "-";
+            case MUL: return "*";
+            case DIV: return "/";
+            case MOD: return "%";
+            case LT: return "<";
+            case LEQ: return "<=";
+            case GT: return ">";
+            case GEQ: return ">=";
+            case EQ: return "==";
+            case NEQ: return "!=";
+            case AND: return "&&";
+            case OR: return "||";
+            case NOT: return "!";
+            case ADD_EQ: return "+=";
+            case SUB_EQ: return "-=";
+            case MUL_EQ: return "*=";
+            case DIV_EQ: return "/=";
+            case MOD_EQ: return "%=";
             default: return "<?op?>";
         }
     }
@@ -36,7 +36,7 @@ namespace dungeon::print {
     }
 
     void dungeon::print::pretty_printer::print_expr(std::ostream &out, expr &e, int depth) {
-        indent(out, depth);
+        pad(out, depth);
 
         if (auto t = std::get_if<ast::num_lit_data>(&e.data)) {
             out << "NumLit " << t->value << '\n';
@@ -94,88 +94,133 @@ namespace dungeon::print {
             }
             return;
         }
+        if (auto t = std::get_if<ast::float_lit_data>(&e.data)) {
+            out << "FloatLit " << t->value << '\n';
+            return;
+        }
+        if (auto t = std::get_if<ast::string_lit_data>(&e.data)) {
+            out << "StringLit \"" << t->value << "\"\n";
+            return;
+        }
+        if (auto t = std::get_if<ast::field_access_data>(&e.data)) {
+            out << "FieldAccess ." << t->field << "\n";
+            if (t->object)
+                print_expr(out, *t->object, depth + 1);
+            return;
+        }
+        if (auto t = std::get_if<ast::array_index_data>(&e.data)) {
+            out << "ArrayIndex\n";
+            if (t->array) {
+                pad(out, depth + 1);
+                out << "array:\n";
+                print_expr(out, *t->array, depth + 2);
+            }
+            if (t->index) {
+                pad(out, depth + 1);
+                out << "index:\n";
+                print_expr(out, *t->index, depth + 2);
+            }
+            return;
+        }
+        if (auto t = std::get_if<ast::if_data>(&e.data)) {
+            out << "If\n";
+            if (t->cond) {
+                pad(out, depth + 1);
+                out << "cond:\n";
+                print_expr(out, *t->cond, depth + 2);
+            }
+            if (t->then_body) {
+                pad(out, depth + 1) ;
+                out << "then:\n";
+                print_expr(out, *t->then_body, depth + 2);
+            }
+            if (t->else_body) {
+                pad(out, depth + 1);
+                out << "else:\n";
+                print_expr(out, *t->else_body, depth + 2);
+            }
+            return;
+        }
+        if (auto t = std::get_if<ast::while_data>(&e.data)) {
+            out << "While\n";
+            if (t->cond) {
+                pad(out, depth + 1);
+                out << "cond:\n";
+                print_expr(out, *t->cond, depth + 2);
+            }
+            if (t->body) {
+                pad(out, depth + 1);
+                out << "body:\n";
+                print_expr(out, *t->body, depth + 2);
+            }
+            return;
+        }
+        if (auto t = std::get_if<ast::loop_data>(&e.data)) {
+            out << "Loop\n";
+            if (t->body) {
+                pad(out, depth + 1);
+                out << "body:\n";
+                print_expr(out, *t->body, depth + 2);
+            }
+            return;
+        }
+        if (auto t = std::get_if<ast::match_data>(&e.data)) {
+            out << "Match\n";
+            if (t->expr) {
+                pad(out, depth + 1);
+                out << "expr:\n";
+                print_expr(out, *t->expr, depth + 2);
+            }
+            if (!t->arms.empty()) {
+                pad(out, depth + 1);
+                out << "arms:\n";
+                for (auto &arm: t->arms) {
+                    if (arm.pattern) {
+                        pad(out, depth + 2);
+                        out << "pattern:\n";
+                        print_expr(out, *arm.pattern, depth + 3);
+                    }
+                    if (arm.expr) {
+                        pad(out, depth + 2);
+                        out << "expr:\n";
+                        print_expr(out, *arm.expr, depth + 3);
+                    }
+                }
+            }
+            return;
+        }
+        if (auto t = std::get_if<ast::struct_literal_data>(&e.data)) {
+            out << "StructLiteral " << t->name << "\n";
+            for (auto &field: t->fields) {
+                pad(out, depth + 1);
+                out << field.name << ":\n";
+                if (field.value)
+                    print_expr(out, *field.value, depth + 2);
+            }
+            return;
+        }
+        if (auto t = std::get_if<ast::block_data>(&e.data)) {
+            out << "Block\n";
+            for (auto &st: t->stmts)
+                if (st)
+                    print_stmt(out, *st, depth + 1);
+            if (t->trailing) {
+                pad(out, depth + 1);
+                out << "trailing:\n";
+                print_expr(out, *t->trailing, depth + 2);
+            }
+            return;
+        }
 
         out << "<unknown expr>\n";
     }
 
     void dungeon::print::pretty_printer::print_stmt(std::ostream &out, stmt &s, int depth) {
-        indent(out, depth);
-
+        pad(out, depth);
         if (auto t = std::get_if<ast::ret_data>(&s.data)) {
             out << "Return\n";
             if (t->val)
                 print_expr(out, *t->val, depth + 1);
-            return;
-        }
-        if (auto t = std::get_if<ast::if_data>(&s.data)) {
-            out << "If\n";
-            if (t->cond) {
-                indent(out, depth + 1);
-                out << "cond:\n";
-                print_expr(out, *t->cond, depth + 2);
-            }
-            if (t->then_body) {
-                indent(out, depth + 1);
-                out << "then:\n";
-                print_stmt(out, *t->then_body, depth + 2);
-            }
-            if (t->else_body) {
-                indent(out, depth + 1);
-                out << "else:\n";
-                print_stmt(out, *t->else_body, depth + 2);
-            }
-            return;
-        }
-        if (auto t = std::get_if<ast::for_data>(&s.data)) {
-            out << "For\n";
-            if (t->init) {
-                indent(out, depth + 1);
-                out << "init:\n";
-                print_stmt(out, *t->init, depth + 2);
-            }
-            if (t->cond) {
-                indent(out, depth + 1);
-                out << "cond:\n";
-                print_expr(out, *t->cond, depth + 2);
-            }
-            if (t->update) {
-                indent(out, depth + 1);
-                out << "update:\n";
-                print_expr(out, *t->update, depth + 2);
-            }
-            if (t->body) {
-                indent(out, depth + 1);
-                out << "body:\n";
-                print_stmt(out, *t->body, depth + 2);
-            }
-            return;
-        }
-        if (auto t = std::get_if<ast::while_data>(&s.data)) {
-            out << "While\n";
-            if (t->cond) {
-                indent(out, depth + 1);
-                out << "cond:\n";
-                print_expr(out, *t->cond, depth + 2);
-            }
-            if (t->body) {
-                indent(out, depth + 1);
-                out << "body:\n";
-                print_stmt(out, *t->body, depth + 2);
-            }
-            return;
-        }
-        if (auto t = std::get_if<ast::do_while_data>(&s.data)) {
-            out << "DoWhile\n";
-            if (t->body) {
-                indent(out, depth + 1);
-                out << "body:\n";
-                print_stmt(out, *t->body, depth + 2);
-            }
-            if (t->cond) {
-                indent(out, depth + 1);
-                out << "cond:\n";
-                print_expr(out, *t->cond, depth + 2);
-            }
             return;
         }
         if (std::get_if<ast::cont_data>(&s.data)) {
@@ -186,21 +231,17 @@ namespace dungeon::print {
             out << "Break\n";
             return;
         }
-        if (auto t = std::get_if<ast::block_data>(&s.data)) {
-            out << "Block\n";
-            for (auto &st: t->stmts)
-                if (st)
-                    print_stmt(out, *st, depth + 1);
-            return;
-        }
         if (auto t = std::get_if<ast::let_data>(&s.data)) {
             out << "Let " << t->decl.name
                     << (t->decl.mut_modifier == ast::var_decl::mut_t::mut ? " (mut)" : " (imut)")
                     << " : ";
-            print_type_annotation(out, t->decl.ty);
-            out << '\n';
+            if (t->decl.ty)
+                print_type_annotation(out, *t->decl.ty);
+            else
+                out << "<inferred>";
+            out << "\n";
             if (t->decl.initializer) {
-                indent(out, depth + 1);
+                pad(out, depth + 1);
                 out << "init:\n";
                 print_expr(out, *t->decl.initializer, depth + 2);
             }
@@ -221,6 +262,7 @@ namespace dungeon::print {
             if (auto t = std::get_if<ast::fn_decl>(&toplevel.data)) {
                 out << "Fn " << t->name;
                 if (!t->generics.empty()) {
+                    pad(out, 1);
                     out << "<";
                     for (size_t i = 0; i < t->generics.size(); ++i) {
                         if (i)
@@ -237,16 +279,21 @@ namespace dungeon::print {
                     print_type_annotation(out, t->params.params[i].ty);
                 }
                 out << ") -> ";
-                print_type_annotation(out, t->ret_ty);
+                if (t->ret_ty) {
+                    print_type_annotation(out, *t->ret_ty);
+                } else {
+                    out << "<inferred>";
+                }
                 out << '\n';
+                pad(out, 1);
                 if (t->body)
-                    print_stmt(out, *t->body, 1);
+                    print_expr(out, *t->body, 1);
                 continue;
             }
             if (auto t = std::get_if<ast::struct_decl>(&toplevel.data)) {
                 out << "Struct " << t->name << '\n';
                 for (auto &f: t->fields) {
-                    indent(out, 1);
+                    pad(out, 1);
                     out << f.name << ": ";
                     print_type_annotation(out, f.ty);
                     out << '\n';
@@ -259,13 +306,14 @@ namespace dungeon::print {
                 continue;
             }
             if (auto t = std::get_if<ast::global_var>(&toplevel.data)) {
-                out << "Static " << t->decl.name
-                        << (t->decl.mut_modifier == ast::var_decl::mut_t::mut ? " (mut)" : " (imut)")
+                out << "Static " << t->name
+                        << (t->is_mutable ? " (mut)" : " (imut)")
                         << " : ";
-                print_type_annotation(out, t->decl.ty);
+                print_type_annotation(out, t->ty);
                 out << '\n';
-                if (t->decl.initializer)
-                    print_expr(out, *t->decl.initializer, 1);
+                pad(out, 1);
+                if (t->initializer)
+                    print_expr(out, *t->initializer, 1);
                 continue;
             }
 

@@ -146,9 +146,16 @@ namespace dungeon {
 
         std::optional<expr> parse_expr();
 
-        std::optional<stmt> parse_block();
+        std::optional<expr> parse_block();
 
-        std::optional<stmt> parse_if();
+        std::optional<expr> parse_if_expr();
+
+        std::optional<expr> parse_match_expr();
+
+        std::optional<expr> parse_loop_expr();
+
+        std::optional<expr> parse_while_expr();
+
 
         std::optional<stmt> parse_expr_stmt();
 
@@ -158,15 +165,6 @@ namespace dungeon {
 
         std::optional<stmt> parse_let();
 
-        std::optional<stmt> parse_for();
-
-        std::optional<stmt> parse_while();
-
-        std::optional<stmt> parse_do_while();
-
-        std::optional<stmt> parse_loop_stmt();
-
-        std::optional<var_decl> parse_var_decl_data();
 
         std::optional<ast::type_annotation> parse_type_annotation();
 

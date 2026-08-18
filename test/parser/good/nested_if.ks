@@ -1,6 +1,6 @@
 fn main() -> i32
 {
-    let a = 0;
+    let a: i32 = 0;
     if ( a < 10 )
     {
         if ( a == 0 )
@@ -10,7 +10,7 @@ fn main() -> i32
     }
     else
     {
-        let b = 10;
+        let b: i32 = 10;
     }
     return 0;
 }
