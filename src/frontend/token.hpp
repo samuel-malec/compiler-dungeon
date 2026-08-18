@@ -42,6 +42,7 @@ struct token
         keyword,
         ident,
         number,
+        string,
     } cat = invalid;
 };
 
@@ -53,6 +54,7 @@ inline std::ostream& operator<<( std::ostream& os, const token::cat_t c )
         case token::keyword:  return os << "keyword";
         case token::ident:    return os << "ident";
         case token::number:   return os << "number";
+        case token::string:   return os << "string";
         case token::invalid:  return os << "invalid";
     }
     return os << "unknown";

@@ -31,12 +31,10 @@ namespace dungeon {
             return parse_while_expr();
         }
 
-        if (match(cat::ident)) {
-            auto tok = peek();
-            if (tok.data.find('"') == 0) {
-                fetch();
-                return ast::expr{.src_loc = tok.loc, .data = ast::string_lit_data{.value = tok.data}};
-            }
+        if (match(cat::string)) {
+            auto tok = fetch();
+            return ast::expr{.src_loc = tok.loc,
+                .data = ast::string_lit_data{.value = tok.data.substr(1, tok.data.size() - 2)}};
         }
 
         if (match(cat::number)) {
@@ -64,7 +62,15 @@ namespace dungeon {
         if (match(cat::ident)) {
             auto tok = fetch();
 
-            if (match(cat::punct, "{")) {
+            // A block immediately following an identifier can be the body of
+            // `if`/`while`, rather than a struct literal. A struct literal is
+            // unambiguous once its first field (`name:`) is visible.
+            bool looks_like_struct_literal =
+                !parsing_control_condition && match(cat::punct, "{") &&
+                ((pos + 1 < toks.size() && toks[pos + 1].cat == cat::punct && toks[pos + 1].data == "}") ||
+                 (pos + 2 < toks.size() && toks[pos + 1].cat == cat::ident &&
+                  toks[pos + 2].cat == cat::punct && toks[pos + 2].data == ":"));
+            if (looks_like_struct_literal) {
                 fetch();
                 std::vector<ast::struct_literal_field> fields;
 
@@ -267,11 +273,11 @@ namespace dungeon {
             fetch();
             auto rhs = parse_assignment();
             if (!rhs)
-                diag::error("Expected rhs for assignment expression");
+                diag::error(*t, "Expected rhs for assignment expression");
 
             auto *eid = std::get_if<ast::identifier_data>(&e->data);
             if (!eid)
-                diag::error("Lhs of an assignment must be an identifier");
+                diag::error(*t, "Lhs of an assignment must be an identifier");
 
             if (t->data == "=") {
                 ast::assign_data ad{};
@@ -295,7 +301,7 @@ namespace dungeon {
             fetch();
             auto rhs = parse_equality();
             if (!rhs)
-                diag::error("Expected rhs for assignment expression");
+                diag::error(*t, "Expected rhs for assignment expression");
 
             e = std::move(make_binary(std::move(e.value()), std::move(rhs.value()), op_kind_from_str(t->data)));
         }
@@ -312,7 +318,7 @@ namespace dungeon {
             fetch();
             auto rhs = parse_and();
             if (!rhs)
-                diag::error("Expected rhs for assignment expression");
+                diag::error(*t, "Expected rhs for assignment expression");
 
             e = std::move(make_binary(std::move(e.value()), std::move(rhs.value()), op_kind_from_str(t->data)));
         }
@@ -332,21 +338,44 @@ namespace dungeon {
         ast::block_data bd{};
 
         while (!match(cat::punct, "}")) {
-            auto s = parse_stmt();
-            if (s) {
-                bd.stmts.push_back(make_stmt(std::move(*s)));
-            } else {
-                auto e = parse_expr();
-                if (!e) {
-                    diag::error("Expected statement or expression in block");
-                }
+            if (empty())
+                diag::error(peek(), "Expected '}' to close block");
 
-                if (match(cat::punct, "}")) {
-                    bd.trailing = make_expr(std::move(*e));
-                } else {
-                    diag::error("Expected ';' or '}' after expression in block");
-                }
+            // These forms can only be statements and must be parsed before a
+            // general expression (which intentionally has no semicolon).
+            if (match_any(cat::keyword, "let", "return", "break", "continue")) {
+                auto s = parse_stmt();
+                if (!s)
+                    diag::error(peek(), "Expected statement in block");
+                bd.stmts.push_back(make_stmt(std::move(*s)));
+                continue;
             }
+
+            auto e = parse_expr();
+            if (!e)
+                diag::error(peek(), "Expected statement or expression in block");
+
+            if (match(cat::punct, ";")) {
+                fetch();
+                bd.stmts.push_back(make_stmt(stmt{.src_loc = e->src_loc,
+                    .data = ast::expr_stmt_data{.expr = make_expr(std::move(*e))}}));
+                continue;
+            }
+            if (match(cat::punct, "}")) {
+                bd.trailing = make_expr(std::move(*e));
+                break;
+            }
+
+            // The language examples allow control-flow expressions to be used
+            // as statements without a trailing semicolon.
+            if (std::holds_alternative<ast::if_data>(e->data) ||
+                std::holds_alternative<ast::while_data>(e->data) ||
+                std::holds_alternative<ast::loop_data>(e->data)) {
+                bd.stmts.push_back(make_stmt(stmt{.src_loc = e->src_loc,
+                    .data = ast::expr_stmt_data{.expr = make_expr(std::move(*e))}}));
+                continue;
+            }
+            diag::error(peek(), "Expected ';' or '}' after expression in block");
         }
 
         fetch();
@@ -358,13 +387,15 @@ namespace dungeon {
             return {};
 
         auto t = fetch();
+        parsing_control_condition = true;
         auto cond = parse_expr();
+        parsing_control_condition = false;
         if (!cond)
-            diag::error("Expected condition after if");
+            diag::error(t, "Expected condition after if");
 
         auto then_body = parse_block();
         if (!then_body)
-            diag::error("Expected block after if condition");
+            diag::error(t, "Expected block after if condition");
 
         ast::expr_ptr else_body = nullptr;
         if (match(cat::keyword, "else")) {
@@ -373,12 +404,12 @@ namespace dungeon {
             if (match(cat::keyword, "if")) {
                 auto else_if = parse_if_expr();
                 if (!else_if)
-                    diag::error("Expected if expression in else if");
+                    diag::error(t, "Expected if expression in else if");
                 else_body = make_expr(std::move(*else_if));
             } else {
                 auto else_blk = parse_block();
                 if (!else_blk)
-                    diag::error("Expected block after else");
+                    diag::error(t, "Expected block after else");
                 else_body = make_expr(std::move(*else_blk));
             }
         }
@@ -398,73 +429,37 @@ namespace dungeon {
             return {};
 
         auto t = fetch();
+        parsing_control_condition = true;
         auto expr = parse_expr();
+        parsing_control_condition = false;
         if (!expr)
-            diag::error("Expected expression after match");
+            diag::error(t, "Expected expression after match");
 
         require(cat::punct, "{");
         std::vector<ast::match_arm> arms;
 
-        if (!match(cat::punct, "}")) {
+        if (match(cat::punct, "}"))
+            diag::error(peek(), "Match expressions require at least one arm");
+
+        {
             while (true) {
-                ast::expr_ptr pattern;
-                if (match(cat::keyword, "_")) {
-                    auto tok = fetch();
-                    pattern = make_expr(ast::expr{
-                        .src_loc = tok.loc,
-                        .data = ast::identifier_data{.id = "_"}
-                    });
-                } else if (match(cat::number)) {
-                    auto tok = fetch();
-                    uint64_t n{};
-                    std::from_chars(tok.data.data(), tok.data.data() + tok.data.size(), n);
-                    pattern = make_expr(ast::expr{
-                        .src_loc = tok.loc,
-                        .data = ast::num_lit_data{.value = n}
-                    });
-                } else if (match(cat::ident)) {
-                    auto tok = fetch();
-                    if (match(cat::punct, "(")) {
-                        fetch();
-                        std::vector<ast::expr_ptr> data;
-                        if (!match(cat::punct, ")")) {
-                            while (true) {
-                                auto pat = parse_expr();
-                                if (!pat) diag::error("Expected pattern");
-                                data.push_back(make_expr(std::move(*pat)));
-                                if (!match(cat::punct, ",")) break;
-                                fetch();
-                            }
-                        }
-                        require(cat::punct, ")");
-                        // TODO: proper pattern with data
-                        pattern = make_expr(ast::expr{
-                            .src_loc = tok.loc,
-                            .data = ast::identifier_data{.id = tok.data}
-                        });
-                    } else {
-                        pattern = make_expr(ast::expr{
-                            .src_loc = tok.loc,
-                            .data = ast::identifier_data{.id = tok.data}
-                        });
-                    }
-                } else {
-                    diag::error("Expected pattern in match arm");
-                }
+                auto pattern = parse_pattern();
+                if (!pattern)
+                    diag::error(peek(), "Expected pattern in match arm");
 
                 require(cat::punct, "=>");
                 auto arm_expr = parse_expr();
                 if (!arm_expr)
-                    diag::error("Expected expression in match arm");
+                    diag::error(t, "Expected expression in match arm");
 
                 arms.push_back(ast::match_arm{
-                    .pattern = std::move(pattern),
+                    .pattern = make_expr(std::move(*pattern)),
                     .expr = make_expr(std::move(*arm_expr))
                 });
 
                 if (!match(cat::punct, ",")) break;
                 fetch();
-                if (match(cat::punct, "}")) break; // trailing comma
+                if (match(cat::punct, "}")) break;
             }
         }
 
@@ -478,6 +473,39 @@ namespace dungeon {
         };
     }
 
+    std::optional<ast::expr> parser::parse_pattern() {
+        if (match(cat::number) || match(cat::string) ||
+            match_any(cat::keyword, "true", "false"))
+            return parse_primary();
+
+        if (!match(cat::ident))
+            return {};
+
+        auto name = fetch();
+        if (match(cat::punct, "(")) {
+            fetch();
+            if (!match(cat::punct, ")")) {
+                while (true) {
+                    auto nested = parse_pattern();
+                    if (!nested)
+                        diag::error(peek(), "Expected nested pattern");
+                    if (!match(cat::punct, ","))
+                        break;
+                    fetch();
+                    if (match(cat::punct, ")"))
+                        diag::error(peek(), "Trailing commas are not allowed in patterns");
+                }
+            }
+            require(cat::punct, ")");
+        }
+
+        // The AST still represents patterns as expressions. Retaining the
+        // constructor's name preserves the existing representation while the
+        // recursive descent above validates the full pattern grammar.
+        return ast::expr{.src_loc = name.loc,
+            .data = ast::identifier_data{.id = name.data}};
+    }
+
     std::optional<ast::expr> parser::parse_loop_expr() {
         if (!match(cat::keyword, "loop"))
             return {};
@@ -485,7 +513,7 @@ namespace dungeon {
         auto t = fetch();
         auto body = parse_block();
         if (!body)
-            diag::error("Expected block after loop");
+            diag::error(t, "Expected block after loop");
 
         return ast::expr{
             .src_loc = t.loc,
@@ -500,13 +528,15 @@ namespace dungeon {
             return {};
 
         auto t = fetch();
+        parsing_control_condition = true;
         auto cond = parse_expr();
+        parsing_control_condition = false;
         if (!cond)
-            diag::error("Expected condition in while expression");
+            diag::error(t, "Expected condition in while expression");
 
         auto body = parse_block();
         if (!body)
-            diag::error("Expected block after while condition");
+            diag::error(t, "Expected block after while condition");
 
         return ast::expr{
             .src_loc = t.loc,
@@ -540,7 +570,7 @@ namespace dungeon {
 
         auto e = parse_expr();
         if (!e)
-            diag::error("Expected expression");
+            diag::error(t, "Expected expression");
 
         rd.val = make_expr(std::move(e.value()));
         require(cat::punct, ";");
@@ -570,7 +600,6 @@ namespace dungeon {
         auto loc = fetch().loc;
         var_decl vd{};
 
-        // Check for mut modifier
         if (match(cat::keyword, "mut")) {
             fetch();
             vd.mut_modifier = var_decl::mut_t::mut;
@@ -580,19 +609,18 @@ namespace dungeon {
 
         vd.name = require(cat::ident).data;
 
-        // Optional type annotation
         if (match(cat::punct, ":")) {
-            fetch();
+            auto t = fetch();
             auto ty = parse_type_annotation();
             if (!ty)
-                diag::error("Invalid type annotation");
+                diag::error(t, "Invalid type annotation");
             vd.ty = std::move(ty);
         }
 
-        require(cat::punct, "=");
+        auto t = require(cat::punct, "=");
         auto e = parse_expr();
         if (!e)
-            diag::error("Expected expression in let statement");
+            diag::error(t, "Expected expression in let statement");
         vd.initializer = make_expr(std::move(e.value()));
         require(cat::punct, ";");
 
@@ -613,22 +641,22 @@ namespace dungeon {
             }
         }
 
-        // Get the base type name
         token t;
         if (match(cat::ident)) {
             t = fetch();
             ty.base_name = t.data;
-        } else if (match(cat::keyword)) {
-            // Primitive types are keywords
+        } else if (match_any(cat::keyword, "i8", "i16", "i32", "i64",
+                             "u8", "u16", "u32", "u64", "bool")) {
             t = fetch();
             ty.base_name = t.data;
         } else {
             diag::error("Invalid type annotation");
         }
 
-        // Handle generic arguments
         if (match(cat::punct, "<")) {
             fetch();
+            if (match(cat::punct, ">"))
+                diag::error(peek(), "Generic argument lists require at least one type");
             while (!match(cat::punct, ">")) {
                 auto generic_arg = parse_type_annotation();
                 if (!generic_arg)
@@ -642,14 +670,12 @@ namespace dungeon {
             require(cat::punct, ">");
         }
 
-        // Handle nullable type
         if (match(cat::punct, "?")) {
             fetch();
             ty.is_nullable = true;
         }
 
-        // Handle array type
-        if (match(cat::punct, "[")) {
+        while (match(cat::punct, "[")) {
             fetch();
             require(cat::punct, "]");
             ty.is_array = true;
@@ -683,12 +709,12 @@ namespace dungeon {
             if (!match(cat::punct, ","))
                 break;
             fetch();
+            if (match(cat::punct, ")"))
+                diag::error(peek(), "Trailing commas are not allowed in parameter lists");
         }
 
         return pl;
     }
-
-    // Parse if as a statement (for use in statement context)
 
     std::optional<ast::stmt> parser::parse_stmt() {
         std::optional<stmt> res{};
@@ -708,7 +734,6 @@ namespace dungeon {
         auto loc = fetch().loc;
         global_var gv{};
 
-        // Check for mut modifier
         if (match(cat::keyword, "mut")) {
             fetch();
             gv.is_mutable = true;
@@ -766,7 +791,6 @@ namespace dungeon {
         fd.params = parse_param_list().value_or(ast::param_list{});
         require(cat::punct, ")");
 
-        // Optional return type
         fd.ret_ty = std::nullopt;
         if (match(cat::punct, "->")) {
             fetch();
@@ -818,7 +842,7 @@ namespace dungeon {
                 break;
             fetch();
             if (match(cat::punct, "}"))
-                break; // trailing comma
+                break;
         }
 
         return res;
@@ -834,6 +858,8 @@ namespace dungeon {
         ed.generics = std::move(parse_generic_params());
 
         require(cat::punct, "{");
+        if (match(cat::punct, "}"))
+            diag::error(peek(), "Enum declarations require at least one member");
         ed.members = std::move(parse_members());
         require(cat::punct, "}");
 
@@ -868,7 +894,7 @@ namespace dungeon {
                     break;
                 fetch();
                 if (match(cat::punct, "}"))
-                    break; // trailing comma
+                    break;
             }
         }
 
@@ -890,9 +916,10 @@ namespace dungeon {
     std::optional<ast::module> parser::parse_module() {
         ast::module m{};
         while (!empty()) {
+            auto t = peek();
             auto top = parse_toplevel();
             if (!top)
-                diag::error("Expected toplevel declaration");
+                diag::error(t, "Expected toplevel declaration");
             m.toplevel_items.push_back(std::move(top.value()));
         }
         return m;

@@ -13,28 +13,37 @@ void lexer::next()
     if ( empty() )
         return;
  
-    // single line comment
     if ( try_drop( "//" ) )
     {
-        do
-        {
-            ptr = sv.find( '\n', ptr );
-            if ( ptr == sv.npos )
-                throw std::runtime_error("no newline after single-line comment");
-            ++ptr;
-        } while ( ptr > 1 && sv[ ptr - 2 ] == '\\' ||
-            ptr > 2 && sv.substr( ptr - 3, 2 ) == "\\\r" );
+        auto newline = sv.find( '\n', ptr );
+        ptr = newline == sv.npos ? sv.size() : newline + 1;
         return;
     }
 
-    // multi-line comment
     if ( try_drop( "/*" ) )
     {
-        ptr = sv.find( "*/" );
-        if ( ptr == sv.npos )
+        auto end = sv.find( "*/", ptr );
+        if ( end == sv.npos )
             throw std::runtime_error( "unterminated multi-line comment" );
-        ptr++;
+        ptr = end + 2;
         return;
+    }
+
+    if ( sv.starts_with( '"' ) )
+    {
+        ptr = 1;
+        bool escaped = false;
+        while ( ptr < sv.size() ) {
+            char c = sv[ptr++];
+            if ( c == '"' && !escaped ) {
+                push( cat::string );
+                return;
+            }
+            escaped = c == '\\' && !escaped;
+            if ( c != '\\' )
+                escaped = false;
+        }
+        throw std::runtime_error( "unterminated string literal" );
     }
 
     // keyword

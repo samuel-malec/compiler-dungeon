@@ -13,12 +13,12 @@ namespace dungeon
 {
 
 static const std::set< std::string_view > keywords = {
-    "let", "match", "static",
+    "let", "match", "static", "mut", "loop",
     "fn", "if", "else", "for", "do", "while", "switch", "break",
     "continue", "case", "return", "assert", "struct", "enum",
     "i8", "i16", "i32", "i64",
     "u8", "u16", "u32", "u64",
-    "unit", 
+    "unit", "bool",
     "true", "false",
 };
 
@@ -27,7 +27,7 @@ static const std::set< std::string_view > punct = {
     ";", ",", ".", "?", ":", "+", "-", "*", "/", 
     "%", "|", "&", "^", "~", "=", "!", "<", ">",
     "++", "--", "&&", "||", "==", "!=", "<=", ">=",
-    "<<", ">>", "->", "+=", "-=", "*=", "/=", "%=", "<<=", ">>=",
+    "<<", ">>", "->", "=>", "+=", "-=", "*=", "/=", "%=", "<<=", ">>=",
 };
 
 struct lexer
@@ -57,7 +57,7 @@ struct lexer
 
     void next();
 
-    bool empty() const { return ptr == sv.size(); }
+    bool empty() const { return sv.empty(); }
 
     void push( cat c ) { toks.emplace_back( token{ loc, sv.substr( 0, ptr ), c } ); }
 
@@ -96,21 +96,18 @@ struct lexer
     }
 
     std::string_view shift_word() { return shift_word_with( '_' ); }
-    
+
     std::string_view shift_word_with( auto... extra_allowed )
     {
-        if ( sv.empty() )
-            return sv;
-        
-        auto it = sv.begin();
-        while ( isalpha( *it ) || ( ( *it == extra_allowed ) || ... ) )
-            while ( isalnum( *it ) || ( ( *it == extra_allowed ) || ... ) )
-                ++it;
-        
-        int size = it - sv.begin();
-        ptr += size;
-        auto b = sv.substr( 0, ptr );
-        return b;
+        if ( sv.empty() || !( std::isalpha( static_cast<unsigned char>( sv.front() ) ) ||
+            ( ( sv.front() == extra_allowed ) || ... ) ) )
+            return {};
+
+        while ( ptr < sv.size() &&
+            ( std::isalnum( static_cast<unsigned char>( sv[ptr] ) ) ||
+              ( ( sv[ptr] == extra_allowed ) || ... ) ) )
+            ++ptr;
+        return sv.substr( 0, ptr );
     }
 
     bool try_unsigned()
@@ -118,13 +115,17 @@ struct lexer
         if ( sv.empty() )
             return false;
 
-        uint64_t res{};
-        auto [ xptr, ec ] = std::from_chars( sv.data(), sv.data() + sv.size(), res );
-        if ( ec != std::errc() )
+        if ( !std::isdigit( static_cast<unsigned char>( sv.front() ) ) )
             return false;
-        
-        int size = xptr - sv.begin();
-        ptr += size;
+
+        while ( ptr < sv.size() && std::isdigit( static_cast<unsigned char>( sv[ptr] ) ) )
+            ++ptr;
+        if ( ptr + 1 < sv.size() && sv[ptr] == '.' &&
+             std::isdigit( static_cast<unsigned char>( sv[ptr + 1] ) ) ) {
+            ++ptr;
+            while ( ptr < sv.size() && std::isdigit( static_cast<unsigned char>( sv[ptr] ) ) )
+                ++ptr;
+        }
         return true;
     }
 };

@@ -28,6 +28,7 @@ namespace dungeon {
         token current;
         size_t pos = 0;
         std::vector<token> toks;
+        bool parsing_control_condition = false;
 
         parser(std::vector<token> toks) : toks{toks} {
         }
@@ -67,13 +68,15 @@ namespace dungeon {
         }
 
         token peek() {
-            assert(pos < toks.size());
+            if (pos >= toks.size())
+                return token{.data = "<eof>", .cat = cat::invalid};
             return toks[pos];
         }
 
         token fetch() {
             auto rv = peek();
-            ++pos;
+            if (pos < toks.size())
+                ++pos;
             return rv;
         }
 
@@ -151,6 +154,8 @@ namespace dungeon {
         std::optional<expr> parse_if_expr();
 
         std::optional<expr> parse_match_expr();
+
+        std::optional<expr> parse_pattern();
 
         std::optional<expr> parse_loop_expr();
 
