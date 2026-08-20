@@ -62,5 +62,7 @@ namespace dungeon::print {
         std::string phi_to_string(const cfg::phi_node &phi, const atom_map &am);
 
         void export_to_dot(cfg::cfg &graph, std::ostream &out, const atom_map &am);
+
+        void print_tokens(const std::vector<token> & toks);
     };
 }

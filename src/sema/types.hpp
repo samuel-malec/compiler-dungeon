@@ -12,8 +12,7 @@ namespace dungeon
 {
 
 // TODO: implement types as a singleton, so that every i32 type is only one obect
-
-
+// TODO: type resolution and etc;
 struct type{};
 
 struct int_type : type

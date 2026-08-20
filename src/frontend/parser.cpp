@@ -341,8 +341,6 @@ namespace dungeon {
             if (empty())
                 diag::error(peek(), "Expected '}' to close block");
 
-            // These forms can only be statements and must be parsed before a
-            // general expression (which intentionally has no semicolon).
             if (match_any(cat::keyword, "let", "return", "break", "continue")) {
                 auto s = parse_stmt();
                 if (!s)
@@ -361,16 +359,13 @@ namespace dungeon {
                     .data = ast::expr_stmt_data{.expr = make_expr(std::move(*e))}}));
                 continue;
             }
+
             if (match(cat::punct, "}")) {
                 bd.trailing = make_expr(std::move(*e));
                 break;
             }
 
-            // The language examples allow control-flow expressions to be used
-            // as statements without a trailing semicolon.
-            if (std::holds_alternative<ast::if_data>(e->data) ||
-                std::holds_alternative<ast::while_data>(e->data) ||
-                std::holds_alternative<ast::loop_data>(e->data)) {
+            if (may_omit_statement_semicolon(*e)) {
                 bd.stmts.push_back(make_stmt(stmt{.src_loc = e->src_loc,
                     .data = ast::expr_stmt_data{.expr = make_expr(std::move(*e))}}));
                 continue;
@@ -628,7 +623,6 @@ namespace dungeon {
     std::optional<ast::type_annotation> parser::parse_type_annotation() {
         ast::type_annotation ty{};
 
-        // Handle reference type
         if (match(cat::punct, "&")) {
             fetch();
             ty.is_reference = true;
@@ -643,7 +637,7 @@ namespace dungeon {
             t = fetch();
             ty.base_name = t.data;
         } else if (match_any(cat::keyword, "i8", "i16", "i32", "i64",
-                             "u8", "u16", "u32", "u64", "bool")) {
+                             "u8", "u16", "u32", "u64", "bool", "unit")) {
             t = fetch();
             ty.base_name = t.data;
         } else {

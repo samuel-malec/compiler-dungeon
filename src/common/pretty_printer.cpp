@@ -130,7 +130,7 @@ namespace dungeon::print {
                 print_expr(out, *t->cond, depth + 2);
             }
             if (t->then_body) {
-                pad(out, depth + 1) ;
+                pad(out, depth + 1);
                 out << "then:\n";
                 print_expr(out, *t->then_body, depth + 2);
             }
@@ -497,5 +497,10 @@ namespace dungeon::print {
         }
 
         out << "}\n";
+    }
+
+    void pretty_printer::print_tokens(const std::vector<token> &toks) {
+        for (auto &t: toks)
+            std::cout << t << "\n";
     }
 }

@@ -16,23 +16,24 @@ namespace dungeon {
     void compiler::run(config &conf) {
         std::string in_name = conf.in_name;
         std::string out_name = conf.out_name;
-
         source_ptr doc = std::make_shared<source_file>(in_name, read_file(in_name));
+        print::pretty_printer printer{};
+
+        // Lexing
         lexer l{doc};
         std::vector<token> toks = l.lex();
         if (conf.emit_tokens)
-            for (auto &t: toks)
-                std::cout << t << "\n";
+            printer.print_tokens(toks);
 
-        print::pretty_printer printer{};
+        // Parsing
         parser p{std::move(toks)};
-
         auto ast = p.parse_module();
         if (conf.emit_ast)
             printer.print_ast_module(std::cout, ast.value());
 
-        // semantic_analyzer sa{};
-        // sa.run( ast );
+        // Semantic analysis
+        semantic_analyzer sa{};
+        sa.run( ast.value() );
 
         // hir::program hir = hir::lower_ast_to_hir( ast, sa.st );
         // if ( conf.emit_hir )

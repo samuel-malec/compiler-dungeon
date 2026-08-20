@@ -1,5 +1,0 @@
-int main( int a )
-{
-    int a = 10;
-    return 5;
-}

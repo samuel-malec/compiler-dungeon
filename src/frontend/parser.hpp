@@ -127,6 +127,12 @@ namespace dungeon {
             return std::make_unique<expr>(std::move(e));
         }
 
+        static bool may_omit_statement_semicolon(const expr &e) {
+            return std::holds_alternative<ast::if_data>(e.data) ||
+                   std::holds_alternative<ast::while_data>(e.data) ||
+                   std::holds_alternative<ast::loop_data>(e.data);
+        }
+
         std::optional<expr> parse_primary();
 
         std::optional<expr> parse_postfix();
@@ -161,7 +167,6 @@ namespace dungeon {
 
         std::optional<expr> parse_while_expr();
 
-
         std::optional<stmt> parse_expr_stmt();
 
         std::optional<stmt> parse_ret();
@@ -169,7 +174,6 @@ namespace dungeon {
         std::optional<stmt> parse_control_stmt();
 
         std::optional<stmt> parse_let();
-
 
         std::optional<ast::type_annotation> parse_type_annotation();
 

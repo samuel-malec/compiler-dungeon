@@ -4,4 +4,7 @@ fn main(v: i32) -> i32 {
     } else {
         return 0;
     }
+    
+    let a = if true { 5 } else { 10 };
+    a
 }

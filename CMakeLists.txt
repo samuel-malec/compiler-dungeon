@@ -7,7 +7,10 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 include(CTest)
 enable_testing()
 
-add_executable(compiler-dungeon)
+add_executable(compiler-dungeon
+        src/sema/semantic.hpp
+        src/sema/types.hpp
+)
 target_sources(compiler-dungeon
     PRIVATE
     src/main.cpp

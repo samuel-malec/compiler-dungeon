@@ -52,7 +52,6 @@ struct symbol
 
 };
 
-
 struct analysis_result
 {
     std::map< ast::stmt_ptr, symbol > symbols;
@@ -62,8 +61,11 @@ struct analysis_result
 
 struct semantic_analyzer
 {
-
     analysis_result semantics;
+
+    void run(const ast::module& module) {
+        std::cout << "Running semantic analysis\n";
+    }
 };
 
 }

@@ -772,6 +772,7 @@ primitiveType
      | "u32"
      | "u64"
      | "bool"
+     | "unit"
     ;
 
 namedType
@@ -941,5 +942,6 @@ literal
      | STRING
      | "true"
      | "false"
+     | "unit"
     ;
 ```

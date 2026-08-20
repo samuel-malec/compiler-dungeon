@@ -1,4 +1,4 @@
-nt main ( void a )
+fn main () -> unit
 {
     return 8434325;
 }
