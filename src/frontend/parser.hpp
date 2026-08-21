@@ -22,7 +22,7 @@ namespace dungeon {
         using var_decl = ast::var_decl;
         using enum_decl = ast::enum_decl;
         using struct_decl = ast::struct_decl;
-        using global_var = ast::global_var;
+        using global_var = ast::global_var_decl;
         using module = ast::module;
 
         token current;

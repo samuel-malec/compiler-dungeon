@@ -1,3 +1,3 @@
-fn main(value: Option<>) -> i32 {
+def main(value: Option<>) -> i32 {
     0
 }

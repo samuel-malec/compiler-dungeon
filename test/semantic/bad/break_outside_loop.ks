@@ -1,0 +1,4 @@
+def main() -> i32 {
+    break;
+    0
+}

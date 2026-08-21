@@ -1,4 +1,4 @@
-fn main ( a: int ) -> int
+def main ( a: int ) -> int
 {
     return 0@1;
 }

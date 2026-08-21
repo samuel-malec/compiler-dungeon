@@ -1,4 +1,4 @@
-fn main() -> i32
+def main() -> i32
 {
     let mut a: i32 = 5;
     let mut b: i32 = 4;

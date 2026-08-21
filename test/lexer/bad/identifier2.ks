@@ -1,4 +1,4 @@
-int main( a : unit )
+def main( a : unit )
 {
     return 1foo;
 }

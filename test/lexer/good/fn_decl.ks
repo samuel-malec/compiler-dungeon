@@ -1,2 +1,2 @@
-fn main() -> i32
+def main() -> i32
 {}

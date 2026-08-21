@@ -1,3 +1,3 @@
-fn main( void a ) -> i32
+def main( void a ) -> i32
 {
     return 0;

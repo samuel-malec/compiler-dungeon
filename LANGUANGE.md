@@ -35,7 +35,7 @@ toplevel
     ;
 
 functionDeclaration
-    ::= "fn" IDENTIFIER genericParams? "(" parameterList? ")" returnType? block
+    ::= "def" IDENTIFIER genericParams? "(" parameterList? ")" returnType? block
     ;
 
 genericParams
@@ -580,7 +580,7 @@ false
 ## Maximum of Two Values
 
 ```text
-fn max(a: i32, b: i32) -> i32 {
+def max(a: i32, b: i32) -> i32 {
     if a > b {
         a
     } else {
@@ -592,7 +592,7 @@ fn max(a: i32, b: i32) -> i32 {
 ## Fibonacci
 
 ```text
-fn fib(n: i32) -> i32 {
+def fib(n: i32) -> i32 {
     if n < 2 {
         n
     } else {
@@ -604,7 +604,7 @@ fn fib(n: i32) -> i32 {
 ## Mutable Variables
 
 ```text
-fn sum_to(n: i32) -> i32 {
+def sum_to(n: i32) -> i32 {
     let mut sum = 0;
     let mut i = 0;
 
@@ -625,7 +625,7 @@ struct Point {
     y: i32,
 }
 
-fn distance_squared(p: Point) -> i32 {
+def distance_squared(p: Point) -> i32 {
     p.x * p.x + p.y * p.y
 }
 ```
@@ -638,7 +638,7 @@ enum Option<T> {
     None,
 }
 
-fn unwrap_or(value: Option<i32>, default: i32) -> i32 {
+def unwrap_or(value: Option<i32>, default: i32) -> i32 {
     match value {
         Some(x) => x,
         None => default,
@@ -686,7 +686,7 @@ while x < 10 {
 The language currently does **not** specify an effect system. Function return types therefore contain only the value type:
 
 ```text
-fn foo() -> i32 {
+def foo() -> i32 {
     42
 }
 ```
@@ -712,7 +712,7 @@ toplevel
     ;
 
 functionDeclaration
-    ::= "fn" IDENTIFIER genericParams? "(" parameterList? ")" returnType? block
+    ::= "def" IDENTIFIER genericParams? "(" parameterList? ")" returnType? block
     ;
 
 genericParams

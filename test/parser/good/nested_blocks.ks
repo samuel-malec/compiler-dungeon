@@ -1,4 +1,4 @@
-fn main(a: i32, b: i32) -> i32
+def main(a: i32, b: i32) -> i32
 {
     let x : i32 = 10;
     {

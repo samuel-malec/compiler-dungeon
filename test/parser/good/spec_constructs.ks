@@ -10,7 +10,7 @@ enum Option<T> {
 
 static mut counter: i32 = 0;
 
-fn choose<T>(value: Option<T>, fallback: i32[]) -> i32 {
+def choose<T>(value: Option<T>, fallback: i32[]) -> i32 {
     let greeting = "hello";
     let ratio = 3.14;
     let point = Pair { first: value, second: value };

@@ -17,10 +17,10 @@ enum Message<T> {
 static answer: i32 = 42;
 static mut enabled: bool = true;
 
-fn identity<T>(value: T) -> T {
+def identity<T>(value: T) -> T {
     value
 }
 
-fn no_result() {
+def no_result() {
     return;
 }

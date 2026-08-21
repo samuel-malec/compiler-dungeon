@@ -304,7 +304,7 @@ namespace dungeon::print {
                 out << "Enum " << t->name << '\n';
                 continue;
             }
-            if (auto t = std::get_if<ast::global_var>(&toplevel.data)) {
+            if (auto t = std::get_if<ast::global_var_decl>(&toplevel.data)) {
                 out << "Static " << t->name
                         << (t->is_mutable ? " (mut)" : " (imut)")
                         << " : ";

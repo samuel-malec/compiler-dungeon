@@ -1,4 +1,4 @@
-fn fib(n: i32) -> i32 {
+def fib(n: i32) -> i32 {
     if n < 2 {
         n
     } else {

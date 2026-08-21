@@ -223,7 +223,7 @@ namespace dungeon::ast {
         expr_ptr body;
     };
 
-    struct global_var {
+    struct global_var_decl {
         bool is_mutable;
         std::string_view name;
         type_annotation ty;
@@ -232,7 +232,7 @@ namespace dungeon::ast {
 
     struct toplevel {
         location loc;
-        using data_t = std::variant<fn_decl, enum_decl, struct_decl, global_var>;
+        using data_t = std::variant<fn_decl, enum_decl, struct_decl, global_var_decl>;
         data_t data;
     };
 

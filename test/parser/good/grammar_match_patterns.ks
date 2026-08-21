@@ -3,7 +3,7 @@ enum Token {
     Empty,
 }
 
-fn classify(token: Token) -> i32 {
+def classify(token: Token) -> i32 {
     match token {
         Pair(0, _) => 0,
         Pair(left, right) => left,
@@ -11,7 +11,7 @@ fn classify(token: Token) -> i32 {
     }
 }
 
-fn literals(value: i32) -> i32 {
+def literals(value: i32) -> i32 {
     match value {
         0 => 10,
         3.14 => 20,
