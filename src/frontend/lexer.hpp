@@ -33,7 +33,7 @@ struct lexer
     using sv_t = std::string_view;
     using cat = token::cat_t;
 
-    location loc;
+    src_location loc;
     sv_t sv;
     std::vector< token > toks;
     int ptr = 0;

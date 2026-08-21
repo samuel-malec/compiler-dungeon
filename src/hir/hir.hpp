@@ -63,7 +63,6 @@ namespace dungeon::hir
     struct function
     {
         stmt_id root;
-        std::vector< binding_id > params;
         std::vector< expr > exprs;
         std::vector< stmt > stmts;
 

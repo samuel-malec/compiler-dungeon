@@ -7,4 +7,3 @@ def main() -> i32 {
     // punctuators and operators
     x = x + y * (x - 2) / 3 % 5;
 }
-

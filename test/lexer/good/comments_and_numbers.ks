@@ -6,4 +6,3 @@ def _start() -> i32 {
     let m: i32 = 0;
     return n + m;
 }
-

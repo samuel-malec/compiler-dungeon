@@ -53,6 +53,7 @@ namespace dungeon::ast {
         expr_ptr rhs;
     };
 
+    // ehmmm, the lhs should probably be expr_ptr and we shall deal with invalid assignments in the semantic analyzer
     struct assign_data {
         identifier_data id;
         expr_ptr val;
@@ -114,7 +115,7 @@ namespace dungeon::ast {
     };
 
     struct expr {
-        location src_loc;
+        src_location src_loc;
         using data_t = std::variant<
             num_lit_data,
             float_lit_data,
@@ -174,7 +175,7 @@ namespace dungeon::ast {
     };
 
     struct stmt {
-        location src_loc;
+        src_location src_loc;
         using data_t = std::variant<
             ret_data,
             cont_data,
@@ -220,7 +221,7 @@ namespace dungeon::ast {
         param_list params;
         std::optional<type_annotation> ret_ty;
         std::vector<std::string_view> generics;
-        expr_ptr body;
+        expr_ptr body; // the body is just the outermost function block
     };
 
     struct global_var_decl {
@@ -231,7 +232,7 @@ namespace dungeon::ast {
     };
 
     struct toplevel {
-        location loc;
+        src_location loc;
         using data_t = std::variant<fn_decl, enum_decl, struct_decl, global_var_decl>;
         data_t data;
     };

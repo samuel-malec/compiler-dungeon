@@ -18,14 +18,13 @@ struct source_file
 
 using source_ptr = std::shared_ptr< source_file >;
 
-/* Location in the source-code */
-struct location
+struct src_location
 {
     source_ptr doc;
     int line = 1, col = 1, byte = 0;
 };
 
-inline std::ostream& operator<<( std::ostream& os, const location& loc )
+inline std::ostream& operator<<( std::ostream& os, const src_location& loc )
 {
     os << "Ln " << loc.line << ", Col " << loc.col;
     return os;
@@ -33,7 +32,7 @@ inline std::ostream& operator<<( std::ostream& os, const location& loc )
 
 struct token
 {
-    location loc;
+    src_location loc;
     std::string_view data;
     enum cat_t
     {
