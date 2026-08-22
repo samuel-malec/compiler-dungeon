@@ -33,8 +33,10 @@ namespace dungeon {
 
         if (match(cat::string)) {
             auto tok = fetch();
-            return ast::expr{.src_loc = tok.loc,
-                .data = ast::string_lit_data{.value = tok.data.substr(1, tok.data.size() - 2)}};
+            return ast::expr{
+                .src_loc = tok.loc,
+                .data = ast::string_lit_data{.value = tok.data.substr(1, tok.data.size() - 2)}
+            };
         }
 
         if (match(cat::number)) {
@@ -66,10 +68,10 @@ namespace dungeon {
             // `if`/`while`, rather than a struct literal. A struct literal is
             // unambiguous once its first field (`name:`) is visible.
             bool looks_like_struct_literal =
-                !parsing_control_condition && match(cat::punct, "{") &&
-                ((pos + 1 < toks.size() && toks[pos + 1].cat == cat::punct && toks[pos + 1].data == "}") ||
-                 (pos + 2 < toks.size() && toks[pos + 1].cat == cat::ident &&
-                  toks[pos + 2].cat == cat::punct && toks[pos + 2].data == ":"));
+                    !parsing_control_condition && match(cat::punct, "{") &&
+                    ((pos + 1 < toks.size() && toks[pos + 1].cat == cat::punct && toks[pos + 1].data == "}") ||
+                     (pos + 2 < toks.size() && toks[pos + 1].cat == cat::ident &&
+                      toks[pos + 2].cat == cat::punct && toks[pos + 2].data == ":"));
             if (looks_like_struct_literal) {
                 fetch();
                 std::vector<ast::struct_literal_field> fields;
@@ -355,8 +357,10 @@ namespace dungeon {
 
             if (match(cat::punct, ";")) {
                 fetch();
-                bd.stmts.push_back(make_stmt(stmt{.src_loc = e->src_loc,
-                    .data = ast::expr_stmt_data{.expr = make_expr(std::move(*e))}}));
+                bd.stmts.push_back(make_stmt(stmt{
+                    .src_loc = e->src_loc,
+                    .data = ast::expr_stmt_data{.expr = make_expr(std::move(*e))}
+                }));
                 continue;
             }
 
@@ -366,8 +370,10 @@ namespace dungeon {
             }
 
             if (may_omit_statement_semicolon(*e)) {
-                bd.stmts.push_back(make_stmt(stmt{.src_loc = e->src_loc,
-                    .data = ast::expr_stmt_data{.expr = make_expr(std::move(*e))}}));
+                bd.stmts.push_back(make_stmt(stmt{
+                    .src_loc = e->src_loc,
+                    .data = ast::expr_stmt_data{.expr = make_expr(std::move(*e))}
+                }));
                 continue;
             }
             diag::error(peek(), "Expected ';' or '}' after expression in block");
@@ -494,8 +500,10 @@ namespace dungeon {
             require(cat::punct, ")");
         }
 
-        return ast::expr{.src_loc = name.loc,
-            .data = ast::identifier_data{.id = name.data}};
+        return ast::expr{
+            .src_loc = name.loc,
+            .data = ast::identifier_data{.id = name.data}
+        };
     }
 
     std::optional<ast::expr> parser::parse_loop_expr() {
@@ -590,39 +598,17 @@ namespace dungeon {
             return {};
 
         auto loc = fetch().loc;
-        var_decl vd{};
+        std::optional<var_decl> vd = parse_var_decl();
+        if (!vd)
+            diag::error(loc, "Expected variable declaration");
 
-        if (match(cat::keyword, "mut")) {
-            fetch();
-            vd.mut_modifier = var_decl::mut_t::mut;
-        } else {
-            vd.mut_modifier = var_decl::mut_t::imut;
-        }
-
-        vd.name = require(cat::ident).data;
-
-        if (match(cat::punct, ":")) {
-            auto t = fetch();
-            auto ty = parse_type_annotation();
-            if (!ty)
-                diag::error(t, "Invalid type annotation");
-            vd.ty = std::move(ty);
-        }
-
-        auto t = require(cat::punct, "=");
-        auto e = parse_expr();
-        if (!e)
-            diag::error(t, "Expected expression in let statement");
-        vd.initializer = make_expr(std::move(e.value()));
-        require(cat::punct, ";");
-
-        return stmt{.src_loc = loc, .data = ast::let_data{.decl = std::move(vd)}};
+        vd->storage = var_decl::local;
+        return stmt{.src_loc = loc, .data = ast::let_data{.decl = std::move(vd.value())}};
     }
 
 
     std::optional<ast::type_annotation> parser::parse_type_annotation() {
         ast::type_annotation ty{};
-
         if (match(cat::punct, "&")) {
             fetch();
             ty.is_reference = true;
@@ -641,7 +627,7 @@ namespace dungeon {
             t = fetch();
             ty.base_name = t.data;
         } else {
-            diag::error("Invalid type annotation");
+            return {};
         }
 
         if (match(cat::punct, "<")) {
@@ -718,35 +704,48 @@ namespace dungeon {
         return {};
     }
 
+    std::optional<ast::var_decl> parser::parse_var_decl() {
+        var_decl vd{};
+        if (match(cat::keyword, "mut")) {
+            fetch();
+            vd.modifier = var_decl::mut;
+        } else {
+            vd.modifier = var_decl::imut;
+        }
+
+        vd.name = require(cat::ident).data;
+        if ( match( cat::punct, ":") ) {
+            const auto t = fetch();
+            auto ty = parse_type_annotation();
+            if (!ty)
+                diag::error(t.loc, "Invalid type annotation");
+            vd.ty = *ty;
+        } else {
+            vd.ty = std::nullopt;
+        }
+
+        require(cat::punct, "=");
+        auto init = parse_expr();
+        if (!init)
+            diag::error("Invalid initializer");
+        vd.initializer = make_expr(std::move(*init));
+
+        require(cat::punct, ";");
+        return vd;
+    }
+
     std::optional<ast::toplevel> parser::parse_global_var_decl() {
         if (!match(cat::keyword, "static"))
             return {};
 
         auto loc = fetch().loc;
         global_var gv{};
+        std::optional<ast::var_decl> var_decl = parse_var_decl();
+        if (!var_decl)
+            diag::error("Expected global variable declaration");
 
-        if (match(cat::keyword, "mut")) {
-            fetch();
-            gv.is_mutable = true;
-        } else {
-            gv.is_mutable = false;
-        }
-
-        gv.name = require(cat::ident).data;
-        require(cat::punct, ":");
-
-        auto ty = parse_type_annotation();
-        if (!ty)
-            diag::error("Expected type annotation for global variable");
-        gv.ty = *ty;
-
-        require(cat::punct, "=");
-        auto init = parse_expr();
-        if (!init)
-            diag::error("Expected initializer for global variable");
-        gv.initializer = make_expr(std::move(*init));
-
-        require(cat::punct, ";");
+        var_decl->storage = var_decl::global;
+        gv.decl = std::move(var_decl.value());
         return toplevel{.loc = loc, .data = std::move(gv)};
     }
 
@@ -773,13 +772,13 @@ namespace dungeon {
         if (!match(cat::keyword, "def"))
             return {};
 
-        auto loc = fetch().loc;
+        const auto loc = fetch().loc;
         fn_decl fd;
         fd.name = require(cat::ident).data;
         fd.generics = std::move(parse_generic_params());
 
         require(cat::punct, "(");
-        fd.params = parse_param_list().value_or(ast::param_list{});
+        fd.param_list = parse_param_list().value_or(ast::param_list{});
         require(cat::punct, ")");
 
         fd.ret_ty = std::nullopt;

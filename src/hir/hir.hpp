@@ -7,9 +7,6 @@
 #include "../sema/semantic.hpp"
 #include "../sema/types.hpp"
 
-/**
- * Basically a typed AST where the source-code names are mangled
- */
 namespace dungeon::hir
 {
     struct var_id { uint32_t idx; };

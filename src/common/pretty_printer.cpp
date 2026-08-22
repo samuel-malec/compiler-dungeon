@@ -233,7 +233,7 @@ namespace dungeon::print {
         }
         if (auto t = std::get_if<ast::let_data>(&s.data)) {
             out << "Let " << t->decl.name
-                    << (t->decl.mut_modifier == ast::var_decl::mut_t::mut ? " (mut)" : " (imut)")
+                    << (t->decl.modifier == ast::var_decl::mod_t::mut ? " (mut)" : " (imut)")
                     << " : ";
             if (t->decl.ty)
                 print_type_annotation(out, *t->decl.ty);
@@ -272,11 +272,11 @@ namespace dungeon::print {
                     out << ">";
                 }
                 out << "(";
-                for (size_t i = 0; i < t->params.params.size(); ++i) {
+                for (size_t i = 0; i < t->param_list.params.size(); ++i) {
                     if (i)
                         out << ", ";
-                    out << t->params.params[i].name << ": ";
-                    print_type_annotation(out, t->params.params[i].ty);
+                    out << t->param_list.params[i].name << ": ";
+                    print_type_annotation(out, t->param_list.params[i].ty);
                 }
                 out << ") -> ";
                 if (t->ret_ty) {
@@ -305,14 +305,15 @@ namespace dungeon::print {
                 continue;
             }
             if (auto t = std::get_if<ast::global_var_decl>(&toplevel.data)) {
-                out << "Static " << t->name
-                        << (t->is_mutable ? " (mut)" : " (imut)")
+                // TODO: we can extract the common 'var_decl' printing part from here and from let_data
+                out << "Static " << t->decl.name
+                        << (t->decl.modifier == ast::var_decl::mut ? " (mut)" : " (imut)")
                         << " : ";
-                print_type_annotation(out, t->ty);
+                print_type_annotation(out, t->decl.ty.value());
                 out << '\n';
                 pad(out, 1);
-                if (t->initializer)
-                    print_expr(out, *t->initializer, 1);
+                if (t->decl.initializer)
+                    print_expr(out, *t->decl.initializer, 1);
                 continue;
             }
 

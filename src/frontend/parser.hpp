@@ -5,6 +5,7 @@
 #include <memory>
 #include <optional>
 #include <sstream>
+#include <utility>
 #include <vector>
 
 #include "ast.hpp"
@@ -30,7 +31,7 @@ namespace dungeon {
         std::vector<token> toks;
         bool parsing_control_condition = false;
 
-        parser(std::vector<token> toks) : toks{toks} {
+        parser(std::vector<token> toks) : toks{std::move(toks)} {
         }
 
         token require(cat c, std::string_view data = "") {
@@ -182,6 +183,8 @@ namespace dungeon {
         std::optional<ast::param_list> parse_param_list();
 
         std::optional<stmt> parse_stmt();
+
+        std::optional<ast::var_decl> parse_var_decl();
 
         std::optional<toplevel> parse_global_var_decl();
 

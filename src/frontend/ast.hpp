@@ -159,8 +159,8 @@ namespace dungeon::ast {
     };
 
     struct var_decl {
-        enum mut_t { mut, imut } mut_modifier;
-
+        enum mod_t { mut, imut } modifier;
+        enum stor_t { local, global } storage;
         std::string_view name;
         std::optional<type_annotation> ty;
         expr_ptr initializer;
@@ -218,17 +218,14 @@ namespace dungeon::ast {
 
     struct fn_decl {
         std::string_view name;
-        param_list params;
+        param_list param_list;
         std::optional<type_annotation> ret_ty;
         std::vector<std::string_view> generics;
         expr_ptr body; // the body is just the outermost function block
     };
 
     struct global_var_decl {
-        bool is_mutable;
-        std::string_view name;
-        type_annotation ty;
-        expr_ptr initializer;
+        var_decl decl;
     };
 
     struct toplevel {
