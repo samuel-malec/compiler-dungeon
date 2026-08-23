@@ -85,6 +85,7 @@ namespace dungeon {
         std::vector<function> functions;
         std::vector<scope> scopes;
 
+        // TODO: we actually have to fill this up somewhere;
         std::unordered_map<ast::expr *, symbol_id> id_symbols;
         std::unordered_map<ast::stmt *, symbol_id> decl_symbols;
     };
