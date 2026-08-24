@@ -11,6 +11,7 @@
 
 #include "../frontend/ast.hpp"
 
+// TODO: what programs are valid and what are not ?
 namespace dungeon {
     struct name_id {
         uint32_t value;
@@ -37,6 +38,7 @@ namespace dungeon {
         uint32_t value;
     };
 
+    // TODO: once we add support for first-class functions we will have to create a notion of a 'binding' instead...
     struct scope {
         scope_id id;
         std::optional<scope_id> parent_scope;
@@ -85,22 +87,27 @@ namespace dungeon {
         std::vector<function> functions;
         std::vector<scope> scopes;
 
-        // TODO: we actually have to fill this up somewhere;
         std::unordered_map<ast::expr *, symbol_id> id_symbols;
         std::unordered_map<ast::stmt *, symbol_id> decl_symbols;
+
+
+        std::unordered_map<ast::expr *, scope_id> expr_scopes;
+        std::unordered_map<ast::stmt *, scope_id> stmt_scopes;
+
+        std::unordered_map<ast::expr *, type> expr_types;
     };
 
     struct semantic_analyzer {
         analysis_result semantics;
         std::map<std::string, name_id, std::less<> > interned_names;
 
-        // TODO
+        // TODO: add support for structures
         structure create_structure() {
             struct_id id{.value = static_cast<uint32_t>(semantics.structures.size())};
             return {.id = id};
         }
 
-        // TODO
+        // TODO: add support for enums
         enumeration create_enumeration() {
             enum_id id{.value = static_cast<uint32_t>(semantics.enumerations.size())};
             enumeration e = {.id = id};
@@ -124,7 +131,7 @@ namespace dungeon {
             return curr;
         }
 
-        // TODO: additional fields, like source location, type etc...
+        // TODO: do we want to pass name_id here or do we want std::string_view name ?
         symbol create_symbol(name_id nid, const src_location &src_loc, symbol::data_t data) {
             symbol_id sid{.value = static_cast<uint32_t>(semantics.symbols.size())};
             symbol sym = {.id = sid, .nid = nid, .src_loc = src_loc, .data = std::move(data)};
@@ -168,9 +175,8 @@ namespace dungeon {
             const auto &[_, nid] = intern_name(name);
             scope &scope = get_scope(sid);
             symbol sym = create_symbol(nid, src_loc, std::move(data));
-            sym.nid = nid;
-            sym.src_loc = src_loc;
 
+            // TODO: do we want this ? Rust doesn't do it like this ....
             if (scope.symbols.contains(nid))
                 diag::error("Symbol already present", sym.src_loc);
 
@@ -182,7 +188,7 @@ namespace dungeon {
             if (inserted)
                 return {};
 
-            std::optional<scope_id> curr_id = sid;
+            std::optional curr_id = sid;
             while (curr_id) {
                 scope &curr = get_scope(*curr_id);
                 auto it = curr.symbols.find(nid);
@@ -203,7 +209,7 @@ namespace dungeon {
             return true;
         }
 
-        void resolve_expr(const ast::expr &expr, scope_id scope) {
+        type check_expr(const ast::expr &expr) {
             if (auto id = std::get_if<ast::identifier_data>(&expr.data)) {
             } else if (auto ud = std::get_if<ast::unary_data>(&expr.data)) {
             } else if (auto bd = std::get_if<ast::binary_data>(&expr.data)) {
@@ -222,7 +228,7 @@ namespace dungeon {
                 assert(false && "Non-exhaustive data cases!");
         }
 
-        void resolve_stmt(const ast::stmt &stmt, scope_id scope) {
+        void check_stmt(const ast::stmt &stmt) {
             if (auto ld = std::get_if<ast::let_data>(&stmt.data)) {
             } else if (auto rd = std::get_if<ast::ret_data>(&stmt.data)) {
             } else if (auto cd = std::get_if<ast::cont_data>(&stmt.data)) {
@@ -230,6 +236,22 @@ namespace dungeon {
             } else if (auto exp = std::get_if<ast::expr_stmt_data>(&stmt.data)) {
             } else
                 assert(false && "Non-exhaustive data cases!");
+        }
+
+        void check_decl(const ast::var_decl &decl) {
+            std::cout << "hooooooo\n";
+        }
+
+        void check(const ast::module &module) {
+            for (const auto &[loc, data]: module.toplevel_items) {
+                if (auto fd = std::get_if<ast::fn_decl>(&data)) {
+                    if (fd->body)
+                        check_expr(*fd->body);
+                }
+                if (auto gvd = std::get_if<ast::global_var_decl>(&data)) {
+                    check_decl(gvd->decl);
+                }
+            }
         }
 
         void collect_declarations(ast::expr &expr, scope_id sid) {
@@ -271,20 +293,9 @@ namespace dungeon {
         void collect_declarations(const ast::stmt &stmt, const scope_id scope) {
             if (auto ld = std::get_if<ast::let_data>(&stmt.data)) {
                 declare_variable(ld->decl, stmt.src_loc, scope);
-            } else if (auto rd = std::get_if<ast::ret_data>(&stmt.data)) {
-                if (rd->val)
-                    collect_declarations(*rd->val, scope);
-            } else if (auto cd = std::get_if<ast::cont_data>(&stmt.data)) {
-                if (!inside_loop(scope))
-                    diag::error("Continue used outside of a loop", stmt.src_loc);
-            } else if (auto bd = std::get_if<ast::brk_data>(&stmt.data)) {
-                if (!inside_loop(scope))
-                    diag::error("Break used outside of a loop", stmt.src_loc);
             } else if (auto exp = std::get_if<ast::expr_stmt_data>(&stmt.data)) {
-                if (exp->expr)
-                    collect_declarations(*exp->expr, scope);
-            } else
-                assert(false && "Non-exhaustive data cases!");
+                collect_declarations(*exp->expr, scope);
+            }
         }
 
         void collect_declarations(const ast::module &module) {
@@ -293,20 +304,19 @@ namespace dungeon {
                 if (auto fd = std::get_if<ast::fn_decl>(&data)) {
                     function f = create_function();
                     fn_id fid = f.id;
-
                     declare(fd->name, loc, std::move(f), global.id);
                     scope fn_scope = create_scope(global.id, fid, scope::function);
-                    // TODO:
-                    // for (auto &param: fd->param_list.params)
-                    //     declare(param.name, symbol::parameter, fn_scope.id);
-                    //
-                    // semantics.decl_symbol[fd] =
+                    for (auto &param: fd->param_list.params)
+                        // TODO: I guess we should allow mutability of params probably...
+                        declare(param.name, loc, variable{.modifier = variable::imut, .storage = variable::local},
+                                fn_scope.id);
+
                     if (fd->body)
                         collect_declarations(*fd->body, fn_scope.id);
                 } else if (auto ed = std::get_if<ast::enum_decl>(&data)) {
-                    // TODO: introduce this into the language later
+                    // TODO: add support for enumerations;
                 } else if (auto sd = std::get_if<ast::struct_decl>(&data)) {
-                    // TODO: introduce this into the language later
+                    // TODO: add support for structures;
                 } else if (auto gvd = std::get_if<ast::global_var_decl>(&data)) {
                     declare_variable(gvd->decl, loc, global.id);
                 } else
@@ -318,8 +328,7 @@ namespace dungeon {
             std::cout << "Running semantic analysis\n";
             collect_declarations(module);
             // TODO: type checking/inference + control-flow checking ( continue/break usage + return within a function )
-            // resolve(module); // bind every identifier/call to a symbol_id
-            // typecheck(module)
+            check(module);
             return semantics;
         }
     };
