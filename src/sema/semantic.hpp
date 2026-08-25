@@ -209,10 +209,19 @@ namespace dungeon {
             return true;
         }
 
+        // TODO: the const modifier kinda messes up this function ngl...
         type check_expr(const ast::expr &expr) {
+            scope_id sid = semantics.expr_scopes.at(&expr);
+            const scope& s = get_scope(sid);
             if (auto id = std::get_if<ast::identifier_data>(&expr.data)) {
+                auto sym = lookup_symbol(id->id, sid );
+                if ( !sym )
+                    diag::error("Unknown identifier", expr.src_loc);
             } else if (auto ud = std::get_if<ast::unary_data>(&expr.data)) {
+                check_expr(ud->lhs);
             } else if (auto bd = std::get_if<ast::binary_data>(&expr.data)) {
+                check_expr(bd->lhs);
+                check_expr(bd->rhs);
             } else if (auto rd = std::get_if<ast::relational_data>(&expr.data)) {
             } else if (auto ad = std::get_if<ast::assign_data>(&expr.data)) {
             } else if (auto cd = std::get_if<ast::call_data>(&expr.data)) {
@@ -266,17 +275,22 @@ namespace dungeon {
             } else if (auto ad = std::get_if<ast::assign_data>(&expr.data)) {
                 collect_declarations(*ad->val, sid);
             } else if (auto ifd = std::get_if<ast::if_data>(&expr.data)) {
+                scope then_scope = create_scope(sid, get_scope(sid).enclosing_fn, scope::block);
+                semantics.expr_scopes[&expr] = then_scope.id;
                 collect_declarations(*ifd->then_body, sid);
                 if (ifd->else_body)
                     collect_declarations(*ifd->else_body, sid);
             } else if (auto wd = std::get_if<ast::while_data>(&expr.data)) {
                 scope while_scope = create_scope(sid, get_scope(sid).enclosing_fn, scope::loop);
+                semantics.expr_scopes[&expr] = while_scope.id;
                 collect_declarations(*wd->body, while_scope.id);
             } else if (auto ld = std::get_if<ast::loop_data>(&expr.data)) {
                 scope loop_scope = create_scope(sid, get_scope(sid).enclosing_fn, scope::loop);
+                semantics.expr_scopes[&expr] = loop_scope.id;
                 collect_declarations(*ld->body, loop_scope.id);
             } else if (auto blk = std::get_if<ast::block_data>(&expr.data)) {
                 scope block_scope = create_scope(sid, get_scope(sid).enclosing_fn, scope::block);
+                semantics.expr_scopes[&expr] = block_scope.id;
                 for (auto &stmt: blk->stmts)
                     collect_declarations(*stmt, block_scope.id);
                 if (blk->trailing)
