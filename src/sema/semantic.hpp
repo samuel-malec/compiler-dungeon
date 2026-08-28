@@ -52,8 +52,8 @@ namespace dungeon {
 
     struct function {
         fn_id id;
-        std::vector<type> param_types;
-        type return_type;
+        std::vector<type *> param_types;
+        type *return_type;
     };
 
     struct enumeration {
@@ -80,6 +80,7 @@ namespace dungeon {
         data_t data;
     };
 
+    // TODO: think about naming this analysis_context and adding typemanager here
     struct analysis_result {
         std::vector<std::string> names;
         std::vector<symbol> symbols;
@@ -113,12 +114,12 @@ namespace dungeon {
             return e;
         }
 
-        function create_function(const std::vector<ast::param> & params, const ast::type_annotation & ret_annot) {
+        function create_function(const std::vector<ast::param> &params, const ast::type_annotation &ret_annot) {
             fn_id id{.value = static_cast<uint32_t>(semantics.functions.size())};
             function fn = {.id = id};
             fn.return_type = type_from_annotation(ret_annot);
-            for ( auto& p : params ) {
-                fn.param_types.push_back(type_from_annotation( p.ty ) );
+            for (auto &p: params) {
+                fn.param_types.push_back(type_from_annotation(p.ty));
             }
             semantics.functions.push_back(fn);
             return fn;
@@ -142,6 +143,7 @@ namespace dungeon {
         enumeration &get_enumeration(enum_id id) { return semantics.enumerations.at(id.value); }
         function &get_function(fn_id fid) { return semantics.functions.at(fid.value); }
         scope &get_scope(scope_id sid) { return semantics.scopes.at(sid.value); }
+        symbol &get_symbol(symbol_id sym_id) { return semantics.symbols.at(sym_id.value); }
 
         static variable::storage_t convert_storage(ast::var_decl::stor_t stor) {
             if (stor == ast::var_decl::global)
@@ -209,175 +211,147 @@ namespace dungeon {
             return true;
         }
 
-        // void declare_variable(const ast::var_decl &vd, const src_location &src_loc, const scope_id scope) {
-        //     collect_declarations(*vd.initializer, scope);
-        //     variable var{.modifier = convert_modifier(vd.modifier), .storage = convert_storage(vd.storage)};
-        //     declare(vd.name, src_loc, var, scope);
-        // }
 
-        // TODO: the const modifier kinda messes up this function ngl...
-        // type check_expr(ast::expr &expr) {
-        //     scope_id sid = semantics.expr_scopes.at(&expr);
-        //     const scope &s = get_scope(sid);
-        //     if (auto id = std::get_if<ast::identifier_data>(&expr.data)) {
-        //         auto sym = lookup_symbol(id->id, sid);
-        //         if (!sym)
-        //             diag::error("Unknown identifier", expr.src_loc);
-        //     } else if (auto ud = std::get_if<ast::unary_data>(&expr.data)) {
-        //         check_expr(*ud->lhs);
-        //     } else if (auto bd = std::get_if<ast::binary_data>(&expr.data)) {
-        //         check_expr(*bd->lhs);
-        //         check_expr(*bd->rhs);
-        //     } else if (auto rd = std::get_if<ast::relational_data>(&expr.data)) {
-        //         check_expr(*bd->lhs);
-        //         check_expr(*bd->rhs);
-        //     } else if (auto ad = std::get_if<ast::assign_data>(&expr.data)) {
-        //         check_expr(*ad->val);
-        //     } else if (auto cd = std::get_if<ast::call_data>(&expr.data)) {
-        //     } else if (auto fad = std::get_if<ast::field_access_data>(&expr.data)) {
-        //     } else if (auto aid = std::get_if<ast::array_index_data>(&expr.data)) {
-        //     } else if (auto ifd = std::get_if<ast::if_data>(&expr.data)) {
-        //         check_expr(*ifd->cond);
-        //         check_expr(*ifd->then_body);
-        //         if (ifd->else_body)
-        //             check_expr(*ifd->else_body);
-        //     } else if (auto wd = std::get_if<ast::while_data>(&expr.data)) {
-        //     } else if (auto ld = std::get_if<ast::loop_data>(&expr.data)) {
-        //     } else if (auto md = std::get_if<ast::match_data>(&expr.data)) {
-        //     } else if (auto sd = std::get_if<ast::struct_literal_data>(&expr.data)) {
-        //     } else if (auto blk = std::get_if<ast::block_data>(&expr.data)) {
-        //     } else
-        //         assert(false && "Non-exhaustive data cases!");
-        // }
-        //
-        // void check_stmt(const ast::stmt &stmt) {
-        //     if (auto ld = std::get_if<ast::let_data>(&stmt.data)) {
-        //     } else if (auto rd = std::get_if<ast::ret_data>(&stmt.data)) {
-        //     } else if (auto cd = std::get_if<ast::cont_data>(&stmt.data)) {
-        //     } else if (auto bd = std::get_if<ast::brk_data>(&stmt.data)) {
-        //     } else if (auto exp = std::get_if<ast::expr_stmt_data>(&stmt.data)) {
-        //     } else
-        //         assert(false && "Non-exhaustive data cases!");
-        // }
-        //
-        // void check_decl(const ast::var_decl &decl, scope_id scope) {
-        //     if ( lookup_symbol(decl.name ) )
-        // }
-        //
-        //
-        // void check(const ast::module &module) {
-        //     for (auto &[loc, data]: module.toplevel_items) {
-        //         if (auto fd = std::get_if<ast::fn_decl>(&data)) {
-        //             if (fd->body)
-        //                 check_expr(*fd->body);
-        //         }
-        //         if (auto gvd = std::get_if<ast::global_var_decl>(&data)) {
-        //             scope& s = semantics.decl_scopes[ &gvd->decl ];
-        //             check_decl(gvd->decl);
-        //         }
-        //     }
-        // }
-        //
-        // void collect_declarations(ast::expr &expr, scope_id sid) {
-        //     if (auto ud = std::get_if<ast::unary_data>(&expr.data)) {
-        //         collect_declarations(*ud->lhs, sid);
-        //     } else if (auto bd = std::get_if<ast::binary_data>(&expr.data)) {
-        //         collect_declarations(*bd->lhs, sid);
-        //         collect_declarations(*bd->rhs, sid);
-        //     } else if (auto rd = std::get_if<ast::relational_data>(&expr.data)) {
-        //         collect_declarations(*rd->lhs, sid);
-        //         collect_declarations(*rd->rhs, sid);
-        //     } else if (auto ad = std::get_if<ast::assign_data>(&expr.data)) {
-        //         collect_declarations(*ad->val, sid);
-        //     } else if (auto ifd = std::get_if<ast::if_data>(&expr.data)) {
-        //         scope then_scope = create_scope(sid, get_scope(sid).enclosing_fn, scope::block);
-        //         semantics.expr_scopes[&expr] = then_scope.id;
-        //         collect_declarations(*ifd->then_body, sid);
-        //         if (ifd->else_body)
-        //             collect_declarations(*ifd->else_body, sid);
-        //     } else if (auto wd = std::get_if<ast::while_data>(&expr.data)) {
-        //         scope while_scope = create_scope(sid, get_scope(sid).enclosing_fn, scope::loop);
-        //         semantics.expr_scopes[&expr] = while_scope.id;
-        //         collect_declarations(*wd->body, while_scope.id);
-        //     } else if (auto ld = std::get_if<ast::loop_data>(&expr.data)) {
-        //         scope loop_scope = create_scope(sid, get_scope(sid).enclosing_fn, scope::loop);
-        //         semantics.expr_scopes[&expr] = loop_scope.id;
-        //         collect_declarations(*ld->body, loop_scope.id);
-        //     } else if (auto blk = std::get_if<ast::block_data>(&expr.data)) {
-        //         scope block_scope = create_scope(sid, get_scope(sid).enclosing_fn, scope::block);
-        //         semantics.expr_scopes[&expr] = block_scope.id;
-        //         for (auto &stmt: blk->stmts)
-        //             collect_declarations(*stmt, block_scope.id);
-        //         if (blk->trailing)
-        //             collect_declarations(*blk->trailing, block_scope.id);
-        //     } else {
-        //         assert(false && "Non-exhaustive data cases!");
-        //     }
-        // }
+        // TODO: we want to implement the actualy type checking/inference
+        type *analyze(ast::expr &expr, const scope_id sid) {
+            const scope &curr_scope = get_scope(sid);
+            if (auto id = std::get_if<ast::identifier_data>(&expr.data)) {
+                auto sym = lookup_symbol(id->name, sid);
+                if (!sym)
+                    diag::error("Unknown identifier", expr.src_loc);
+            } else if (auto ud = std::get_if<ast::unary_data>(&expr.data)) {
+                // TODO: we actually don't want this, because this should be handled by parser,
+                // but more like check if the unary op is compatible with the type ( e.g we can't use not with numerical types )
+                if (!is_unary_op(ud->op))
+                    diag::error("Not an unary expression");
+                analyze(*ud->lhs, sid);
+            } else if (auto bd = std::get_if<ast::binary_data>(&expr.data)) {
+                analyze(*bd->lhs, sid);
+                analyze(*bd->rhs, sid);
+            } else if (auto rd = std::get_if<ast::relational_data>(&expr.data)) {
+                analyze(*bd->lhs, sid);
+                analyze(*bd->rhs, sid);
+            } else if (auto ad = std::get_if<ast::assign_data>(&expr.data)) {
+                auto sym_id= lookup_symbol(ad->id.name, sid);
+                if ( !sym_id )
+                    diag::error("Unknown identifier", expr.src_loc);
 
+                const auto& sym = get_symbol(sym_id.value());
+                auto var = std::get_if<variable>(&sym.data);
+                if (!var)
+                    diag::error("Unexpected lhs of an assignment", expr.src_loc);
 
-        // void collect_declarations(const ast::stmt &stmt, const scope_id scope) {
-        //     if (auto ld = std::get_if<ast::let_data>(&stmt.data)) {
-        //         declare_variable(ld->decl, stmt.src_loc, scope);
-        //     } else if (auto exp = std::get_if<ast::expr_stmt_data>(&stmt.data)) {
-        //         collect_declarations(*exp->expr, scope);
-        //     } else if (auto rd = std::get_if<ast::ret_data>(&stmt.data)) {
-        //         if (rd->val)
-        //             collect_declarations(*rd->val, scope);
-        //     } else if (auto bd = std::get_if<ast::brk_data>(&stmt.data)) {
-        //         if (!is_scope_inside_loop(scope))
-        //             diag::error("'break' used outside of a loop");
-        //     } else if (auto cd = std::get_if<ast::cont_data>(&stmt.data)) {
-        //         if (!is_scope_inside_loop(scope))
-        //             diag::error("'continue' used outside of a loop");
-        //     } else {
-        //         assert(false && "Non-exhaustive data cases!");
-        //     }
-        // }
-        //
-        // void collect_declarations(const ast::module &module) {
-        //     scope global = create_scope(std::nullopt, std::nullopt, scope::global);
-        //     for (const auto &[loc, data]: module.toplevel_items) {
-        //         if (auto fd = std::get_if<ast::fn_decl>(&data)) {
-        //             function f = create_function();
-        //             fn_id fid = f.id;
-        //             declare(fd->name, loc, std::move(f), global.id);
-        //             scope fn_scope = create_scope(global.id, fid, scope::function);
-        //             for (const auto &[name, ty]: fd->param_list.params) {
-        //                 // TODO: I guess we should allow mutability of params probably...
-        //                 declare(name, loc, variable{.modifier = variable::imut, .storage = variable::local},
-        //                         fn_scope.id);
-        //             }
-        //
-        //             if (fd->body) {
-        //                 collect_declarations(*fd->body, fn_scope.id);
-        //             }
-        //         } else if (auto ed = std::get_if<ast::enum_decl>(&data)) {
-        //             // TODO: add support for enumerations;
-        //         } else if (auto sd = std::get_if<ast::struct_decl>(&data)) {
-        //             // TODO: add support for structures;
-        //         } else if (auto gvd = std::get_if<ast::global_var_decl>(&data)) {
-        //             declare_variable(gvd->decl, loc, global.id);
-        //         } else
-        //             assert(false && "Non-exhaustive data cases!");
-        //     }
-        // }
+                if (var->modifier != variable::mut )
+                    diag::error("Cannot assign to a non-mutable variable");
 
-        void analyze(const ast::module &module, scope_id id) {
+                type *rhs = analyze(*ad->val, sid);
+
+                // TODO: check compatible types
+
+            } else if (auto cd = std::get_if<ast::call_data>(&expr.data)) {
+            } else if (auto fad = std::get_if<ast::field_access_data>(&expr.data)) {
+            } else if (auto aid = std::get_if<ast::array_index_data>(&expr.data)) {
+            } else if (auto ifd = std::get_if<ast::if_data>(&expr.data)) {
+                analyze(*ifd->cond, sid);
+                scope then_scope = create_scope(sid, curr_scope.enclosing_fn, scope::block);
+                analyze(*ifd->then_body, then_scope.id);
+                if (ifd->else_body) {
+                    scope else_scope = create_scope(sid, curr_scope.enclosing_fn, scope::block);
+                    analyze(*ifd->else_body, else_scope.id);
+                }
+            } else if (auto wd = std::get_if<ast::while_data>(&expr.data)) {
+                analyze(*wd->cond, sid);
+                scope while_scope = create_scope(sid, curr_scope.enclosing_fn, scope::loop);
+                analyze(*wd->body, while_scope.id);
+            } else if (auto ld = std::get_if<ast::loop_data>(&expr.data)) {
+                scope loop_scope = create_scope(sid, curr_scope.enclosing_fn, scope::loop);
+                analyze(*ld->body, loop_scope.id);
+            } else if (auto md = std::get_if<ast::match_data>(&expr.data)) {
+            } else if (auto sd = std::get_if<ast::struct_literal_data>(&expr.data)) {
+            } else if (auto blk = std::get_if<ast::block_data>(&expr.data)) {
+                scope block_scope = create_scope( sid, curr_scope.enclosing_fn, scope::block);
+                for ( auto& s : blk->stmts ) {
+
+                }
+            } else
+                assert(false && "Non-exhaustive data cases!");
+
+            return nullptr;
+        }
+
+        type *analyze(const ast::var_decl &vdecl, const src_location& loc, const scope_id sid) {
+            assert( vdecl.initializer && "Expected an initializer");
+            type* rhs = analyze( *vdecl.initializer, sid );
+
+            variable v{
+                .modifier = convert_modifier(vdecl.modifier), .storage = convert_storage(vdecl.storage)
+            };
+            declare(vdecl.name, loc, v, sid);
+
+            // type* lhs = type_from_annotation(vdecl.ty);
+            return nullptr;
+        }
+
+        type *analyze(const ast::stmt &stmt, const scope_id sid) {
+            if (auto ld = std::get_if<ast::let_data>(&stmt.data)) {
+                analyze(ld->decl, stmt.src_loc, sid);
+
+            } else if (auto exp = std::get_if<ast::expr_stmt_data>(&stmt.data)) {
+                analyze(*exp->expr, sid);
+            } else if (auto rd = std::get_if<ast::ret_data>(&stmt.data)) {
+                if (rd->val)
+                    analyze(*rd->val, sid);
+            } else if (auto bd = std::get_if<ast::brk_data>(&stmt.data)) {
+                if (!is_scope_inside_loop(sid))
+                    diag::error("'break' used outside of a loop");
+            } else if (auto cd = std::get_if<ast::cont_data>(&stmt.data)) {
+                if (!is_scope_inside_loop(sid))
+                    diag::error("'continue' used outside of a loop");
+            } else {
+                assert(false && "Non-exhaustive data cases!");
+            }
+
+            return nullptr;
+        }
+
+        type *analyze(const ast::module &module, scope_id global_id) {
             for (const auto &[loc, data]: module.toplevel_items) {
                 if (const auto fd = std::get_if<ast::fn_decl>(&data)) {
-                    // find symbol, check that it is a function,
-                    // create scope, analyze body
+                    auto sym_id = lookup_symbol(fd->name, global_id);
+                    if (!sym_id)
+                        diag::error("Symbol lookup failed at: ", loc, " in function: ", fd->name);
+                    const auto &sym = get_symbol(sym_id.value());
+
+                    auto fn = std::get_if<function>(&sym.data);
+                    if (!fn) {
+                        diag::error("The symbol ", fd->name, " does not correspond to a function", loc);
+                    }
+
+                    scope fn_scope = create_scope(global_id, std::nullopt, scope::function);
+                    for (auto &param: fd->param_list.params) {
+                        variable v{.modifier = variable::imut, .storage = variable::local};
+                        declare(param.name, loc, v, fn_scope.id);
+                    }
+
+                    type *body_ty = analyze(*fd->body, fn_scope.id);
+
+                    // assert(compatible_types( body_ty, fn->return_type ));
                 } else if (const auto ed = std::get_if<ast::enum_decl>(&data)) {
                     // TODO:
                 } else if (const auto sd = std::get_if<ast::struct_decl>(&data)) {
                     // TODO
                 } else if (const auto gvd = std::get_if<ast::global_var_decl>(&data)) {
-                    // TODO: check rhs, typecheck, add declaration to the scope...
+                    // FIXME: I guess we can hardcode global storage here ?
+                    variable v{
+                        .modifier = convert_modifier(gvd->decl.modifier), .storage = convert_storage(gvd->decl.storage)
+                    };
+                    declare(gvd->decl.name, loc, v, global_id);
+                } else {
+                    assert(false && "Non-exhaustive data cases!");
                 }
             }
+            return nullptr;
         }
-
 
         void collect_toplevel_declarations(const ast::module &module, scope_id global_id) {
             for (const auto &[loc, data]: module.toplevel_items) {

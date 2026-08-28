@@ -103,7 +103,7 @@ namespace dungeon {
                 };
             }
 
-            return ast::expr{.src_loc = tok.loc, .data = ast::identifier_data{.id = tok.data}};
+            return ast::expr{.src_loc = tok.loc, .data = ast::identifier_data{.name = tok.data}};
         }
 
         return {};
@@ -502,7 +502,7 @@ namespace dungeon {
 
         return ast::expr{
             .src_loc = name.loc,
-            .data = ast::identifier_data{.id = name.data}
+            .data = ast::identifier_data{.name = name.data}
         };
     }
 

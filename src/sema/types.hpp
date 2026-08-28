@@ -93,4 +93,8 @@ namespace dungeon {
     inline bool same_type(const type *a, const type *b) {
         return a == b;
     }
+
+    inline bool compatible_types(const type *a, const type *b) {
+        return a == b;
+    }
 }

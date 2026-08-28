@@ -33,7 +33,7 @@ namespace dungeon::ast {
     };
 
     struct identifier_data {
-        std::string_view id;
+        std::string_view name;
     };
 
     struct unary_data {

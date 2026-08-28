@@ -47,7 +47,7 @@ namespace dungeon::print {
             return;
         }
         if (auto t = std::get_if<ast::identifier_data>(&e.data)) {
-            out << "Identifier " << t->id << '\n';
+            out << "Identifier " << t->name << '\n';
             return;
         }
         if (auto t = std::get_if<ast::unary_data>(&e.data)) {
@@ -73,7 +73,7 @@ namespace dungeon::print {
             return;
         }
         if (auto t = std::get_if<ast::assign_data>(&e.data)) {
-            out << "Assign " << t->id.id << '\n';
+            out << "Assign " << t->id.name << '\n';
             if (t->val)
                 print_expr(out, *t->val, depth + 1);
             return;
