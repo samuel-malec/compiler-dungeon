@@ -712,7 +712,7 @@ toplevel
     ;
 
 functionDeclaration
-    ::= "def" IDENTIFIER genericParams? "(" parameterList? ")" returnType? block
+    ::= "def" IDENTIFIER genericParams? "(" parameterList? ")" returnType block
     ;
 
 genericParams

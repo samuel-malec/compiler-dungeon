@@ -2,9 +2,8 @@
 
 #include <iostream>
 
-#include "../../frontend/ast.hpp"
-#include "../../sema/types.hpp"
-#include "../hir.hpp"
+#include "../frontend/ast.hpp"
+#include "../sema/types.hpp"
 
 namespace dungeon::hir
 {

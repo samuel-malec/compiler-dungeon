@@ -7,10 +7,8 @@
 #include "../sema/semantic.hpp"
 #include "../frontend/token.hpp"
 
-#include "../middleend/analysis/pipeline.hpp"
-
-#include "../middleend/lower/ast2hir.hpp"
-#include "../middleend/cfg.hpp"
+#include "../hir/ast2hir.hpp"
+#include "../cfg/cfg.hpp"
 
 namespace dungeon {
     void compiler::run(config &conf) {

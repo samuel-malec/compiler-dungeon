@@ -7,8 +7,8 @@
 
 #include "../frontend/ast.hpp"
 #include "../sema/semantic.hpp"
-#include "../middleend/cfg.hpp"
-#include "../middleend/tac.hpp"
+#include "../cfg/cfg.hpp"
+// #include "../middleend/tac.hpp"
 #include "../hir/hir.hpp"
 
 namespace dungeon::print {
@@ -30,9 +30,9 @@ namespace dungeon::print {
             out << indent(out, depth);
         }
 
-        std::string tac_val_to_string(const tac::value &v, const atom_map &am) {
-            return "v" + std::to_string(v.id) + "." + std::to_string(v.version);
-        }
+        // std::string tac_val_to_string(const tac::value &v, const atom_map &am) {
+        //     return "v" + std::to_string(v.id) + "." + std::to_string(v.version);
+        // }
 
         void print_expr(std::ostream &out, expr &e, int depth);
 
@@ -46,22 +46,22 @@ namespace dungeon::print {
 
         void print_hir(hir::program &hir, const atom_map &am);
 
-        std::string tac_operand_to_string(tac::operand &operand, const atom_map &am);
-
-        std::string tac_instr_symbolic(tac::instr &i, const atom_map &am);
-
-        void print_tac_inst(std::ostream &out, tac::instr &i, const atom_map &am) {
-            std::holds_alternative<tac::label_data>(i.data) ? pad(out, 2) : pad(out, 4);
-            out << tac_instr_symbolic(i, am) << '\n';
-        }
-
-        void print_tac(tac::program &tac, const atom_map &am);
-
-        std::string value_to_string(const tac::value &v, const atom_map &am);
-
-        std::string phi_to_string(const cfg::phi_node &phi, const atom_map &am);
-
-        void export_to_dot(cfg::cfg &graph, std::ostream &out, const atom_map &am);
+        // std::string tac_operand_to_string(tac::operand &operand, const atom_map &am);
+        //
+        // std::string tac_instr_symbolic(tac::instr &i, const atom_map &am);
+        //
+        // void print_tac_inst(std::ostream &out, tac::instr &i, const atom_map &am) {
+        //     std::holds_alternative<tac::label_data>(i.data) ? pad(out, 2) : pad(out, 4);
+        //     out << tac_instr_symbolic(i, am) << '\n';
+        // }
+        //
+        // void print_tac(tac::program &tac, const atom_map &am);
+        //
+        // std::string value_to_string(const tac::value &v, const atom_map &am);
+        //
+        // std::string phi_to_string(const cfg::phi_node &phi, const atom_map &am);
+        //
+        // void export_to_dot(cfg::cfg &graph, std::ostream &out, const atom_map &am);
 
         void print_tokens(const std::vector<token> & toks);
     };

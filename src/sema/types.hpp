@@ -1,131 +1,96 @@
 #pragma once
 
-#include <ostream>
-#include <string>
-#include <sstream>
-#include <vector>
-#include <variant>
-
-#include "../diag/diag.hpp"
+#include "../frontend/ast.hpp"
 
 namespace dungeon {
+    enum class type_kind {
+        _int,
+        _uint,
+        _bool,
+        _unit,
+    };
+
     struct type {
+        type_kind kind;
+        size_t bits;
     };
 
-    struct int_type : type {
-        bool sign = false;
-        size_t width = 8;
-    };
-
-    struct bool_type : type {
-    };
-
+    // TODO: how to make sure we cannot accidentally create two separately constructed int32 types ??
     struct type_manager {
-        // TODO
-    };
+        type int8_;
+        type int16_;
+        type int32_;
+        type int64_;
 
-    enum op_kind {
-        ADD, SUB, MUL, DIV, MOD, SHL, SHR,
+        type uint8_;
+        type uint16_;
+        type uint32_;
+        type uint64_;
 
-        ADD_EQ, SUB_EQ, MUL_EQ, DIV_EQ, MOD_EQ, SHL_EQ, SHR_EQ,
+        type bool_;
+        type unit_;
 
-        EQ, NEQ, LT, LEQ, GT, GEQ,
-
-        NOT, AND, OR,
-    };
-
-    inline bool is_rel_op(op_kind op) {
-        return op == EQ || op == NEQ || op == LT || op == LEQ || op == GT || op == GEQ;
-    }
-
-    inline bool is_unary_op(op_kind op) {
-        return false;
-    }
-
-    inline bool is_binary_op(op_kind op) {
-        return false;
-    }
-
-    inline bool is_numerical_op(op_kind op) {
-        return op == ADD || op == SUB || op == MUL ||
-               op == DIV || op == MOD || op == SHL || op == SHR ||
-               op == ADD_EQ || op == SUB_EQ || op == MUL_EQ ||
-               op == DIV_EQ || op == MOD_EQ || op == SHL_EQ || op == SHR_EQ;
-    }
-
-    inline bool is_bool_op(op_kind op) {
-        return op == NOT || op == AND || op == OR;
-    }
-
-    inline op_kind op_from_compound_asn(op_kind op) {
-        if (op == ADD_EQ) return ADD;
-        if (op == SUB_EQ) return SUB;
-        if (op == MUL_EQ) return MUL;
-        if (op == DIV_EQ) return DIV;
-        if (op == MOD_EQ) return MOD;
-        if (op == SHL_EQ) return SHL;
-        if (op == SHR_EQ) return SHR;
-
-        throw std::runtime_error("should not reach here, expected a compound assignment!");
-    }
-
-    inline op_kind op_kind_from_str(std::string_view data) {
-        if (data == "+") return ADD;
-        if (data == "-") return SUB;
-        if (data == "*") return MUL;
-        if (data == "/") return DIV;
-        if (data == "%") return MOD;
-        if (data == "<<") return SHL;
-        if (data == ">>") return SHR;
-        if (data == "==") return EQ;
-        if (data == "!=") return NEQ;
-        if (data == "<") return LT;
-        if (data == "<=") return LEQ;
-        if (data == ">") return GT;
-        if (data == ">=") return GEQ;
-        if (data == "!") return NOT;
-        if (data == "&&") return AND;
-        if (data == "||") return OR;
-        if (data == "=") return EQ;
-        if (data == "+=") return ADD_EQ;
-        if (data == "-=") return SUB_EQ;
-        if (data == "*=") return MUL_EQ;
-        if (data == "%=") return MOD_EQ;
-        if (data == "/=") return DIV_EQ;
-        if (data == "<<=") return SHL_EQ;
-        if (data == ">>=") return SHR_EQ;
-        diag::error("Unknown operator:", data);
-        return ADD;
-    }
-
-
-    inline std::ostream &operator<<(std::ostream &os, const op_kind op) {
-        switch (op) {
-            case ADD: return os << "+";
-            case SUB: return os << "-";
-            case MUL: return os << "*";
-            case DIV: return os << "/";
-            case MOD: return os << "%";
-            case SHL: return os << "<<";
-            case SHR: return os << ">>";
-            case EQ: return os << "==";
-            case NEQ: return os << "!=";
-            case LT: return os << "<";
-            case LEQ: return os << "<=";
-            case GT: return os << ">";
-            case GEQ: return os << ">=";
-            case NOT: return os << "!";
-            case AND: return os << "&&";
-            case OR: return os << "||";
-            case ADD_EQ: return os << "+=";
-            case SUB_EQ: return os << "-=";
-            case MUL_EQ: return os << "*=";
-            case DIV_EQ: return os << "/=";
-            case MOD_EQ: return os << "%=";
-            case SHL_EQ: return os << "<<=";
-            case SHR_EQ: return os << ">>=";
+        type *get_int(size_t bits) {
+            if (bits == 8) return &int8_;
+            if (bits == 16) return &int16_;
+            if (bits == 32) return &int32_;
+            if (bits == 64) return &int64_;
+            assert(false && "invalid type size");
         }
 
-        return os << "idk";
+        type *get_uint(size_t bits) {
+            if (bits == 8) return &uint8_;
+            if (bits == 16) return &uint16_;
+            if (bits == 32) return &uint32_;
+            if (bits == 64) return &uint64_;
+            assert(false && "invalid type size");
+        }
+
+        type *get_bool() {
+            return &bool_;
+        }
+
+        type *get_unit() {
+            return &unit_;
+        }
+    };
+
+    inline type *type_from_annotation(ast::type_annotation annotation) {
+        type_manager tm{};
+        if (annotation.base_name == "i8") {
+            return tm.get_int(8);
+        }
+        if (annotation.base_name == "i16") {
+            return tm.get_int(16);
+        }
+        if (annotation.base_name == "i32") {
+            return tm.get_int(32);
+        }
+        if (annotation.base_name == "i64") {
+            return tm.get_int(64);
+        }
+        if (annotation.base_name == "u8") {
+            return tm.get_uint(8);
+        }
+        if (annotation.base_name == "u16") {
+            return tm.get_uint(16);
+        }
+        if (annotation.base_name == "u32") {
+            return tm.get_uint(32);
+        }
+        if (annotation.base_name == "u64") {
+            return tm.get_uint(64);
+        }
+        if (annotation.base_name == "bool") {
+            return tm.get_bool();
+        }
+        if (annotation.base_name == "unit") {
+            return tm.get_unit();
+        }
+        assert(false && "unknown type");
+    }
+
+    inline bool same_type(const type *a, const type *b) {
+        return a == b;
     }
 }

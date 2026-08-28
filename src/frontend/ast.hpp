@@ -5,7 +5,7 @@
 #include <optional>
 
 #include "token.hpp"
-#include "../sema/types.hpp"
+#include "../sema/operations.hpp"
 
 namespace dungeon::ast {
     struct stmt;
@@ -142,6 +142,7 @@ namespace dungeon::ast {
     struct type_annotation {
         std::string_view base_name;
         std::vector<type_annotation> generic_args;
+        bool is_builtin = false;
         bool is_reference = false;
         bool is_mutable_ref = false;
         bool is_array = false;
@@ -219,7 +220,7 @@ namespace dungeon::ast {
     struct fn_decl {
         std::string_view name;
         param_list param_list;
-        std::optional<type_annotation> ret_ty;
+        type_annotation ret_ty;
         std::vector<std::string_view> generics;
         expr_ptr body; // the body is just the outermost function block
     };

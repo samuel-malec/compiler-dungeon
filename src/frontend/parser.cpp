@@ -714,7 +714,7 @@ namespace dungeon {
         }
 
         vd.name = require(cat::ident).data;
-        if ( match( cat::punct, ":") ) {
+        if (match(cat::punct, ":")) {
             const auto t = fetch();
             auto ty = parse_type_annotation();
             if (!ty)
@@ -781,14 +781,11 @@ namespace dungeon {
         fd.param_list = parse_param_list().value_or(ast::param_list{});
         require(cat::punct, ")");
 
-        fd.ret_ty = std::nullopt;
-        if (match(cat::punct, "->")) {
-            fetch();
-            auto ret_ty = parse_type_annotation();
-            if (!ret_ty)
-                diag::error("Invalid return type");
-            fd.ret_ty = std::move(ret_ty);
-        }
+        require(cat::punct, "->");
+        auto ret_ty = parse_type_annotation();
+        if (!ret_ty)
+            diag::error("Invalid type annotation");
+        fd.ret_ty = std::move(ret_ty.value());
 
         auto body = parse_block();
         if (!body)
