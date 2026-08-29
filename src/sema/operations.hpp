@@ -12,10 +12,12 @@ namespace dungeon {
 
         EQ, NEQ, LT, LEQ, GT, GEQ,
 
-        NOT, AND, OR,
+        NOT, MINUS, PLUS,
+
+        AND, OR,
     };
 
-
+    // In these functions, we omit the operations representing compound assignments, since these get desugared after parsing
     inline bool is_rel_op(op_kind op) {
         return op == EQ || op == NEQ || op == LT || op == LEQ || op == GT || op == GEQ;
     }
@@ -25,19 +27,17 @@ namespace dungeon {
     }
 
     inline bool is_unary_op(op_kind op) {
-        return false;
+        return op == NOT || op == MINUS || op == PLUS;
     }
 
     inline bool is_binary_op(op_kind op) {
         return op == ADD || op == SUB || op == MUL || op == DIV || op == MOD ||
-               op == SHL || op == SHR;
+               op == SHL || op == SHR || op == EQ || op == NEQ || op == LT || op == LEQ;
     }
 
     inline bool is_numerical_op(op_kind op) {
         return op == ADD || op == SUB || op == MUL ||
-               op == DIV || op == MOD || op == SHL || op == SHR ||
-               op == ADD_EQ || op == SUB_EQ || op == MUL_EQ ||
-               op == DIV_EQ || op == MOD_EQ || op == SHL_EQ || op == SHR_EQ;
+               op == DIV || op == MOD || op == SHL || op == SHR;
     }
 
     inline op_kind op_from_compound_asn(op_kind op) {
@@ -51,9 +51,9 @@ namespace dungeon {
         assert(false && "should not reach here, expected a compound assignment!");
     }
 
-    inline op_kind op_kind_from_str(std::string_view data) {
-        if (data == "+") return ADD;
-        if (data == "-") return SUB;
+    inline op_kind op_kind_from_str(std::string_view data, bool is_unary = false ) {
+        if ( data == "+" ) return is_unary ? PLUS : ADD;
+        if ( data == "-" ) return is_unary ? MINUS : SUB;
         if (data == "*") return MUL;
         if (data == "/") return DIV;
         if (data == "%") return MOD;
@@ -85,6 +85,8 @@ namespace dungeon {
         switch (op) {
             case ADD: return os << "+";
             case SUB: return os << "-";
+            case PLUS: return os << "+";
+            case MINUS: return os << "-";
             case MUL: return os << "*";
             case DIV: return os << "/";
             case MOD: return os << "%";

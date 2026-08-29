@@ -191,7 +191,7 @@ namespace dungeon {
 
             ast::unary_data ud{};
             ud.lhs = make_expr(std::move(rhs.value()));
-            ud.op = op_kind_from_str(t->data);
+            ud.op = op_kind_from_str(t->data, true);
             return ast::expr{.src_loc = t->loc, .data = std::move(ud)};
         }
 

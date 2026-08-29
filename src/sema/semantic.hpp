@@ -70,6 +70,8 @@ namespace dungeon {
         enum mod_t { mut, imut } modifier;
 
         enum storage_t { global, local } storage;
+
+        type *ty;
     };
 
     struct symbol {
@@ -88,15 +90,10 @@ namespace dungeon {
         std::vector<structure> structures;
         std::vector<function> functions;
         std::vector<scope> scopes;
-
-        std::unordered_map<ast::expr *, scope_id> expr_scopes;
-        std::unordered_map<ast::stmt *, scope_id> stmt_scopes;
-        std::unordered_map<ast::var_decl *, scope_id> decl_scopes;
-
-        std::unordered_map<ast::expr *, type> expr_types;
     };
 
     struct semantic_analyzer {
+        type_manager types;
         analysis_result semantics;
         std::map<std::string, name_id, std::less<> > interned_names;
 
@@ -211,139 +208,235 @@ namespace dungeon {
             return true;
         }
 
+        type *type_from_annotation(std::optional<ast::type_annotation> opt_annot) {
+            if (!opt_annot)
+                return nullptr;
+
+            const auto &annotation = *opt_annot;
+            if (annotation.base_name == "i8") {
+                return types.get_int(8);
+            }
+            if (annotation.base_name == "i16") {
+                return types.get_int(16);
+            }
+            if (annotation.base_name == "i32") {
+                return types.get_int(32);
+            }
+            if (annotation.base_name == "i64") {
+                return types.get_int(64);
+            }
+            if (annotation.base_name == "u8") {
+                return types.get_uint(8);
+            }
+            if (annotation.base_name == "u16") {
+                return types.get_uint(16);
+            }
+            if (annotation.base_name == "u32") {
+                return types.get_uint(32);
+            }
+            if (annotation.base_name == "u64") {
+                return types.get_uint(64);
+            }
+            if (annotation.base_name == "bool") {
+                return types.get_bool();
+            }
+            if (annotation.base_name == "unit") {
+                return types.get_unit();
+            }
+            assert(false && "unknown type");
+        }
+
+        const symbol &require_symbol(std::string_view name, const src_location &loc, scope_id sid) {
+            auto sym_id = lookup_symbol(name, sid);
+            if (!sym_id)
+                diag::error("Unknown identifier", loc);
+            return get_symbol(*sym_id);
+        }
+
 
         // TODO: we want to implement the actualy type checking/inference
         type *analyze(ast::expr &expr, const scope_id sid) {
             const scope &curr_scope = get_scope(sid);
+            if (auto int_lit = std::get_if<ast::num_lit_data>(&expr.data)) {
+                return types.get_int(32); // TODO: could we make int lit have type based on the context
+            }
+            if (auto bool_lit = std::get_if<ast::bool_lit_data>(&expr.data)) {
+                return types.get_bool();
+            }
             if (auto id = std::get_if<ast::identifier_data>(&expr.data)) {
-                auto sym = lookup_symbol(id->name, sid);
-                if (!sym)
-                    diag::error("Unknown identifier", expr.src_loc);
-            } else if (auto ud = std::get_if<ast::unary_data>(&expr.data)) {
+                const auto &sym = require_symbol(id->name, expr.src_loc, sid);
+                auto var = std::get_if<variable>(&sym.data);
+                if (!var) {
+                    diag::error("Expected a variable");
+                }
+
+                return var->ty;
+            }
+            if (auto ud = std::get_if<ast::unary_data>(&expr.data)) {
                 // TODO: we actually don't want this, because this should be handled by parser,
                 // but more like check if the unary op is compatible with the type ( e.g we can't use not with numerical types )
-                if (!is_unary_op(ud->op))
-                    diag::error("Not an unary expression");
-                analyze(*ud->lhs, sid);
-            } else if (auto bd = std::get_if<ast::binary_data>(&expr.data)) {
-                analyze(*bd->lhs, sid);
-                analyze(*bd->rhs, sid);
-            } else if (auto rd = std::get_if<ast::relational_data>(&expr.data)) {
-                analyze(*bd->lhs, sid);
-                analyze(*bd->rhs, sid);
-            } else if (auto ad = std::get_if<ast::assign_data>(&expr.data)) {
-                auto sym_id= lookup_symbol(ad->id.name, sid);
-                if ( !sym_id )
-                    diag::error("Unknown identifier", expr.src_loc);
-
-                const auto& sym = get_symbol(sym_id.value());
+                type *ty = analyze(*ud->lhs, sid);
+                return infer_unary(ud->op, ty);
+            }
+            if (auto bd = std::get_if<ast::binary_data>(&expr.data)) {
+                type *lhs = analyze(*bd->lhs, sid);
+                type *rhs = analyze(*bd->rhs, sid);
+                return infer_binary(bd->op, lhs, rhs);
+            }
+            if (auto rd = std::get_if<ast::relational_data>(&expr.data)) {
+                type *lhs = analyze(*rd->lhs, sid);
+                type *rhs = analyze(*rd->rhs, sid);
+                return infer_relational(rd->op, lhs, rhs);
+            }
+            if (auto ad = std::get_if<ast::assign_data>(&expr.data)) {
+                const auto &sym = require_symbol(ad->id.name, expr.src_loc, sid);
                 auto var = std::get_if<variable>(&sym.data);
                 if (!var)
                     diag::error("Unexpected lhs of an assignment", expr.src_loc);
 
-                if (var->modifier != variable::mut )
+                if (var->modifier != variable::mut)
                     diag::error("Cannot assign to a non-mutable variable");
 
                 type *rhs = analyze(*ad->val, sid);
+                if (!compatible_types(var->ty, rhs))
+                    diag::error("Assignment contains incompatible types", expr.src_loc);
+                return rhs;
+            }
+            if (auto cd = std::get_if<ast::call_data>(&expr.data)) {
+                return nullptr;
+            }
+            if (auto fad = std::get_if<ast::field_access_data>(&expr.data)) {
+                return nullptr;
+            }
+            if (auto aid = std::get_if<ast::array_index_data>(&expr.data)) {
+                return nullptr;
+            }
+            if (auto ifd = std::get_if<ast::if_data>(&expr.data)) {
+                type *cond = analyze(*ifd->cond, sid);
+                if (!is_truthy_type(cond)) {
+                    diag::error("Expected a condition", expr.src_loc);
+                }
 
-                // TODO: check compatible types
-
-            } else if (auto cd = std::get_if<ast::call_data>(&expr.data)) {
-            } else if (auto fad = std::get_if<ast::field_access_data>(&expr.data)) {
-            } else if (auto aid = std::get_if<ast::array_index_data>(&expr.data)) {
-            } else if (auto ifd = std::get_if<ast::if_data>(&expr.data)) {
-                analyze(*ifd->cond, sid);
                 scope then_scope = create_scope(sid, curr_scope.enclosing_fn, scope::block);
-                analyze(*ifd->then_body, then_scope.id);
+                type *then_ty = analyze(*ifd->then_body, then_scope.id);
+
                 if (ifd->else_body) {
                     scope else_scope = create_scope(sid, curr_scope.enclosing_fn, scope::block);
-                    analyze(*ifd->else_body, else_scope.id);
+                    type *else_ty = analyze(*ifd->else_body, else_scope.id);
+                    if (!compatible_types(then_ty, else_ty))
+                        diag::error("Incompatible types in branches");
                 }
-            } else if (auto wd = std::get_if<ast::while_data>(&expr.data)) {
-                analyze(*wd->cond, sid);
+                return then_ty;
+            }
+            if (auto wd = std::get_if<ast::while_data>(&expr.data)) {
+                type *cond = analyze(*wd->cond, sid);
+                if (!is_truthy_type(cond)) {
+                    diag::error("Expected a condition", expr.src_loc);
+                }
+
                 scope while_scope = create_scope(sid, curr_scope.enclosing_fn, scope::loop);
-                analyze(*wd->body, while_scope.id);
-            } else if (auto ld = std::get_if<ast::loop_data>(&expr.data)) {
+                return analyze(*wd->body, while_scope.id);
+            }
+            if (auto ld = std::get_if<ast::loop_data>(&expr.data)) {
                 scope loop_scope = create_scope(sid, curr_scope.enclosing_fn, scope::loop);
-                analyze(*ld->body, loop_scope.id);
-            } else if (auto md = std::get_if<ast::match_data>(&expr.data)) {
-            } else if (auto sd = std::get_if<ast::struct_literal_data>(&expr.data)) {
-            } else if (auto blk = std::get_if<ast::block_data>(&expr.data)) {
-                scope block_scope = create_scope( sid, curr_scope.enclosing_fn, scope::block);
-                for ( auto& s : blk->stmts ) {
-
+                return analyze(*ld->body, loop_scope.id);
+            }
+            if (auto md = std::get_if<ast::match_data>(&expr.data)) {
+                return nullptr;
+            }
+            if (auto sd = std::get_if<ast::struct_literal_data>(&expr.data)) {
+                return nullptr;
+            }
+            if (auto blk = std::get_if<ast::block_data>(&expr.data)) {
+                scope block_scope = create_scope(sid, curr_scope.enclosing_fn, scope::block);
+                for (auto &s: blk->stmts) {
+                    // TODO: should we assert that the type is unit ?
+                    analyze(*s, block_scope.id);
                 }
-            } else
-                assert(false && "Non-exhaustive data cases!");
+                if (blk->trailing)
+                    return analyze(*blk->trailing, block_scope.id);
+                return types.get_unit();
+            }
 
-            return nullptr;
+            assert(false && "Non-exhaustive data cases!");
         }
 
-        type *analyze(const ast::var_decl &vdecl, const src_location& loc, const scope_id sid) {
-            assert( vdecl.initializer && "Expected an initializer");
-            type* rhs = analyze( *vdecl.initializer, sid );
+        type *analyze(const ast::var_decl &vdecl, const src_location &loc, const scope_id sid) {
+            assert(vdecl.initializer && "Expected an initializer");
+            type *rhs = analyze(*vdecl.initializer, sid);
 
             variable v{
-                .modifier = convert_modifier(vdecl.modifier), .storage = convert_storage(vdecl.storage)
+                .modifier = convert_modifier(vdecl.modifier), .storage = convert_storage(vdecl.storage),
+                .ty = type_from_annotation(vdecl.ty)
             };
             declare(vdecl.name, loc, v, sid);
-
-            // type* lhs = type_from_annotation(vdecl.ty);
-            return nullptr;
+            return type_from_annotation(vdecl.ty);
         }
 
         type *analyze(const ast::stmt &stmt, const scope_id sid) {
-            if (auto ld = std::get_if<ast::let_data>(&stmt.data)) {
-                analyze(ld->decl, stmt.src_loc, sid);
+            const scope &curr_scope = get_scope(sid);
 
-            } else if (auto exp = std::get_if<ast::expr_stmt_data>(&stmt.data)) {
-                analyze(*exp->expr, sid);
-            } else if (auto rd = std::get_if<ast::ret_data>(&stmt.data)) {
-                if (rd->val)
-                    analyze(*rd->val, sid);
-            } else if (auto bd = std::get_if<ast::brk_data>(&stmt.data)) {
+            if (auto ld = std::get_if<ast::let_data>(&stmt.data)) {
+                return analyze(ld->decl, stmt.src_loc, sid);
+            }
+            if (auto exp = std::get_if<ast::expr_stmt_data>(&stmt.data)) {
+                return analyze(*exp->expr, sid);
+            }
+            if (auto rd = std::get_if<ast::ret_data>(&stmt.data)) {
+                if (!curr_scope.enclosing_fn)
+                    diag::error("Return statement used outside of a function body");
+                const function &enclosing_fn = get_function(*curr_scope.enclosing_fn);
+
+                if (rd->val) {
+                    type *ty = analyze(*rd->val, sid);
+                    if (!compatible_types(ty, enclosing_fn.return_type)) {
+                        diag::error("Incompatible types");
+                    }
+                    return ty;
+                }
+                return types.get_unit();
+            }
+            if (std::get_if<ast::brk_data>(&stmt.data)) {
                 if (!is_scope_inside_loop(sid))
                     diag::error("'break' used outside of a loop");
-            } else if (auto cd = std::get_if<ast::cont_data>(&stmt.data)) {
+                return types.get_unit();
+            }
+            if (auto cd = std::get_if<ast::cont_data>(&stmt.data)) {
                 if (!is_scope_inside_loop(sid))
                     diag::error("'continue' used outside of a loop");
-            } else {
-                assert(false && "Non-exhaustive data cases!");
+                return types.get_unit();
             }
 
-            return nullptr;
+            assert(false && "Non-exhaustive data cases!");
         }
 
         type *analyze(const ast::module &module, scope_id global_id) {
             for (const auto &[loc, data]: module.toplevel_items) {
                 if (const auto fd = std::get_if<ast::fn_decl>(&data)) {
-                    auto sym_id = lookup_symbol(fd->name, global_id);
-                    if (!sym_id)
-                        diag::error("Symbol lookup failed at: ", loc, " in function: ", fd->name);
-                    const auto &sym = get_symbol(sym_id.value());
 
+                    const auto &sym = require_symbol(fd->name, loc, global_id);
                     auto fn = std::get_if<function>(&sym.data);
-                    if (!fn) {
+                    if (!fn)
                         diag::error("The symbol ", fd->name, " does not correspond to a function", loc);
-                    }
 
-                    scope fn_scope = create_scope(global_id, std::nullopt, scope::function);
+                    scope fn_scope = create_scope(global_id, fn->id, scope::function);
                     for (auto &param: fd->param_list.params) {
-                        variable v{.modifier = variable::imut, .storage = variable::local};
+                        variable v{
+                            .modifier = variable::imut, .storage = variable::local, .ty = type_from_annotation(param.ty)
+                        };
                         declare(param.name, loc, v, fn_scope.id);
                     }
 
                     type *body_ty = analyze(*fd->body, fn_scope.id);
-
-                    // assert(compatible_types( body_ty, fn->return_type ));
                 } else if (const auto ed = std::get_if<ast::enum_decl>(&data)) {
                     // TODO:
                 } else if (const auto sd = std::get_if<ast::struct_decl>(&data)) {
                     // TODO
                 } else if (const auto gvd = std::get_if<ast::global_var_decl>(&data)) {
-                    // FIXME: I guess we can hardcode global storage here ?
+                    analyze(*gvd->decl.initializer, global_id);
                     variable v{
-                        .modifier = convert_modifier(gvd->decl.modifier), .storage = convert_storage(gvd->decl.storage)
+                        .modifier = convert_modifier(gvd->decl.modifier), .storage = variable::global,
+                        .ty = type_from_annotation(gvd->decl.ty)
                     };
                     declare(gvd->decl.name, loc, v, global_id);
                 } else {

@@ -55,40 +55,6 @@ namespace dungeon {
         }
     };
 
-    inline type *type_from_annotation(ast::type_annotation annotation) {
-        type_manager tm{};
-        if (annotation.base_name == "i8") {
-            return tm.get_int(8);
-        }
-        if (annotation.base_name == "i16") {
-            return tm.get_int(16);
-        }
-        if (annotation.base_name == "i32") {
-            return tm.get_int(32);
-        }
-        if (annotation.base_name == "i64") {
-            return tm.get_int(64);
-        }
-        if (annotation.base_name == "u8") {
-            return tm.get_uint(8);
-        }
-        if (annotation.base_name == "u16") {
-            return tm.get_uint(16);
-        }
-        if (annotation.base_name == "u32") {
-            return tm.get_uint(32);
-        }
-        if (annotation.base_name == "u64") {
-            return tm.get_uint(64);
-        }
-        if (annotation.base_name == "bool") {
-            return tm.get_bool();
-        }
-        if (annotation.base_name == "unit") {
-            return tm.get_unit();
-        }
-        assert(false && "unknown type");
-    }
 
     inline bool same_type(const type *a, const type *b) {
         return a == b;
@@ -97,4 +63,14 @@ namespace dungeon {
     inline bool compatible_types(const type *a, const type *b) {
         return a == b;
     }
+
+    inline bool is_truthy_type(const type *a) {
+        return a->kind == type_kind::_bool;
+    }
+
+    inline type *infer_binary(op_kind op, type *lhs, type *rhs) { return nullptr; }
+
+    inline type *infer_unary(op_kind op, type *lhs) { return nullptr; }
+
+    inline type *infer_relational(op_kind op, type *lhs, type *rhs) { return nullptr; }
 }
