@@ -22,6 +22,14 @@ namespace dungeon {
         return op == EQ || op == NEQ || op == LT || op == LEQ || op == GT || op == GEQ;
     }
 
+    inline bool is_equality_op(op_kind op) {
+        return op == EQ || op == NEQ;
+    }
+
+    inline bool is_ordering_op(op_kind op) {
+        return op == LT || op == LEQ || op == GT || op == GEQ;
+    }
+
     inline bool is_logical_op(op_kind op) {
         return op == AND || op == OR || op == NOT;
     }
@@ -79,7 +87,6 @@ namespace dungeon {
         diag::error("Unknown operator:", data);
         return ADD;
     }
-
 
     inline std::ostream &operator<<(std::ostream &os, const op_kind op) {
         switch (op) {

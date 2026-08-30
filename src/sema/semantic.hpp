@@ -52,8 +52,8 @@ namespace dungeon {
 
     struct function {
         fn_id id;
-        std::vector<type *> param_types;
-        type *return_type;
+        std::vector<const type *> param_types;
+        const type *return_type;
     };
 
     struct enumeration {
@@ -71,7 +71,7 @@ namespace dungeon {
 
         enum storage_t { global, local } storage;
 
-        type *ty;
+        const type *ty;
     };
 
     struct symbol {
@@ -208,7 +208,7 @@ namespace dungeon {
             return true;
         }
 
-        type *type_from_annotation(std::optional<ast::type_annotation> opt_annot) {
+        const type *type_from_annotation(std::optional<ast::type_annotation> opt_annot) {
             if (!opt_annot)
                 return nullptr;
 
@@ -255,12 +255,12 @@ namespace dungeon {
 
 
         // TODO: we want to implement the actualy type checking/inference
-        type *analyze(ast::expr &expr, const scope_id sid) {
+        const type *analyze(ast::expr &expr, const scope_id sid) {
             const scope &curr_scope = get_scope(sid);
-            if (auto int_lit = std::get_if<ast::num_lit_data>(&expr.data)) {
+            if (std::get_if<ast::num_lit_data>(&expr.data)) {
                 return types.get_int(32); // TODO: could we make int lit have type based on the context
             }
-            if (auto bool_lit = std::get_if<ast::bool_lit_data>(&expr.data)) {
+            if (std::get_if<ast::bool_lit_data>(&expr.data)) {
                 return types.get_bool();
             }
             if (auto id = std::get_if<ast::identifier_data>(&expr.data)) {
@@ -275,18 +275,18 @@ namespace dungeon {
             if (auto ud = std::get_if<ast::unary_data>(&expr.data)) {
                 // TODO: we actually don't want this, because this should be handled by parser,
                 // but more like check if the unary op is compatible with the type ( e.g we can't use not with numerical types )
-                type *ty = analyze(*ud->lhs, sid);
-                return infer_unary(ud->op, ty);
+                auto ty = analyze(*ud->lhs, sid);
+                return infer_unary(ud->op, ty, types);
             }
             if (auto bd = std::get_if<ast::binary_data>(&expr.data)) {
-                type *lhs = analyze(*bd->lhs, sid);
-                type *rhs = analyze(*bd->rhs, sid);
-                return infer_binary(bd->op, lhs, rhs);
+                auto lhs = analyze(*bd->lhs, sid);
+                auto rhs = analyze(*bd->rhs, sid);
+                return infer_binary(bd->op, lhs, rhs, types);
             }
             if (auto rd = std::get_if<ast::relational_data>(&expr.data)) {
-                type *lhs = analyze(*rd->lhs, sid);
-                type *rhs = analyze(*rd->rhs, sid);
-                return infer_relational(rd->op, lhs, rhs);
+                auto lhs = analyze(*rd->lhs, sid);
+                auto rhs = analyze(*rd->rhs, sid);
+                return infer_relational(rd->op, lhs, rhs, types);
             }
             if (auto ad = std::get_if<ast::assign_data>(&expr.data)) {
                 const auto &sym = require_symbol(ad->id.name, expr.src_loc, sid);
@@ -297,7 +297,7 @@ namespace dungeon {
                 if (var->modifier != variable::mut)
                     diag::error("Cannot assign to a non-mutable variable");
 
-                type *rhs = analyze(*ad->val, sid);
+                auto rhs = analyze(*ad->val, sid);
                 if (!compatible_types(var->ty, rhs))
                     diag::error("Assignment contains incompatible types", expr.src_loc);
                 return rhs;
@@ -312,25 +312,25 @@ namespace dungeon {
                 return nullptr;
             }
             if (auto ifd = std::get_if<ast::if_data>(&expr.data)) {
-                type *cond = analyze(*ifd->cond, sid);
-                if (!is_truthy_type(cond)) {
+                auto cond = analyze(*ifd->cond, sid);
+                if (!is_boolean(cond)) {
                     diag::error("Expected a condition", expr.src_loc);
                 }
 
                 scope then_scope = create_scope(sid, curr_scope.enclosing_fn, scope::block);
-                type *then_ty = analyze(*ifd->then_body, then_scope.id);
+                auto then_ty = analyze(*ifd->then_body, then_scope.id);
 
                 if (ifd->else_body) {
                     scope else_scope = create_scope(sid, curr_scope.enclosing_fn, scope::block);
-                    type *else_ty = analyze(*ifd->else_body, else_scope.id);
+                    auto else_ty = analyze(*ifd->else_body, else_scope.id);
                     if (!compatible_types(then_ty, else_ty))
                         diag::error("Incompatible types in branches");
                 }
                 return then_ty;
             }
             if (auto wd = std::get_if<ast::while_data>(&expr.data)) {
-                type *cond = analyze(*wd->cond, sid);
-                if (!is_truthy_type(cond)) {
+                auto cond = analyze(*wd->cond, sid);
+                if (!is_boolean(cond)) {
                     diag::error("Expected a condition", expr.src_loc);
                 }
 
@@ -361,19 +361,24 @@ namespace dungeon {
             assert(false && "Non-exhaustive data cases!");
         }
 
-        type *analyze(const ast::var_decl &vdecl, const src_location &loc, const scope_id sid) {
+        const type *analyze(const ast::var_decl &vdecl, const src_location &loc, const scope_id sid) {
             assert(vdecl.initializer && "Expected an initializer");
-            type *rhs = analyze(*vdecl.initializer, sid);
+            auto rhs = analyze(*vdecl.initializer, sid);
+            auto var_ty = vdecl.ty ? type_from_annotation(vdecl.ty) : rhs;
+
+            if (vdecl.ty && !compatible_types(var_ty, rhs))
+                diag::error("Incompatible types in variable declaration", vdecl.name);
 
             variable v{
                 .modifier = convert_modifier(vdecl.modifier), .storage = convert_storage(vdecl.storage),
-                .ty = type_from_annotation(vdecl.ty)
+                .ty = rhs,
             };
+
             declare(vdecl.name, loc, v, sid);
-            return type_from_annotation(vdecl.ty);
+            return var_ty;
         }
 
-        type *analyze(const ast::stmt &stmt, const scope_id sid) {
+        const type *analyze(const ast::stmt &stmt, const scope_id sid) {
             const scope &curr_scope = get_scope(sid);
 
             if (auto ld = std::get_if<ast::let_data>(&stmt.data)) {
@@ -388,7 +393,7 @@ namespace dungeon {
                 const function &enclosing_fn = get_function(*curr_scope.enclosing_fn);
 
                 if (rd->val) {
-                    type *ty = analyze(*rd->val, sid);
+                    auto ty = analyze(*rd->val, sid);
                     if (!compatible_types(ty, enclosing_fn.return_type)) {
                         diag::error("Incompatible types");
                     }
@@ -401,7 +406,7 @@ namespace dungeon {
                     diag::error("'break' used outside of a loop");
                 return types.get_unit();
             }
-            if (auto cd = std::get_if<ast::cont_data>(&stmt.data)) {
+            if (std::get_if<ast::cont_data>(&stmt.data)) {
                 if (!is_scope_inside_loop(sid))
                     diag::error("'continue' used outside of a loop");
                 return types.get_unit();
@@ -413,7 +418,6 @@ namespace dungeon {
         type *analyze(const ast::module &module, scope_id global_id) {
             for (const auto &[loc, data]: module.toplevel_items) {
                 if (const auto fd = std::get_if<ast::fn_decl>(&data)) {
-
                     const auto &sym = require_symbol(fd->name, loc, global_id);
                     auto fn = std::get_if<function>(&sym.data);
                     if (!fn)
@@ -427,7 +431,7 @@ namespace dungeon {
                         declare(param.name, loc, v, fn_scope.id);
                     }
 
-                    type *body_ty = analyze(*fd->body, fn_scope.id);
+                    auto *body_ty = analyze(*fd->body, fn_scope.id);
                 } else if (const auto ed = std::get_if<ast::enum_decl>(&data)) {
                     // TODO:
                 } else if (const auto sd = std::get_if<ast::struct_decl>(&data)) {
