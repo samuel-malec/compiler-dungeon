@@ -30,21 +30,11 @@ namespace dungeon::print {
             out << indent(out, depth);
         }
 
-        // std::string tac_val_to_string(const tac::value &v, const atom_map &am) {
-        //     return "v" + std::to_string(v.id) + "." + std::to_string(v.version);
-        // }
-
         void print_expr(std::ostream &out, expr &e, int depth);
 
         void print_stmt(std::ostream &out, stmt &s, int depth);
 
         void print_ast_module(std::ostream &out, ast::module &ast_module);
-
-        void print_hir_expr(hir::expr &e, int depth, const atom_map &am);
-
-        void print_hir_stmt(hir::stmt &s, int depth, const atom_map &am);
-
-        void print_hir(hir::program &hir, const atom_map &am);
 
         // std::string tac_operand_to_string(tac::operand &operand, const atom_map &am);
         //
@@ -63,6 +53,6 @@ namespace dungeon::print {
         //
         // void export_to_dot(cfg::cfg &graph, std::ostream &out, const atom_map &am);
 
-        void print_tokens(const std::vector<token> & toks);
+        static void print_tokens(const std::vector<token> & toks);
     };
 }

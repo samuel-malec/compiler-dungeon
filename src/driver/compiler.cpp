@@ -30,7 +30,7 @@ namespace dungeon {
             printer.print_ast_module(std::cout, ast.value());
 
         // Semantic analysis
-        semantic_analyzer sa{};
+        sema::semantic_analyzer sa{};
         sa.run( ast.value() );
 
         // hir::program hir = hir::lower_ast_to_hir( ast, sa.st );

@@ -11,7 +11,7 @@
 #include "../frontend/ast.hpp"
 #include "types.hpp"
 
-namespace dungeon {
+namespace dungeon::sema {
     struct name_id {
         uint32_t value;
         bool operator<(const name_id &rhs) const { return value < rhs.value; }
@@ -302,14 +302,14 @@ namespace dungeon {
                 if (!id)
                     diag::error("Not implemented yet");
 
-                const symbol& sym = require_symbol(id->name, expr.src_loc, sid);
+                const symbol &sym = require_symbol(id->name, expr.src_loc, sid);
                 auto fn = std::get_if<function>(&sym.data);
                 if (!fn)
                     diag::error("Expected a function", expr.src_loc);
 
-                for ( size_t i = 0; i < fn->param_types.size(); ++ i) {
+                for (size_t i = 0; i < fn->param_types.size(); ++i) {
                     auto acc_ty = analyze(*cd->args[i], sid);
-                    if ( !compatible_types(acc_ty, fn->param_types[i]) )
+                    if (!compatible_types(acc_ty, fn->param_types[i]))
                         diag::error("Expected parameter types", expr.src_loc);
                 }
 
