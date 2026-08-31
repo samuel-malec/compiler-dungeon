@@ -5,14 +5,12 @@
 #include <optional>
 #include <set>
 #include <string>
-#include <unordered_map>
 #include <utility>
 #include <vector>
 
 #include "../frontend/ast.hpp"
 #include "types.hpp"
 
-// TODO: what programs are valid and what are not ?
 namespace dungeon {
     struct name_id {
         uint32_t value;
@@ -84,6 +82,7 @@ namespace dungeon {
 
     // TODO: think about naming this analysis_context and adding typemanager here
     struct analysis_result {
+        type_manager types;
         std::vector<std::string> names;
         std::vector<symbol> symbols;
         std::vector<enumeration> enumerations;
@@ -93,7 +92,6 @@ namespace dungeon {
     };
 
     struct semantic_analyzer {
-        type_manager types;
         analysis_result semantics;
         std::map<std::string, name_id, std::less<> > interned_names;
 
@@ -214,34 +212,34 @@ namespace dungeon {
 
             const auto &annotation = *opt_annot;
             if (annotation.base_name == "i8") {
-                return types.get_int(8);
+                return semantics.types.get_int(8);
             }
             if (annotation.base_name == "i16") {
-                return types.get_int(16);
+                return semantics.types.get_int(16);
             }
             if (annotation.base_name == "i32") {
-                return types.get_int(32);
+                return semantics.types.get_int(32);
             }
             if (annotation.base_name == "i64") {
-                return types.get_int(64);
+                return semantics.types.get_int(64);
             }
             if (annotation.base_name == "u8") {
-                return types.get_uint(8);
+                return semantics.types.get_uint(8);
             }
             if (annotation.base_name == "u16") {
-                return types.get_uint(16);
+                return semantics.types.get_uint(16);
             }
             if (annotation.base_name == "u32") {
-                return types.get_uint(32);
+                return semantics.types.get_uint(32);
             }
             if (annotation.base_name == "u64") {
-                return types.get_uint(64);
+                return semantics.types.get_uint(64);
             }
             if (annotation.base_name == "bool") {
-                return types.get_bool();
+                return semantics.types.get_bool();
             }
             if (annotation.base_name == "unit") {
-                return types.get_unit();
+                return semantics.types.get_unit();
             }
             assert(false && "unknown type");
         }
@@ -253,15 +251,13 @@ namespace dungeon {
             return get_symbol(*sym_id);
         }
 
-
-        // TODO: we want to implement the actualy type checking/inference
         const type *analyze(ast::expr &expr, const scope_id sid) {
             const scope &curr_scope = get_scope(sid);
             if (std::get_if<ast::num_lit_data>(&expr.data)) {
-                return types.get_int(32); // TODO: could we make int lit have type based on the context
+                return semantics.types.get_int(32); // TODO: could we make int lit have type based on the context
             }
             if (std::get_if<ast::bool_lit_data>(&expr.data)) {
-                return types.get_bool();
+                return semantics.types.get_bool();
             }
             if (auto id = std::get_if<ast::identifier_data>(&expr.data)) {
                 const auto &sym = require_symbol(id->name, expr.src_loc, sid);
@@ -273,20 +269,18 @@ namespace dungeon {
                 return var->ty;
             }
             if (auto ud = std::get_if<ast::unary_data>(&expr.data)) {
-                // TODO: we actually don't want this, because this should be handled by parser,
-                // but more like check if the unary op is compatible with the type ( e.g we can't use not with numerical types )
                 auto ty = analyze(*ud->lhs, sid);
-                return infer_unary(ud->op, ty, types);
+                return infer_unary(ud->op, ty, semantics.types);
             }
             if (auto bd = std::get_if<ast::binary_data>(&expr.data)) {
                 auto lhs = analyze(*bd->lhs, sid);
                 auto rhs = analyze(*bd->rhs, sid);
-                return infer_binary(bd->op, lhs, rhs, types);
+                return infer_binary(bd->op, lhs, rhs, semantics.types);
             }
             if (auto rd = std::get_if<ast::relational_data>(&expr.data)) {
                 auto lhs = analyze(*rd->lhs, sid);
                 auto rhs = analyze(*rd->rhs, sid);
-                return infer_relational(rd->op, lhs, rhs, types);
+                return infer_relational(rd->op, lhs, rhs, semantics.types);
             }
             if (auto ad = std::get_if<ast::assign_data>(&expr.data)) {
                 const auto &sym = require_symbol(ad->id.name, expr.src_loc, sid);
@@ -299,11 +293,27 @@ namespace dungeon {
 
                 auto rhs = analyze(*ad->val, sid);
                 if (!compatible_types(var->ty, rhs))
-                    diag::error("Assignment contains incompatible types", expr.src_loc);
+                    diag::error("Assignment contains incompatible semantics.types", expr.src_loc);
                 return rhs;
             }
             if (auto cd = std::get_if<ast::call_data>(&expr.data)) {
-                return nullptr;
+                // TODO: in the future add support for overloads
+                auto id = std::get_if<ast::identifier_data>(&cd->callee->data);
+                if (!id)
+                    diag::error("Not implemented yet");
+
+                const symbol& sym = require_symbol(id->name, expr.src_loc, sid);
+                auto fn = std::get_if<function>(&sym.data);
+                if (!fn)
+                    diag::error("Expected a function", expr.src_loc);
+
+                for ( size_t i = 0; i < fn->param_types.size(); ++ i) {
+                    auto acc_ty = analyze(*cd->args[i], sid);
+                    if ( !compatible_types(acc_ty, fn->param_types[i]) )
+                        diag::error("Expected parameter types", expr.src_loc);
+                }
+
+                return fn->return_type;
             }
             if (auto fad = std::get_if<ast::field_access_data>(&expr.data)) {
                 return nullptr;
@@ -324,7 +334,7 @@ namespace dungeon {
                     scope else_scope = create_scope(sid, curr_scope.enclosing_fn, scope::block);
                     auto else_ty = analyze(*ifd->else_body, else_scope.id);
                     if (!compatible_types(then_ty, else_ty))
-                        diag::error("Incompatible types in branches");
+                        diag::error("Incompatible semantics.types in branches");
                 }
                 return then_ty;
             }
@@ -335,11 +345,13 @@ namespace dungeon {
                 }
 
                 scope while_scope = create_scope(sid, curr_scope.enclosing_fn, scope::loop);
-                return analyze(*wd->body, while_scope.id);
+                analyze(*wd->body, while_scope.id);
+                return semantics.types.get_unit();
             }
             if (auto ld = std::get_if<ast::loop_data>(&expr.data)) {
                 scope loop_scope = create_scope(sid, curr_scope.enclosing_fn, scope::loop);
-                return analyze(*ld->body, loop_scope.id);
+                analyze(*ld->body, loop_scope.id);
+                return semantics.types.get_unit();
             }
             if (auto md = std::get_if<ast::match_data>(&expr.data)) {
                 return nullptr;
@@ -350,12 +362,12 @@ namespace dungeon {
             if (auto blk = std::get_if<ast::block_data>(&expr.data)) {
                 scope block_scope = create_scope(sid, curr_scope.enclosing_fn, scope::block);
                 for (auto &s: blk->stmts) {
-                    // TODO: should we assert that the type is unit ?
-                    analyze(*s, block_scope.id);
+                    if (auto ty = analyze(*s, block_scope.id); !is_unit(ty))
+                        diag::error("Expected a unit type", s->src_loc);
                 }
                 if (blk->trailing)
                     return analyze(*blk->trailing, block_scope.id);
-                return types.get_unit();
+                return semantics.types.get_unit();
             }
 
             assert(false && "Non-exhaustive data cases!");
@@ -367,7 +379,7 @@ namespace dungeon {
             auto var_ty = vdecl.ty ? type_from_annotation(vdecl.ty) : rhs;
 
             if (vdecl.ty && !compatible_types(var_ty, rhs))
-                diag::error("Incompatible types in variable declaration", vdecl.name);
+                diag::error("Incompatible semantics.types in variable declaration", vdecl.name);
 
             variable v{
                 .modifier = convert_modifier(vdecl.modifier), .storage = convert_storage(vdecl.storage),
@@ -382,40 +394,48 @@ namespace dungeon {
             const scope &curr_scope = get_scope(sid);
 
             if (auto ld = std::get_if<ast::let_data>(&stmt.data)) {
-                return analyze(ld->decl, stmt.src_loc, sid);
+                analyze(ld->decl, stmt.src_loc, sid);
+                return semantics.types.get_unit();
             }
             if (auto exp = std::get_if<ast::expr_stmt_data>(&stmt.data)) {
-                return analyze(*exp->expr, sid);
+                analyze(*exp->expr, sid);
+                return semantics.types.get_unit();
             }
             if (auto rd = std::get_if<ast::ret_data>(&stmt.data)) {
                 if (!curr_scope.enclosing_fn)
                     diag::error("Return statement used outside of a function body");
-                const function &enclosing_fn = get_function(*curr_scope.enclosing_fn);
 
-                if (rd->val) {
-                    auto ty = analyze(*rd->val, sid);
-                    if (!compatible_types(ty, enclosing_fn.return_type)) {
-                        diag::error("Incompatible types");
-                    }
-                    return ty;
-                }
-                return types.get_unit();
+                auto &enclosing_fn = get_function(*curr_scope.enclosing_fn);
+                auto ty = rd->val ? analyze(*rd->val, sid) : semantics.types.get_unit();
+                if (!compatible_types(ty, enclosing_fn.return_type))
+                    diag::error("Incompatible semantics.types");
+                return semantics.types.get_unit();
             }
             if (std::get_if<ast::brk_data>(&stmt.data)) {
                 if (!is_scope_inside_loop(sid))
                     diag::error("'break' used outside of a loop");
-                return types.get_unit();
+                return semantics.types.get_unit();
             }
             if (std::get_if<ast::cont_data>(&stmt.data)) {
                 if (!is_scope_inside_loop(sid))
                     diag::error("'continue' used outside of a loop");
-                return types.get_unit();
+                return semantics.types.get_unit();
             }
 
             assert(false && "Non-exhaustive data cases!");
         }
 
-        type *analyze(const ast::module &module, scope_id global_id) {
+        bool has_trailing_expr(const ast::fn_decl &fd) {
+            if (!fd.body)
+                return false;
+            auto t = std::get_if<ast::block_data>(&fd.body->data);
+            if (!t)
+                return false;
+
+            return t->trailing != nullptr;
+        }
+
+        void analyze(const ast::module &module, scope_id global_id) {
             for (const auto &[loc, data]: module.toplevel_items) {
                 if (const auto fd = std::get_if<ast::fn_decl>(&data)) {
                     const auto &sym = require_symbol(fd->name, loc, global_id);
@@ -431,28 +451,25 @@ namespace dungeon {
                         declare(param.name, loc, v, fn_scope.id);
                     }
 
-                    auto *body_ty = analyze(*fd->body, fn_scope.id);
+                    auto body_ty = analyze(*fd->body, fn_scope.id);
+                    if (has_trailing_expr(*fd) && !compatible_types(body_ty, fn->return_type))
+                        diag::error("Incompatible return type");
                 } else if (const auto ed = std::get_if<ast::enum_decl>(&data)) {
                     // TODO:
                 } else if (const auto sd = std::get_if<ast::struct_decl>(&data)) {
                     // TODO
                 } else if (const auto gvd = std::get_if<ast::global_var_decl>(&data)) {
-                    analyze(*gvd->decl.initializer, global_id);
-                    variable v{
-                        .modifier = convert_modifier(gvd->decl.modifier), .storage = variable::global,
-                        .ty = type_from_annotation(gvd->decl.ty)
-                    };
-                    declare(gvd->decl.name, loc, v, global_id);
+                    analyze(gvd->decl, loc, global_id);
                 } else {
                     assert(false && "Non-exhaustive data cases!");
                 }
             }
-            return nullptr;
         }
 
         void collect_toplevel_declarations(const ast::module &module, scope_id global_id) {
             for (const auto &[loc, data]: module.toplevel_items) {
                 if (const auto fd = std::get_if<ast::fn_decl>(&data)) {
+                    // TODO: we should probably use the function signature as the key in the symtab, if we want to allow overloading
                     function f = create_function(fd->param_list.params, fd->ret_ty);
                     declare(fd->name, loc, std::move(f), global_id);
                 } else if (const auto ed = std::get_if<ast::enum_decl>(&data)) {
@@ -466,7 +483,6 @@ namespace dungeon {
         }
 
         analysis_result run(const ast::module &module) {
-            std::cout << "Running semantic analysis\n";
             scope global = create_scope(std::nullopt, std::nullopt, scope::global);
             collect_toplevel_declarations(module, global.id);
             analyze(module, global.id);

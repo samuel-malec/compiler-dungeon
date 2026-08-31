@@ -85,20 +85,36 @@ namespace dungeon {
         return ty->kind == type_kind::_unit;
     }
 
+    // TODO: think about what are the prerequisities of thiese infer_** should we check the ops kinds are good or is this a precondition ?
+    // TODO: actually think about how to infer these types, this is a preliminiary implementation....
     inline const type *infer_unary(op_kind op, const type *lhs, type_manager &types) {
         if (!is_unary_op(op))
             diag::error("Invalid unary operation");
         return lhs;
     }
 
+    inline const type * infer_equality_op(op_kind op, const type * lhs, const type * rhs, const type_manager & types) {
+        if ( lhs != rhs )
+            diag::error("Expected equal types");
+        return types.get_bool();
+    }
+
+    inline const type * infer_ordering_op(op_kind op, const type * lhs, const type * rhs, const type_manager & types) {
+        if ( lhs != rhs )
+            diag::error("Expected ordering types");
+
+        return types.get_bool();
+    }
+
     inline const type *infer_relational(op_kind op, const type *lhs, const type *rhs, type_manager &types) {
         if (!is_rel_op(op))
             diag::error("Invalid relational operation");
 
-        // TODO: some relational operations like ==, != make sense on bools, but does it make sense to compare bools ?
-        // think about what operations are ok here;
-        if (lhs == rhs)
-            return types.get_bool();
+        if (is_equality_op(op))
+            return infer_equality_op(op, lhs, rhs, types);
+
+        if (is_ordering_op(op))
+            return infer_ordering_op(op, lhs, rhs, types);
 
         return nullptr;
     }
@@ -113,6 +129,13 @@ namespace dungeon {
         return lhs;
     }
 
+    inline const type *infer_logical_op(op_kind op, const type *lhs, const type *rhs, const type_manager &types) {
+        if (!is_boolean(lhs) || !is_boolean(rhs))
+            diag::error("Invalid operands, expected booleans");
+
+        return lhs;
+    }
+
     inline const type *infer_binary(op_kind op, const type *lhs, const type *rhs, type_manager &types) {
         if (!is_binary_op(op))
             diag::error("Invalid binary operation");
@@ -120,8 +143,8 @@ namespace dungeon {
         if (is_numerical_op(op))
             return infer_numerical(op, lhs, rhs, types);
 
-        if (is_rel_op(op))
-            return infer_relational(op, lhs, rhs, types);
+        if (is_logical_op(op))
+            return infer_logical_op(op, lhs, rhs, types);
 
         return nullptr;
     }

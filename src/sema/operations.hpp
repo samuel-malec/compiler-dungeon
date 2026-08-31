@@ -39,13 +39,13 @@ namespace dungeon {
     }
 
     inline bool is_binary_op(op_kind op) {
-        return op == ADD || op == SUB || op == MUL || op == DIV || op == MOD ||
-               op == SHL || op == SHR || op == EQ || op == NEQ || op == LT || op == LEQ;
+        return op == ADD || op == SUB || op == MUL || op == DIV ||
+               op == MOD || op == SHL || op == SHR || op == AND || op == OR;
     }
 
     inline bool is_numerical_op(op_kind op) {
-        return op == ADD || op == SUB || op == MUL ||
-               op == DIV || op == MOD || op == SHL || op == SHR;
+        return op == ADD || op == SUB || op == MUL || op == DIV ||
+               op == MOD || op == SHL || op == SHR || op == PLUS || op == MINUS;
     }
 
     inline op_kind op_from_compound_asn(op_kind op) {
@@ -59,9 +59,9 @@ namespace dungeon {
         assert(false && "should not reach here, expected a compound assignment!");
     }
 
-    inline op_kind op_kind_from_str(std::string_view data, bool is_unary = false ) {
-        if ( data == "+" ) return is_unary ? PLUS : ADD;
-        if ( data == "-" ) return is_unary ? MINUS : SUB;
+    inline op_kind op_kind_from_str(std::string_view data, bool is_unary = false) {
+        if (data == "+") return is_unary ? PLUS : ADD;
+        if (data == "-") return is_unary ? MINUS : SUB;
         if (data == "*") return MUL;
         if (data == "/") return DIV;
         if (data == "%") return MOD;

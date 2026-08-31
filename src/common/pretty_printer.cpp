@@ -10,6 +10,8 @@ namespace dungeon::print {
         switch (op) {
             case ADD: return "+";
             case SUB: return "-";
+            case MINUS: return "-";
+            case PLUS: return "+";
             case MUL: return "*";
             case DIV: return "/";
             case MOD: return "%";
