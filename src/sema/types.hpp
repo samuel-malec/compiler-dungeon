@@ -86,21 +86,21 @@ namespace dungeon {
     }
 
     // TODO: think about what are the prerequisities of thiese infer_** should we check the ops kinds are good or is this a precondition ?
-    // TODO: actually think about how to infer these types, this is a preliminiary implementation....
+    // TODO: actually think about how to infer these types, this is a preliminiary impl
     inline const type *infer_unary(op_kind op, const type *lhs, type_manager &types) {
         if (!is_unary_op(op))
             diag::error("Invalid unary operation");
         return lhs;
     }
 
-    inline const type * infer_equality_op(op_kind op, const type * lhs, const type * rhs, const type_manager & types) {
-        if ( lhs != rhs )
+    inline const type *infer_equality_op(op_kind op, const type *lhs, const type *rhs, const type_manager &types) {
+        if (lhs != rhs)
             diag::error("Expected equal types");
         return types.get_bool();
     }
 
-    inline const type * infer_ordering_op(op_kind op, const type * lhs, const type * rhs, const type_manager & types) {
-        if ( lhs != rhs )
+    inline const type *infer_ordering_op(op_kind op, const type *lhs, const type *rhs, const type_manager &types) {
+        if (lhs != rhs)
             diag::error("Expected ordering types");
 
         return types.get_bool();

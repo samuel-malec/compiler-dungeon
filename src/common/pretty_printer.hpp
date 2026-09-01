@@ -36,6 +36,8 @@ namespace dungeon::print {
 
         void print_ast_module(std::ostream &out, ast::module &ast_module);
 
+        void print_hir_module(const hir::module & hir);
+
         // std::string tac_operand_to_string(tac::operand &operand, const atom_map &am);
         //
         // std::string tac_instr_symbolic(tac::instr &i, const atom_map &am);

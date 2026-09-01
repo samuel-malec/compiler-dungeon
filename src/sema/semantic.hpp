@@ -5,6 +5,7 @@
 #include <optional>
 #include <set>
 #include <string>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -83,7 +84,12 @@ namespace dungeon::sema {
     // TODO: think about naming this analysis_context and adding typemanager here
     struct analysis_result {
         type_manager types;
+        std::unordered_map<ast::expr *, const type *> expr_ty;
+        std::unordered_map<ast::expr *, const function* > expr_fn;
+
         std::vector<std::string> names;
+        std::map<std::string, name_id, std::less<> > interned_names;
+
         std::vector<symbol> symbols;
         std::vector<enumeration> enumerations;
         std::vector<structure> structures;
@@ -93,7 +99,6 @@ namespace dungeon::sema {
 
     struct semantic_analyzer {
         analysis_result semantics;
-        std::map<std::string, name_id, std::less<> > interned_names;
 
         // TODO: add support for structures
         structure create_structure() {
@@ -158,13 +163,13 @@ namespace dungeon::sema {
 
         std::pair<bool, name_id> intern_name(std::string_view name) {
             std::string sname = std::string(name);
-            if (auto it = interned_names.find(sname); it != interned_names.end()) {
+            if (auto it = semantics.interned_names.find(sname); it != semantics.interned_names.end()) {
                 return {false, it->second};
             }
 
             name_id nid{.value = static_cast<uint32_t>(semantics.names.size())};
             semantics.names.push_back(sname);
-            interned_names[sname] = nid;
+            semantics.interned_names[sname] = nid;
             return {true, nid};
         }
 
@@ -251,36 +256,93 @@ namespace dungeon::sema {
             return get_symbol(*sym_id);
         }
 
-        const type *analyze(ast::expr &expr, const scope_id sid) {
+        const type *record(ast::expr &expr, const type *ty) {
+            semantics.expr_ty[&expr] = ty;
+            return ty;
+        }
+
+        const type *check(ast::expr &expr, const type *expected, scope_id sid) {
+            const scope &curr_scope = get_scope(sid);
+
+            if (std::get_if<ast::num_lit_data>(&expr.data)) {
+                if (!is_integer(expected))
+                    diag::error("Expected an integer type here", expr.src_loc);
+                return record(expr, expected);
+            }
+            if (auto ud = std::get_if<ast::unary_data>(&expr.data)) {
+                check(*ud->lhs, expected, sid);
+                infer_unary(ud->op, expected, semantics.types);
+                return record(expr, expected);
+            }
+            if (auto bd = std::get_if<ast::binary_data>(&expr.data)) {
+                check(*bd->lhs, expected, sid);
+                check(*bd->rhs, expected, sid);
+                return record(expr, expected);
+            }
+            if (auto ifd = std::get_if<ast::if_data>(&expr.data)) {
+                auto cond = infer(*ifd->cond, sid);
+                if (!is_boolean(cond))
+                    diag::error("Expected a condition", expr.src_loc);
+
+                scope then_scope = create_scope(sid, curr_scope.enclosing_fn, scope::block);
+                check(*ifd->then_body, expected, then_scope.id);
+
+                if (ifd->else_body) {
+                    scope else_scope = create_scope(sid, curr_scope.enclosing_fn, scope::block);
+                    check(*ifd->else_body, expected, else_scope.id);
+                } else if (!compatible_types(expected, semantics.types.get_unit())) {
+                    diag::error("if without else must be unit-typed", expr.src_loc);
+                }
+                return record(expr, expected);
+            }
+            if (auto blk = std::get_if<ast::block_data>(&expr.data)) {
+                scope block_scope = create_scope(sid, curr_scope.enclosing_fn, scope::block);
+                for (auto &s: blk->stmts)
+                    if (auto ty = analyze(*s, block_scope.id); !is_unit(ty))
+                        diag::error("Expected a unit type", s->src_loc);
+
+                if (blk->trailing) {
+                    check(*blk->trailing, expected, block_scope.id);
+                } else if (!compatible_types(expected, semantics.types.get_unit())) {
+                    diag::error("Expected a non-unit block to have a value", expr.src_loc);
+                }
+                return record(expr, expected);
+            }
+
+            const type *res = infer(expr, sid);
+            if (!compatible_types(res, expected))
+                diag::error("Type mismatch: expected does not match inferred type", expr.src_loc);
+            return res;
+        }
+
+        const type *infer(ast::expr &expr, scope_id sid) {
             const scope &curr_scope = get_scope(sid);
             if (std::get_if<ast::num_lit_data>(&expr.data)) {
-                return semantics.types.get_int(32); // TODO: could we make int lit have type based on the context
+                return record(expr, semantics.types.get_int(32));
             }
             if (std::get_if<ast::bool_lit_data>(&expr.data)) {
-                return semantics.types.get_bool();
+                return record(expr, semantics.types.get_bool());
             }
             if (auto id = std::get_if<ast::identifier_data>(&expr.data)) {
                 const auto &sym = require_symbol(id->name, expr.src_loc, sid);
                 auto var = std::get_if<variable>(&sym.data);
-                if (!var) {
+                if (!var)
                     diag::error("Expected a variable");
-                }
-
-                return var->ty;
+                return record(expr, var->ty);
             }
             if (auto ud = std::get_if<ast::unary_data>(&expr.data)) {
-                auto ty = analyze(*ud->lhs, sid);
-                return infer_unary(ud->op, ty, semantics.types);
+                auto ty = infer(*ud->lhs, sid);
+                return record(expr, infer_unary(ud->op, ty, semantics.types));
             }
             if (auto bd = std::get_if<ast::binary_data>(&expr.data)) {
-                auto lhs = analyze(*bd->lhs, sid);
-                auto rhs = analyze(*bd->rhs, sid);
-                return infer_binary(bd->op, lhs, rhs, semantics.types);
+                auto lhs = infer(*bd->lhs, sid);
+                auto rhs = infer(*bd->rhs, sid);
+                return record(expr, infer_binary(bd->op, lhs, rhs, semantics.types));
             }
             if (auto rd = std::get_if<ast::relational_data>(&expr.data)) {
-                auto lhs = analyze(*rd->lhs, sid);
-                auto rhs = analyze(*rd->rhs, sid);
-                return infer_relational(rd->op, lhs, rhs, semantics.types);
+                auto lhs = infer(*rd->lhs, sid);
+                auto rhs = infer(*rd->rhs, sid);
+                return record(expr, infer_relational(rd->op, lhs, rhs, semantics.types));
             }
             if (auto ad = std::get_if<ast::assign_data>(&expr.data)) {
                 const auto &sym = require_symbol(ad->id.name, expr.src_loc, sid);
@@ -289,12 +351,10 @@ namespace dungeon::sema {
                     diag::error("Unexpected lhs of an assignment", expr.src_loc);
 
                 if (var->modifier != variable::mut)
-                    diag::error("Cannot assign to a non-mutable variable");
+                    diag::error("Cannot assign to a non-mutable variable", expr.src_loc);
 
-                auto rhs = analyze(*ad->val, sid);
-                if (!compatible_types(var->ty, rhs))
-                    diag::error("Assignment contains incompatible semantics.types", expr.src_loc);
-                return rhs;
+                check(*ad->val, var->ty, sid);
+                return record(expr, var->ty);
             }
             if (auto cd = std::get_if<ast::call_data>(&expr.data)) {
                 // TODO: in the future add support for overloads
@@ -307,51 +367,54 @@ namespace dungeon::sema {
                 if (!fn)
                     diag::error("Expected a function", expr.src_loc);
 
-                for (size_t i = 0; i < fn->param_types.size(); ++i) {
-                    auto acc_ty = analyze(*cd->args[i], sid);
-                    if (!compatible_types(acc_ty, fn->param_types[i]))
-                        diag::error("Expected parameter types", expr.src_loc);
-                }
+                semantics.expr_fn[ &expr ] = fn;
+                if (cd->args.size() != fn->param_types.size())
+                    diag::error("Mismatch in the amount of arguments", expr.src_loc);
 
-                return fn->return_type;
+                for (size_t i = 0; i < fn->param_types.size(); ++i)
+                    check(*cd->args[i], fn->param_types[i], sid);
+
+                return record(expr, fn->return_type);
             }
             if (auto fad = std::get_if<ast::field_access_data>(&expr.data)) {
-                return nullptr;
+                return nullptr; // TODO
             }
             if (auto aid = std::get_if<ast::array_index_data>(&expr.data)) {
-                return nullptr;
+                return nullptr; // TODO
             }
             if (auto ifd = std::get_if<ast::if_data>(&expr.data)) {
-                auto cond = analyze(*ifd->cond, sid);
+                auto cond = infer(*ifd->cond, sid);
                 if (!is_boolean(cond)) {
                     diag::error("Expected a condition", expr.src_loc);
                 }
 
                 scope then_scope = create_scope(sid, curr_scope.enclosing_fn, scope::block);
-                auto then_ty = analyze(*ifd->then_body, then_scope.id);
+                auto then_ty = infer(*ifd->then_body, then_scope.id);
 
                 if (ifd->else_body) {
                     scope else_scope = create_scope(sid, curr_scope.enclosing_fn, scope::block);
-                    auto else_ty = analyze(*ifd->else_body, else_scope.id);
+                    auto else_ty = infer(*ifd->else_body, else_scope.id);
                     if (!compatible_types(then_ty, else_ty))
-                        diag::error("Incompatible semantics.types in branches");
+                        diag::error("Incompatible semantics.types in branches", expr.src_loc);
+                } else if (!is_unit(then_ty)) {
+                    diag::error("If without else must be unit-typed", expr.src_loc);
                 }
-                return then_ty;
+                return record(expr, then_ty);
             }
             if (auto wd = std::get_if<ast::while_data>(&expr.data)) {
-                auto cond = analyze(*wd->cond, sid);
+                auto cond = infer(*wd->cond, sid);
                 if (!is_boolean(cond)) {
                     diag::error("Expected a condition", expr.src_loc);
                 }
 
                 scope while_scope = create_scope(sid, curr_scope.enclosing_fn, scope::loop);
-                analyze(*wd->body, while_scope.id);
-                return semantics.types.get_unit();
+                infer(*wd->body, while_scope.id);
+                return record(expr, semantics.types.get_unit());
             }
             if (auto ld = std::get_if<ast::loop_data>(&expr.data)) {
                 scope loop_scope = create_scope(sid, curr_scope.enclosing_fn, scope::loop);
-                analyze(*ld->body, loop_scope.id);
-                return semantics.types.get_unit();
+                infer(*ld->body, loop_scope.id);
+                return record(expr, semantics.types.get_unit());
             }
             if (auto md = std::get_if<ast::match_data>(&expr.data)) {
                 return nullptr;
@@ -366,31 +429,30 @@ namespace dungeon::sema {
                         diag::error("Expected a unit type", s->src_loc);
                 }
                 if (blk->trailing)
-                    return analyze(*blk->trailing, block_scope.id);
-                return semantics.types.get_unit();
+                    return record(expr, infer(*blk->trailing, block_scope.id));
+                return record(expr, semantics.types.get_unit());
             }
 
             assert(false && "Non-exhaustive data cases!");
         }
 
-        const type *analyze(const ast::var_decl &vdecl, const src_location &loc, const scope_id sid) {
+        const type *analyze(const ast::var_decl &vdecl, const src_location &loc, scope_id sid) {
+            // TODO: I guess we do not need to require an initilizer, but we should check that we aren't using unitialized variables
             assert(vdecl.initializer && "Expected an initializer");
-            auto rhs = analyze(*vdecl.initializer, sid);
-            auto var_ty = vdecl.ty ? type_from_annotation(vdecl.ty) : rhs;
-
-            if (vdecl.ty && !compatible_types(var_ty, rhs))
-                diag::error("Incompatible semantics.types in variable declaration", vdecl.name);
+            const type *var_ty = vdecl.ty
+                                     ? check(*vdecl.initializer, type_from_annotation(vdecl.ty), sid)
+                                     : infer(*vdecl.initializer, sid);
 
             variable v{
                 .modifier = convert_modifier(vdecl.modifier), .storage = convert_storage(vdecl.storage),
-                .ty = rhs,
+                .ty = var_ty,
             };
 
             declare(vdecl.name, loc, v, sid);
             return var_ty;
         }
 
-        const type *analyze(const ast::stmt &stmt, const scope_id sid) {
+        const type *analyze(const ast::stmt &stmt, scope_id sid) {
             const scope &curr_scope = get_scope(sid);
 
             if (auto ld = std::get_if<ast::let_data>(&stmt.data)) {
@@ -398,17 +460,17 @@ namespace dungeon::sema {
                 return semantics.types.get_unit();
             }
             if (auto exp = std::get_if<ast::expr_stmt_data>(&stmt.data)) {
-                analyze(*exp->expr, sid);
+                infer(*exp->expr, sid);
                 return semantics.types.get_unit();
             }
             if (auto rd = std::get_if<ast::ret_data>(&stmt.data)) {
                 if (!curr_scope.enclosing_fn)
                     diag::error("Return statement used outside of a function body");
-
                 auto &enclosing_fn = get_function(*curr_scope.enclosing_fn);
-                auto ty = rd->val ? analyze(*rd->val, sid) : semantics.types.get_unit();
-                if (!compatible_types(ty, enclosing_fn.return_type))
-                    diag::error("Incompatible semantics.types");
+                if (rd->val)
+                    check(*rd->val, enclosing_fn.return_type, sid);
+                else if (!is_unit(enclosing_fn.return_type))
+                    diag::error("Missing return value", stmt.src_loc);
                 return semantics.types.get_unit();
             }
             if (std::get_if<ast::brk_data>(&stmt.data)) {
@@ -451,9 +513,7 @@ namespace dungeon::sema {
                         declare(param.name, loc, v, fn_scope.id);
                     }
 
-                    auto body_ty = analyze(*fd->body, fn_scope.id);
-                    if (has_trailing_expr(*fd) && !compatible_types(body_ty, fn->return_type))
-                        diag::error("Incompatible return type");
+                    check(*fd->body, fn->return_type, fn_scope.id);
                 } else if (const auto ed = std::get_if<ast::enum_decl>(&data)) {
                     // TODO:
                 } else if (const auto sd = std::get_if<ast::struct_decl>(&data)) {

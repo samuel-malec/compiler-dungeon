@@ -317,6 +317,10 @@ namespace dungeon::print {
         }
     }
 
+    void pretty_printer::print_hir_module(const hir::module &hir) {
+        std::cout << "HIR: \n";
+    }
+
     void pretty_printer::print_tokens(const std::vector<token> &toks) {
         for (auto &t: toks)
             std::cout << t << "\n";

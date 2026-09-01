@@ -12,31 +12,24 @@ namespace dungeon::hir {
         uint32_t idx;
     };
 
-    struct var_id {
-        uint32_t idx;
-    };
-
     struct stmt_id {
         uint32_t idx;
     };
 
-    struct fn_id {
-        uint32_t idx;
-    };
-
     struct expr {
-        type ty;
+        // TODO: we actually could do type_id here I think....
+        const type *ty;
 
         struct int_lit {
             std::uint64_t val;
         };
 
         struct bool_lit {
-            bool value;
+            bool val;
         };
 
         struct var_data {
-            var_id id;
+            sema::name_id nid;
         };
 
         struct unary_data {
@@ -46,29 +39,60 @@ namespace dungeon::hir {
 
         struct binary_data {
             op_kind op;
-            expr_id left;
-            expr_id right;
+            expr_id lhs;
+            expr_id rhs;
+        };
+
+        struct relational_data {
+            op_kind op;
+            expr_id lhs;
+            expr_id rhs;
         };
 
         struct assign_data {
-            var_id target;
+            sema::name_id target;
             expr_id value;
         };
 
         struct call_data {
-            fn_id target;
+            sema::fn_id target;
             std::vector<expr_id> args;
         };
 
-        std::variant<
+        struct if_data {
+            expr_id cond;
+            expr_id then_body;
+            std::optional< expr_id > else_body;
+        };
+
+        struct while_data {
+            expr_id cond;
+            expr_id body;
+        };
+
+        struct loop_data {
+            expr_id body;
+        };
+
+        struct block_data {
+            std::vector<stmt_id> stmts;
+            std::optional<expr_id> trailing;
+        };
+
+        using data_t = std::variant<
             int_lit,
             bool_lit,
             var_data,
             unary_data,
             binary_data,
+            relational_data,
             assign_data,
-            call_data
-        > data;
+            call_data,
+            if_data,
+            while_data,
+            loop_data,
+            block_data>;
+        data_t data;
     };
 
     struct stmt {
@@ -76,27 +100,13 @@ namespace dungeon::hir {
             expr_id e;
         };
 
-        struct block_data {
-            std::vector<stmt_id> stmts;
-        };
-
         struct let_data {
-            var_id target;
+            sema::name_id target;
             expr_id value;
-        };
-
-        struct if_data {
-            expr cond;
-            stmt_id then_branch;
-            stmt_id else_branch;
-        };
-
-        struct loop_data {
-            stmt_id body;
         };
 
         struct ret_data {
-            expr_id value;
+            std::optional<expr_id> value;
         };
 
         struct brk {
@@ -105,17 +115,13 @@ namespace dungeon::hir {
         struct cont {
         };
 
-        std::variant<
+        using data_t = std::variant<
             expr_data,
-            block_data,
             let_data,
-            if_data,
-            loop_data,
-            std::monostate,
             ret_data,
             brk,
-            cont
-        > data;
+            cont>;
+        data_t data;
     };
 
     struct function {
@@ -138,4 +144,4 @@ namespace dungeon::hir {
     struct module {
         std::vector<function> functions;
     };
-}
+} // namespace dungeon::hir

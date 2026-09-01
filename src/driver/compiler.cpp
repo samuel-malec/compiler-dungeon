@@ -33,9 +33,9 @@ namespace dungeon {
         sema::semantic_analyzer sa{};
         sa.run( ast.value() );
 
-        // hir::program hir = hir::lower_ast_to_hir( ast, sa.st );
-        // if ( conf.emit_hir )
-        //     printer.print_hir( hir, sa.st.reverse_map );
+        hir::module hir = hir::lower_ast_to_hir( ast.value(), sa.semantics );
+        if ( conf.emit_hir )
+            printer.print_hir_module( hir );
 
         // tac::program tac_ir = tac::lower_to_tac( hir );
         // if ( conf.emit_tac )
