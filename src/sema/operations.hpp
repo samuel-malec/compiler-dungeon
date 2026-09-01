@@ -2,7 +2,7 @@
 #include <cassert>
 #include <iosfwd>
 
-#include "../diag/diag.hpp"
+#include "../common/diag.hpp"
 
 namespace dungeon {
     enum op_kind {

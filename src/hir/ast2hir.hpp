@@ -6,7 +6,6 @@ namespace dungeon::hir {
     struct fn_builder {
         function fn;
 
-        // TODO: do we pass dat aor expr, hmmm.....
         expr_id add_expr(const type *ty, expr::data_t data) {
             expr_id curr{.idx = static_cast<uint32_t>(fn.exprs.size())};
             expr e{.ty = ty, .data = std::move(data)};
@@ -21,7 +20,6 @@ namespace dungeon::hir {
             return curr;
         }
 
-        function build() { return std::move(fn); }
 
         stmt_id lower_stmt_to_hir(ast::stmt &stmt, const sema::analysis_result &sema) {
             if (auto ld = std::get_if<ast::let_data>(&stmt.data)) {
@@ -132,21 +130,19 @@ namespace dungeon::hir {
             }
             assert(false && "unreachable");
         }
+
+        function build(ast::fn_decl &fun, const sema::analysis_result &sema) {
+            fn.root = add_stmt(stmt::expr_data{.e = lower_expr_to_hir(*fun.body, sema)});
+            return std::move(fn);
+        }
     };
-
-    function lower_fn_to_hir(ast::fn_decl &fun, const sema::analysis_result &sema) {
-        fn_builder builder{};
-        // todo: params, ret_ty signature...
-
-        builder.lower_expr_to_hir(*fun.body, sema);
-        return builder.build();
-    }
 
     hir::module lower_ast_to_hir(ast::module &ast, const sema::analysis_result &sema) {
         hir::module res{};
         for (auto &[loc, data]: ast.toplevel_items) {
             if (const auto fdecl = std::get_if<ast::fn_decl>(&data)) {
-                function fn = lower_fn_to_hir(*fdecl, sema);
+                fn_builder builder{};
+                function fn = builder.build(*fdecl, sema);
                 res.functions.push_back(std::move(fn));
             }
         }

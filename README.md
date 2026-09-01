@@ -1,6 +1,7 @@
 # Compiler Dungeon
 This project is aimed at learning and utilizing various compiler techniques to create an optimizing compiler for further research and experimental purposes.
-The source language is not really important for this project, but it is has rust-like [syntax](LANGUAGE.md) with no additional libraries.
+The source language is not really important for this project because I do not have ambitions to create a production-level language which will be used by other people.
+Nonetheless, the actual is inspired off of Rust and Python, and its EBNF format can be viewed [here](LANGUAGE.md)
 
 My current goals for this project are:
 
@@ -73,3 +74,8 @@ My current goals for this project are:
 [] Differential testing
 [] Random/fuzz testing
 ```
+
+
+## Project Structure
+
+## Compiler Overview

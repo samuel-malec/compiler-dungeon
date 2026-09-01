@@ -10,7 +10,7 @@
 
 #include "ast.hpp"
 #include "lexer.hpp"
-#include "../diag/diag.hpp"
+#include "../common/diag.hpp"
 #include "../sema/types.hpp"
 
 namespace dungeon {

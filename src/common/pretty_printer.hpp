@@ -7,7 +7,7 @@
 
 #include "../frontend/ast.hpp"
 #include "../sema/semantic.hpp"
-#include "../cfg/cfg.hpp"
+#include "../ir/cfg/cfg.hpp"
 // #include "../middleend/tac.hpp"
 #include "../hir/hir.hpp"
 
@@ -36,7 +36,19 @@ namespace dungeon::print {
 
         void print_ast_module(std::ostream &out, ast::module &ast_module);
 
-        void print_hir_module(const hir::module & hir);
+        void print_hir_expr(
+            std::ostream &out,
+            const hir::function &fn,
+            hir::expr_id id,
+            int depth);
+
+        void print_hir_stmt(
+            std::ostream &out,
+            const hir::function &fn,
+            hir::stmt_id id,
+            int depth);
+
+        void print_hir_module(const hir::module &hir);
 
         // std::string tac_operand_to_string(tac::operand &operand, const atom_map &am);
         //
