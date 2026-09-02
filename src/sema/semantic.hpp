@@ -87,10 +87,15 @@ namespace dungeon::sema {
         std::unordered_map<ast::expr *, const type *> expr_ty;
         std::unordered_map<ast::expr *, const function* > expr_fn;
 
+        std::vector<symbol> symbols;
+
+        // TODO:: fill these two
+        std::unordered_map< const ast::expr*, symbol_id > id_symbols;
+        std::unordered_map< const ast::var_decl*, symbol_id > var_decl_symbols;
+
         std::vector<std::string> names;
         std::map<std::string, name_id, std::less<> > interned_names;
 
-        std::vector<symbol> symbols;
         std::vector<enumeration> enumerations;
         std::vector<structure> structures;
         std::vector<function> functions;
@@ -173,7 +178,7 @@ namespace dungeon::sema {
             return {true, nid};
         }
 
-        void declare(std::string_view name, const src_location &src_loc, symbol::data_t data, scope_id sid) {
+        symbol_id declare(std::string_view name, const src_location &src_loc, symbol::data_t data, scope_id sid) {
             const auto &[_, nid] = intern_name(name);
             scope &scope = get_scope(sid);
             symbol sym = create_symbol(nid, src_loc, std::move(data));
@@ -183,6 +188,7 @@ namespace dungeon::sema {
                 diag::error("Symbol already present", sym.src_loc);
 
             scope.symbols[nid] = sym.id;
+            return sym.id;
         }
 
         std::optional<symbol_id> lookup_symbol(std::string_view name, scope_id sid) {
@@ -328,6 +334,7 @@ namespace dungeon::sema {
                 auto var = std::get_if<variable>(&sym.data);
                 if (!var)
                     diag::error("Expected a variable");
+                semantics.id_symbols[&expr] = sym.id;
                 return record(expr, var->ty);
             }
             if (auto ud = std::get_if<ast::unary_data>(&expr.data)) {
@@ -354,6 +361,7 @@ namespace dungeon::sema {
                     diag::error("Cannot assign to a non-mutable variable", expr.src_loc);
 
                 check(*ad->val, var->ty, sid);
+                semantics.id_symbols[&expr] = sym.id;
                 return record(expr, var->ty);
             }
             if (auto cd = std::get_if<ast::call_data>(&expr.data)) {
@@ -448,7 +456,7 @@ namespace dungeon::sema {
                 .ty = var_ty,
             };
 
-            declare(vdecl.name, loc, v, sid);
+            semantics.var_decl_symbols[&vdecl] = declare(vdecl.name, loc, v, sid);
             return var_ty;
         }
 
@@ -506,7 +514,7 @@ namespace dungeon::sema {
                         diag::error("The symbol ", fd->name, " does not correspond to a function", loc);
 
                     scope fn_scope = create_scope(global_id, fn->id, scope::function);
-                    for (auto &param: fd->param_list.params) {
+                    for (auto &param: fd->params.params) {
                         variable v{
                             .modifier = variable::imut, .storage = variable::local, .ty = type_from_annotation(param.ty)
                         };
@@ -530,7 +538,7 @@ namespace dungeon::sema {
             for (const auto &[loc, data]: module.toplevel_items) {
                 if (const auto fd = std::get_if<ast::fn_decl>(&data)) {
                     // TODO: we should probably use the function signature as the key in the symtab, if we want to allow overloading
-                    function f = create_function(fd->param_list.params, fd->ret_ty);
+                    function f = create_function(fd->params.params, fd->ret_ty);
                     declare(fd->name, loc, std::move(f), global_id);
                 } else if (const auto ed = std::get_if<ast::enum_decl>(&data)) {
                     enumeration e = create_enumeration();

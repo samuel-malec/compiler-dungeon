@@ -8,6 +8,32 @@
 namespace dungeon
 {
 
+enum class pipeline_stage {
+    full,
+    lexer,
+    parser,
+    semantic,
+    typecheck,
+    hir,
+};
+
+inline pipeline_stage parse_stage(std::string_view stage_name)
+{
+    if (stage_name == "full" || stage_name == "all")
+        return pipeline_stage::full;
+    if (stage_name == "lexer" || stage_name == "lex")
+        return pipeline_stage::lexer;
+    if (stage_name == "parser" || stage_name == "parse")
+        return pipeline_stage::parser;
+    if (stage_name == "semantic" || stage_name == "sema")
+        return pipeline_stage::semantic;
+    if (stage_name == "typecheck" || stage_name == "type-check")
+        return pipeline_stage::typecheck;
+    if (stage_name == "hir")
+        return pipeline_stage::hir;
+    throw std::runtime_error("unknown stage: " + std::string(stage_name));
+}
+
 struct config
 {
     std::string in_name;
@@ -18,12 +44,13 @@ struct config
     bool emit_tac;
     bool emit_cfg;
     bool emit_son;
+    pipeline_stage stage = pipeline_stage::full;
 };
 
 inline void help()
 {
     std::cout << "Usage:\n"
-              << "./compiler-dungeon file.ks [-o output]\n"
+              << "./compiler-dungeon file.ks [--stage lexer|parser|semantic|typecheck|hir|full] [-o output]\n"
               << "--emit-tokens\n"
               << "--emit-ast\n"
               << "--emit-hir\n"
@@ -34,9 +61,9 @@ inline void help()
 
 inline config parse_config( int argc, char* const* argv )
 {
-    if ( argc < 1 || argc > 7 )
-        throw std::runtime_error( "Usage: ./compiler-dungeon file.ks [-o output]\n" );
-    
+    if ( argc < 1 )
+        throw std::runtime_error( "Usage: ./compiler-dungeon file.ks [--stage ...]\n" );
+
     if ( strcmp( argv[ 0 ], "-h" ) == 0 )
     {
         help();
@@ -51,7 +78,8 @@ inline config parse_config( int argc, char* const* argv )
     bool _emit_tac = false;
     bool _emit_cfg = false;
     bool _emit_son = false;
-    
+    auto stage = pipeline_stage::full;
+
     for ( int i = 1; i < argc; ++i )
     {
         if ( strcmp( argv[ i ], "-o" ) == 0 )
@@ -61,6 +89,17 @@ inline config parse_config( int argc, char* const* argv )
 
             ++i;
             file_out = argv[ i ];
+        }
+        else if ( strcmp( argv[ i ], "--stage" ) == 0 )
+        {
+            if ( i >= argc - 1 )
+                throw std::runtime_error( "missing argument of --stage" );
+            ++i;
+            stage = parse_stage( argv[ i ] );
+        }
+        else if ( std::strncmp( argv[ i ], "--stage=", 8 ) == 0 )
+        {
+            stage = parse_stage( argv[ i ] + 8 );
         }
         else if ( strcmp( argv[ i ], "--emit-tokens" ) == 0 )
         {
@@ -92,11 +131,13 @@ inline config parse_config( int argc, char* const* argv )
             _emit_son = true;
             continue;
         }
-
-        throw std::runtime_error( "invalid flag" );
+        else
+        {
+            throw std::runtime_error( std::string( "invalid flag: " ) + argv[ i ] );
+        }
     }
 
-    return { 
+    return {
             .in_name = file_in,
             .out_name = file_out,
             .emit_tokens = _emit_tokens,
@@ -104,7 +145,8 @@ inline config parse_config( int argc, char* const* argv )
             .emit_hir = _emit_hir,
             .emit_tac = _emit_tac,
             .emit_cfg = _emit_cfg,
-            .emit_son = _emit_son
+            .emit_son = _emit_son,
+            .stage = stage,
         };
 }
 

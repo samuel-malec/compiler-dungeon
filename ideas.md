@@ -8,4 +8,4 @@
 
 ## Blog & Readme
     - Add compilation pipeline to readme
-    - Create a blog series about implementation notes and a little bit of theory
+    - Create a blog series about implementation notes and a little bit y

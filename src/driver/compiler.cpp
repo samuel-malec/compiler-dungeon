@@ -20,22 +20,32 @@ namespace dungeon {
         // Lexing
         lexer l{doc};
         std::vector<token> toks = l.lex();
-        if (conf.emit_tokens)
+        if (conf.emit_tokens || conf.stage == pipeline_stage::lexer)
             printer.print_tokens(toks);
+        if (conf.stage == pipeline_stage::lexer)
+            return;
 
         // Parsing
         parser p{std::move(toks)};
         auto ast = p.parse_module();
-        if (conf.emit_ast)
+        if (!ast)
+            throw std::runtime_error("parser failed");
+        if (conf.emit_ast || conf.stage == pipeline_stage::parser)
             printer.print_ast_module(std::cout, ast.value());
+        if (conf.stage == pipeline_stage::parser)
+            return;
 
         // Semantic analysis
         sema::semantic_analyzer sa{};
         sa.run( ast.value() );
+        if (conf.stage == pipeline_stage::semantic || conf.stage == pipeline_stage::typecheck)
+            return;
 
         hir::module hir = hir::lower_ast_to_hir( ast.value(), sa.semantics );
-        if ( conf.emit_hir )
+        if ( conf.emit_hir || conf.stage == pipeline_stage::hir )
             printer.print_hir_module( hir );
+        if (conf.stage == pipeline_stage::hir)
+            return;
 
         // tac::program tac_ir = tac::lower_to_tac( hir );
         // if ( conf.emit_tac )

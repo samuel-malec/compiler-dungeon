@@ -273,11 +273,11 @@ namespace dungeon::print {
                     out << ">";
                 }
                 out << "(";
-                for (size_t i = 0; i < t->param_list.params.size(); ++i) {
+                for (size_t i = 0; i < t->params.params.size(); ++i) {
                     if (i)
                         out << ", ";
-                    out << t->param_list.params[i].name << ": ";
-                    print_type_annotation(out, t->param_list.params[i].ty);
+                    out << t->params.params[i].name << ": ";
+                    print_type_annotation(out, t->params.params[i].ty);
                 }
                 out << ") -> ";
                 print_type_annotation(out, t->ret_ty);
@@ -369,7 +369,7 @@ namespace dungeon::print {
         }
 
         if (auto t = std::get_if<hir::expr::var_data>(&e.data)) {
-            out << "Var #" << t->nid.value << " : ";
+            out << "Var #" << t->sid.value << " : ";
             print_hir_type(out, e.ty);
             out << '\n';
             return;
@@ -569,12 +569,12 @@ namespace dungeon::print {
 
             std::cout << "Function #" << i << '\n';
 
-            if (fn.root.idx >= fn.stmts.size()) {
+            if (fn.root.idx >= fn.exprs.size()) {
                 std::cout << "  <invalid root stmt #" << fn.root.idx << ">\n";
                 continue;
             }
 
-            print_hir_stmt(std::cout, fn, fn.root, 1);
+            print_hir_expr(std::cout, fn, fn.root, 1);
         }
     }
 

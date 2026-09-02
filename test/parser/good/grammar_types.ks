@@ -21,6 +21,6 @@ def identity<T>(value: T) -> T {
     value
 }
 
-def no_result() {
+def no_result() -> unit {
     return;
 }

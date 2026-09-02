@@ -23,8 +23,8 @@ namespace dungeon::hir {
 
         stmt_id lower_stmt_to_hir(ast::stmt &stmt, const sema::analysis_result &sema) {
             if (auto ld = std::get_if<ast::let_data>(&stmt.data)) {
-                sema::name_id nid = sema.interned_names.at(std::string(ld->decl.name));
-                return add_stmt(stmt::let_data{.target = nid, .value = lower_expr_to_hir(*ld->decl.initializer, sema)});
+                sema::symbol_id sid = sema.var_decl_symbols.at(&ld->decl);
+                return add_stmt(stmt::let_data{.target = sid, .value = lower_expr_to_hir(*ld->decl.initializer, sema)});
             }
             if (auto exp = std::get_if<ast::expr_stmt_data>(&stmt.data)) {
                 return add_stmt(stmt::expr_data{.e = lower_expr_to_hir(*exp->expr, sema)});
@@ -57,7 +57,7 @@ namespace dungeon::hir {
                 return add_expr(ty, expr::bool_lit{.val = true});
             }
             if (auto id = std::get_if<ast::identifier_data>(&expr.data)) {
-                return add_expr(ty, expr::var_data{.nid = sema.interned_names.at(std::string(id->name))});
+                return add_expr(ty, expr::var_data{.sid = sema.id_symbols.at(&expr)});
             }
             if (auto ud = std::get_if<ast::unary_data>(&expr.data)) {
                 auto lhs = lower_expr_to_hir(*ud->lhs, sema);
@@ -74,9 +74,9 @@ namespace dungeon::hir {
                 return add_expr(ty, expr::relational_data{.op = rd->op, .lhs = lhs, .rhs = rhs});
             }
             if (auto ad = std::get_if<ast::assign_data>(&expr.data)) {
-                sema::name_id nid = sema.interned_names.at(std::string(ad->id.name));
+                sema::symbol_id sid = sema.id_symbols.at(&expr);
                 auto val = lower_expr_to_hir(*ad->val, sema);
-                return add_expr(ty, expr::assign_data{.target = nid, .value = val});
+                return add_expr(ty, expr::assign_data{.target = sid, .value = val});
             }
             if (auto cd = std::get_if<ast::call_data>(&expr.data)) {
                 expr::call_data hcd{};
@@ -132,7 +132,7 @@ namespace dungeon::hir {
         }
 
         function build(ast::fn_decl &fun, const sema::analysis_result &sema) {
-            fn.root = add_stmt(stmt::expr_data{.e = lower_expr_to_hir(*fun.body, sema)});
+            fn.root = lower_expr_to_hir(*fun.body, sema);
             return std::move(fn);
         }
     };

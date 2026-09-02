@@ -219,7 +219,7 @@ namespace dungeon::ast {
 
     struct fn_decl {
         std::string_view name;
-        param_list param_list;
+        param_list params;
         type_annotation ret_ty;
         std::vector<std::string_view> generics;
         expr_ptr body; // the body is just the outermost function block

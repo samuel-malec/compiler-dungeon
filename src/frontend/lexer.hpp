@@ -124,6 +124,10 @@ struct lexer
             while ( ptr < sv.size() && std::isdigit( static_cast<unsigned char>( sv[ptr] ) ) )
                 ++ptr;
         }
+
+        if ( ptr < sv.size() && ( std::isalpha( static_cast<unsigned char>( sv[ptr] ) ) || sv[ptr] == '_' ) )
+            throw std::runtime_error( std::format( "invalid numeric literal at file: '{}', Ln {}, Col {}",
+                                                  loc.doc->name, loc.line, loc.col ) );
         return true;
     }
 };

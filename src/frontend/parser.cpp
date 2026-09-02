@@ -778,7 +778,7 @@ namespace dungeon {
         fd.generics = std::move(parse_generic_params());
 
         require(cat::punct, "(");
-        fd.param_list = parse_param_list().value_or(ast::param_list{});
+        fd.params = parse_param_list().value_or(ast::param_list{});
         require(cat::punct, ")");
 
         require(cat::punct, "->");

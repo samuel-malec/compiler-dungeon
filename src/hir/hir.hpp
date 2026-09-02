@@ -29,7 +29,7 @@ namespace dungeon::hir {
         };
 
         struct var_data {
-            sema::name_id nid;
+            sema::symbol_id sid;
         };
 
         struct unary_data {
@@ -50,7 +50,7 @@ namespace dungeon::hir {
         };
 
         struct assign_data {
-            sema::name_id target;
+            sema::symbol_id target;
             expr_id value;
         };
 
@@ -101,7 +101,7 @@ namespace dungeon::hir {
         };
 
         struct let_data {
-            sema::name_id target;
+            sema::symbol_id target;
             expr_id value;
         };
 
@@ -125,8 +125,8 @@ namespace dungeon::hir {
     };
 
     struct function {
-        stmt_id root;
-
+        expr_id root;
+        std::vector< sema::symbol_id > params;
         std::vector<expr> exprs;
         std::vector<stmt> stmts;
 
