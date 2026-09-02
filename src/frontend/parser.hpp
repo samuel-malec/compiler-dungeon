@@ -190,6 +190,8 @@ namespace dungeon {
 
         std::vector<std::string_view> parse_generic_params();
 
+        ast::type_annotation create_unit_annot();
+
         std::optional<toplevel> parse_fn_decl();
 
         std::vector<ast::enum_member> parse_members();

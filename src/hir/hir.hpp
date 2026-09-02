@@ -17,7 +17,6 @@ namespace dungeon::hir {
     };
 
     struct expr {
-        // TODO: we actually could do type_id here I think....
         const type *ty;
 
         struct int_lit {
@@ -62,7 +61,7 @@ namespace dungeon::hir {
         struct if_data {
             expr_id cond;
             expr_id then_body;
-            std::optional< expr_id > else_body;
+            std::optional<expr_id> else_body;
         };
 
         struct while_data {
@@ -126,7 +125,7 @@ namespace dungeon::hir {
 
     struct function {
         expr_id root;
-        std::vector< sema::symbol_id > params;
+        std::vector<sema::symbol_id> params;
         std::vector<expr> exprs;
         std::vector<stmt> stmts;
 

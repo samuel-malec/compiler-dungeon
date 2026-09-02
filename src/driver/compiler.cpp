@@ -8,7 +8,6 @@
 #include "../frontend/token.hpp"
 
 #include "../hir/ast2hir.hpp"
-#include "../ir/cfg/cfg.hpp"
 
 namespace dungeon {
     void compiler::run(config &conf) {

@@ -172,9 +172,7 @@ namespace dungeon {
         if (match(cat::punct, "&")) {
             fetch();
             if (match(cat::keyword, "mut")) {
-                bool is_mut = false;
                 fetch();
-                is_mut = true;
             }
             auto rhs = parse_unary();
             if (!rhs)
@@ -768,6 +766,13 @@ namespace dungeon {
         return gp;
     }
 
+    ast::type_annotation parser::create_unit_annot() {
+        ast::type_annotation res{};
+        res.base_name = "unit";
+        res.is_builtin = true;
+        return res;
+    }
+
     std::optional<ast::toplevel> parser::parse_fn_decl() {
         if (!match(cat::keyword, "def"))
             return {};
@@ -781,11 +786,15 @@ namespace dungeon {
         fd.params = parse_param_list().value_or(ast::param_list{});
         require(cat::punct, ")");
 
-        require(cat::punct, "->");
-        auto ret_ty = parse_type_annotation();
-        if (!ret_ty)
-            diag::error("Invalid type annotation");
-        fd.ret_ty = std::move(ret_ty.value());
+        if (match(cat::punct, "->")) {
+            fetch();
+            auto ret_ty = parse_type_annotation();
+            if (!ret_ty)
+                diag::error("Invalid type annotation");
+            fd.ret_ty = std::move(ret_ty.value());
+        } else {
+            fd.ret_ty = create_unit_annot();
+        }
 
         auto body = parse_block();
         if (!body)
