@@ -40,6 +40,7 @@ function(add_compiler_fixture_tests stage)
             COMMAND ${CMAKE_COMMAND}
                 -Dcompiler=$<TARGET_FILE:compiler-dungeon>
                 -Dinput=${input_file}
+                -Dstage=${stage}
                 -Dexpect=pass
                 -P ${CMAKE_SOURCE_DIR}/cmake/RunCompilerTest.cmake
         )
@@ -57,6 +58,7 @@ function(add_compiler_fixture_tests stage)
             COMMAND ${CMAKE_COMMAND}
                 -Dcompiler=$<TARGET_FILE:compiler-dungeon>
                 -Dinput=${input_file}
+                -Dstage=${stage}
                 -Dexpect=fail
                 -P ${CMAKE_SOURCE_DIR}/cmake/RunCompilerTest.cmake
         )

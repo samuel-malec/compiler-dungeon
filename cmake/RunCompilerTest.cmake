@@ -10,8 +10,12 @@ if(NOT DEFINED expect)
     message(FATAL_ERROR "expect mode not provided")
 endif()
 
+if(NOT DEFINED stage)
+    set(stage "full")
+endif()
+
 execute_process(
-    COMMAND "${compiler}" "${input}"
+    COMMAND "${compiler}" "${input}" "--stage" "${stage}"
     RESULT_VARIABLE exit_code
     OUTPUT_VARIABLE stdout
     ERROR_VARIABLE stderr
@@ -20,7 +24,7 @@ execute_process(
 if(expect STREQUAL "pass")
     if(NOT exit_code EQUAL 0)
         message(FATAL_ERROR
-            "expected success for ${input}, but compiler exited with ${exit_code}\n"
+            "expected success for ${input} in stage ${stage}, but compiler exited with ${exit_code}\n"
             "stdout:\n${stdout}\n"
             "stderr:\n${stderr}"
         )
@@ -28,7 +32,7 @@ if(expect STREQUAL "pass")
 elseif(expect STREQUAL "fail")
     if(exit_code EQUAL 0)
         message(FATAL_ERROR
-            "expected failure for ${input}, but compiler exited successfully\n"
+            "expected failure for ${input} in stage ${stage}, but compiler exited successfully\n"
             "stdout:\n${stdout}\n"
             "stderr:\n${stderr}"
         )
