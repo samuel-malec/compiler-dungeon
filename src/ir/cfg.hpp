@@ -22,27 +22,7 @@
 // struct basic_block;
 // using bb_ptr = std::unique_ptr< basic_block >;
 //
-// struct phi_node
-// {
-//     uint32_t base_id;
-//     tac::value res;
-//     std::unordered_map< block_id, tac::value > incoming;
-// };
-//
-// struct basic_block
-// {
-//     block_id id;
-//     uint32_t postorder_id;
-//
-//     std::vector< phi_node > phis;
-//     std::vector< tac::instr > instructions;
-//     std::vector< basic_block* > succ;
-//     std::vector< basic_block* > pred;
-//
-//     basic_block* idom = nullptr;
-//     std::vector< basic_block* > df;
-//     std::vector< basic_block* > dom_children;
-// };
+
 //
 // struct cfg
 // {
