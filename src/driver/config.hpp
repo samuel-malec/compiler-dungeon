@@ -104,32 +104,26 @@ inline config parse_config( int argc, char* const* argv )
         else if ( strcmp( argv[ i ], "--emit-tokens" ) == 0 )
         {
             _emit_tokens = true;
-            continue;
         }
         else if ( strcmp( argv[ i ], "--emit-ast" ) == 0 )
         {
             _emit_ast = true;
-            continue;
         }
         else if ( strcmp( argv[ i ], "--emit-hir" ) == 0 )
         {
             _emit_hir = true;
-            continue;
         }
         else if ( strcmp( argv[ i ], "--emit-tac" ) == 0 )
         {
             _emit_tac = true;
-            continue;
         }
         else if ( strcmp( argv[ i ], "--emit-cfg" ) == 0 )
         {
             _emit_cfg = true;
-            continue;
         }
         else if ( strcmp( argv[ i ], "--emit-son" ) == 0 )
         {
             _emit_son = true;
-            continue;
         }
         else
         {
