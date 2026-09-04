@@ -15,6 +15,9 @@ enum class pipeline_stage {
     semantic,
     typecheck,
     hir,
+    ir,
+    cfg,
+    optimization,
 };
 
 inline pipeline_stage parse_stage(std::string_view stage_name)
@@ -41,7 +44,7 @@ struct config
     bool emit_tokens;
     bool emit_ast;
     bool emit_hir;
-    bool emit_tac;
+    bool emit_ir;
     bool emit_cfg;
     bool emit_son;
     pipeline_stage stage = pipeline_stage::full;
@@ -75,7 +78,7 @@ inline config parse_config( int argc, char* const* argv )
     bool _emit_tokens = false;
     bool _emit_ast = false;
     bool _emit_hir = false;
-    bool _emit_tac = false;
+    bool _emit_ir = false;
     bool _emit_cfg = false;
     bool _emit_son = false;
     auto stage = pipeline_stage::full;
@@ -113,9 +116,9 @@ inline config parse_config( int argc, char* const* argv )
         {
             _emit_hir = true;
         }
-        else if ( strcmp( argv[ i ], "--emit-tac" ) == 0 )
+        else if ( strcmp( argv[ i ], "--emit-ir" ) == 0 )
         {
-            _emit_tac = true;
+            _emit_ir = true;
         }
         else if ( strcmp( argv[ i ], "--emit-cfg" ) == 0 )
         {
@@ -137,7 +140,7 @@ inline config parse_config( int argc, char* const* argv )
             .emit_tokens = _emit_tokens,
             .emit_ast = _emit_ast,
             .emit_hir = _emit_hir,
-            .emit_tac = _emit_tac,
+            .emit_ir = _emit_ir,
             .emit_cfg = _emit_cfg,
             .emit_son = _emit_son,
             .stage = stage,

@@ -20,7 +20,6 @@ namespace dungeon::hir {
             return curr;
         }
 
-
         stmt_id lower_stmt_to_hir(ast::stmt &stmt, const sema::analysis_result &sema) {
             if (auto ld = std::get_if<ast::let_data>(&stmt.data)) {
                 sema::symbol_id sid = sema.var_decl_symbols.at(&ld->decl);
@@ -75,6 +74,30 @@ namespace dungeon::hir {
             if (auto rd = std::get_if<ast::relational_data>(&expr.data)) {
                 auto lhs = lower_expr_to_hir(*rd->lhs, sema);
                 auto rhs = lower_expr_to_hir(*rd->rhs, sema);
+
+                // x != y ===> !( x == y )
+                if (rd->op == NEQ) {
+                    auto result = add_expr(ty, expr::relational_data{.op = EQ, .lhs = lhs, .rhs = rhs});
+                    return add_expr(ty, expr::unary_data{.op = NOT, .lhs = result});
+                }
+
+                // x > y ===> y < x
+                if (rd->op == GT) {
+                    return add_expr(ty, expr::relational_data{.op = LT, .lhs = rhs, .rhs = lhs});
+                }
+
+                // x >= y ===>  !( x < y )
+                if (rd->op == GEQ) {
+                    auto result = add_expr(ty, expr::relational_data{.op = LT, .lhs = lhs, .rhs = rhs});
+                    return add_expr(ty, expr::unary_data{.op = NOT, .lhs = result});
+                }
+
+                // x <= y ===> ! ( y < x )
+                if (rd->op == LEQ) {
+                    auto result = add_expr(ty, expr::relational_data{.op = LT, .lhs = rhs, .rhs = lhs});
+                    return add_expr(ty, expr::unary_data{.op = NOT, .lhs = result});
+                }
+
                 return add_expr(ty, expr::relational_data{.op = rd->op, .lhs = lhs, .rhs = rhs});
             }
             if (auto ad = std::get_if<ast::assign_data>(&expr.data)) {

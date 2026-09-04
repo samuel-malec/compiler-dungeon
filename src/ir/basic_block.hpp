@@ -16,8 +16,7 @@ namespace dungeon {
         std::unordered_map<block_id, ir::value *> incoming;
     };
 
-    struct terminator {
-    };
+    struct terminator{};
 
     struct basic_block {
         block_id id;

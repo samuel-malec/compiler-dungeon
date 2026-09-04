@@ -36,6 +36,7 @@ namespace dungeon::hir {
             expr_id lhs;
         };
 
+        // TODO: split this into binary_arith and binary_logic data ?
         struct binary_data {
             op_kind op;
             expr_id lhs;
@@ -129,12 +130,12 @@ namespace dungeon::hir {
         std::vector<expr> exprs;
         std::vector<stmt> stmts;
 
-        expr &get_expr(int idx) {
+        const expr &get_expr(int idx) const {
             assert(idx >= 0 && idx < exprs.size());
             return exprs[idx];
         }
 
-        stmt &get_stmt(int idx) {
+        const stmt &get_stmt(int idx) const {
             assert(idx >= 0 && idx < stmts.size());
             return stmts[idx];
         }

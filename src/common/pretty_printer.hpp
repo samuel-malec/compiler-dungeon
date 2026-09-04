@@ -1,14 +1,11 @@
 #pragma once
 
-#include <iostream>
-#include <sstream>
 #include <string>
-#include <variant>
 
 #include "../frontend/ast.hpp"
 #include "../sema/semantic.hpp"
-// #include "../middleend/tac.hpp"
 #include "../hir/hir.hpp"
+#include "../ir/module.hpp"
 
 namespace dungeon::print {
     struct pretty_printer {
@@ -31,6 +28,8 @@ namespace dungeon::print {
 
         void print_expr(std::ostream &out, expr &e, int depth);
 
+        void print_var_decl(std::ostream &out, ast::var_decl &decl, int depth);
+
         void print_stmt(std::ostream &out, stmt &s, int depth);
 
         void print_ast_module(std::ostream &out, ast::module &ast_module);
@@ -47,7 +46,19 @@ namespace dungeon::print {
             hir::stmt_id id,
             int depth);
 
-        void print_hir_module(const hir::module &hir);
+        void print_hir_module(std::ostream &os, const hir::module &hir_module);
+
+        void print_ir_value(std::ostream &out, const ir::value *value);
+
+        void print_ir_op(std::ostream &out, ir::opcode op);
+
+        void print_ir_operands(std::ostream &out, const std::vector<ir::value *> &operands);
+
+        void print_ir_instruction(std::ostream &out, const ir::instruction *i);
+
+        void print_ir_function(std::ostream &out, const ir::function &func);
+
+        void print_ir_module(std::ostream& out, const ir::module &module);
 
         // std::string tac_operand_to_string(tac::operand &operand, const atom_map &am);
         //
@@ -66,6 +77,6 @@ namespace dungeon::print {
         //
         // void export_to_dot(cfg::cfg &graph, std::ostream &out, const atom_map &am);
 
-        static void print_tokens(const std::vector<token> & toks);
+        static void print_tokens(const std::vector<token> &toks);
     };
 }

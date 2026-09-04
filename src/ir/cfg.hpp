@@ -6,35 +6,15 @@
 #include <set>
 #include <queue>
 #include <map>
+#include <memory>
 #include <unordered_map>
 #include <variant>
 
-// #include "../middleend/tac.hpp"
-//
-// namespace dungeon::cfg
-// {
-//
-// using block_id = uint32_t;
-// using fn_id = uint32_t;
-// using ins_id = uint32_t;
-// using var_id = uint32_t;
-//
-// struct basic_block;
-// using bb_ptr = std::unique_ptr< basic_block >;
-//
+#include "basic_block.hpp"
 
-//
-// struct cfg
-// {
-//     basic_block* entry = nullptr;
-//     std::vector< bb_ptr > basic_blocks;
-// };
-//
-// struct program
-// {
-//     std::map< fn_id, cfg > fns;
-// };
-//
+struct cfg {
+};
+
 // struct cfg_builder
 // {
 //     std::vector< bb_ptr > blocks;
@@ -46,12 +26,7 @@
 //                std::holds_alternative< tac::jump_data >( i.data );
 //     }
 //
-//     void connect( basic_block* from, basic_block* to )
-//     {
-//         from->succ.push_back( to );
-//         to->pred.push_back( from );
-//     }
-//
+
 //     void remove_unreachable( cfg& graph )
 //     {
 //         std::set< block_id > visited{};

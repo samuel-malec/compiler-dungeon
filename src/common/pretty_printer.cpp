@@ -1,6 +1,9 @@
 #include <optional>
 
 #include "pretty_printer.hpp"
+
+#include <iostream>
+
 #include "../frontend/ast.hpp"
 
 namespace dungeon::print {
@@ -215,6 +218,23 @@ namespace dungeon::print {
         out << "<unknown expr>\n";
     }
 
+    void pretty_printer::print_var_decl(std::ostream &out, ast::var_decl &decl, int depth) {
+        out << (decl.storage == ast::var_decl::local ? " Let" : " Static")
+                << decl.name
+                << (decl.modifier == ast::var_decl::mod_t::mut ? " (mut)" : " (imut)")
+                << " : ";
+        if (decl.ty)
+            print_type_annotation(out, *decl.ty);
+        else
+            out << "<inferred>";
+        out << "\n";
+        if (decl.initializer) {
+            pad(out, depth + 1);
+            out << "init:\n";
+            print_expr(out, *decl.initializer, depth + 2);
+        }
+    }
+
     void pretty_printer::print_stmt(std::ostream &out, stmt &s, int depth) {
         pad(out, depth);
         if (auto t = std::get_if<ast::ret_data>(&s.data)) {
@@ -232,19 +252,7 @@ namespace dungeon::print {
             return;
         }
         if (auto t = std::get_if<ast::let_data>(&s.data)) {
-            out << "Let " << t->decl.name
-                    << (t->decl.modifier == ast::var_decl::mod_t::mut ? " (mut)" : " (imut)")
-                    << " : ";
-            if (t->decl.ty)
-                print_type_annotation(out, *t->decl.ty);
-            else
-                out << "<inferred>";
-            out << "\n";
-            if (t->decl.initializer) {
-                pad(out, depth + 1);
-                out << "init:\n";
-                print_expr(out, *t->decl.initializer, depth + 2);
-            }
+            print_var_decl(out, t->decl, depth);
             return;
         }
         if (auto t = std::get_if<ast::expr_stmt_data>(&s.data)) {
@@ -302,15 +310,7 @@ namespace dungeon::print {
                 continue;
             }
             if (auto t = std::get_if<ast::global_var_decl>(&toplevel.data)) {
-                // TODO: we can extract the common 'var_decl' printing part from here and from let_data
-                out << "Static " << t->decl.name
-                        << (t->decl.modifier == ast::var_decl::mut ? " (mut)" : " (imut)")
-                        << " : ";
-                print_type_annotation(out, t->decl.ty.value());
-                out << '\n';
-                pad(out, 1);
-                if (t->decl.initializer)
-                    print_expr(out, *t->decl.initializer, 1);
+                print_var_decl(out, t->decl, 1);
                 continue;
             }
 
@@ -561,20 +561,288 @@ namespace dungeon::print {
     }
 
     void pretty_printer::print_hir_module(
+        std::ostream &os,
         const hir::module &hir_module) {
-        std::cout << "HIR:\n";
+        os << "HIR:\n";
 
         for (size_t i = 0; i < hir_module.functions.size(); ++i) {
             const auto &fn = hir_module.functions[i];
 
-            std::cout << "Function #" << i << '\n';
+            os << "Function #" << i << '\n';
 
             if (fn.root.idx >= fn.exprs.size()) {
-                std::cout << "  <invalid root stmt #" << fn.root.idx << ">\n";
+                os << "  <invalid root stmt #" << fn.root.idx << ">\n";
                 continue;
             }
 
-            print_hir_expr(std::cout, fn, fn.root, 1);
+            print_hir_expr(os, fn, fn.root, 1);
+        }
+    }
+
+    void pretty_printer::print_ir_value(
+        std::ostream &out,
+        const ir::value *value) {
+        if (!value) {
+            out << "<null>";
+            return;
+        }
+
+        out << 'v' << value->id;
+    }
+
+    void pretty_printer::print_ir_op(
+        std::ostream &out,
+        ir::opcode op
+    ) {
+        switch (op) {
+            case ir::opcode::iconst:
+                out << "iconst";
+                break;
+
+            case ir::opcode::bconst:
+                out << "bconst";
+                break;
+
+            case ir::opcode::add:
+                out << "add";
+                break;
+
+            case ir::opcode::sub:
+                out << "sub";
+                break;
+
+            case ir::opcode::mul:
+                out << "mul";
+                break;
+
+            case ir::opcode::div:
+                out << "div";
+                break;
+
+            case ir::opcode::mod:
+                out << "mod";
+                break;
+
+            case ir::opcode::shl:
+                out << "shl";
+                break;
+
+            case ir::opcode::shr:
+                out << "shr";
+                break;
+
+            case ir::opcode::neg:
+                out << "neg";
+                break;
+
+            case ir::opcode::eq:
+                out << "eq";
+                break;
+
+            case ir::opcode::lt:
+                out << "lt";
+                break;
+
+            case ir::opcode::lnot:
+                out << "lnot";
+                break;
+
+            case ir::opcode::land:
+                out << "land";
+                break;
+
+            case ir::opcode::lor:
+                out << "lor";
+                break;
+
+            case ir::opcode::br:
+                out << "br";
+                break;
+
+            case ir::opcode::cond_br:
+                out << "cond_br";
+                break;
+
+            case ir::opcode::alloca:
+                out << "alloca";
+                break;
+
+            case ir::opcode::load:
+                out << "load";
+                break;
+
+            case ir::opcode::store:
+                out << "store";
+                break;
+
+            case ir::opcode::call:
+                out << "call";
+                break;
+
+            case ir::opcode::ret:
+                out << "ret";
+                break;
+
+            case ir::opcode::phi:
+                out << "phi";
+                break;
+
+            case ir::opcode::label:
+                out << "label";
+                break;
+        }
+    }
+
+    void pretty_printer::print_ir_operands(
+        std::ostream &out,
+        const std::vector<ir::value *> &operands
+    ) {
+        for (size_t i = 0; i < operands.size(); ++i) {
+            if (i != 0)
+                out << ", ";
+
+            print_ir_value(out, operands[i]);
+        }
+    }
+
+    void pretty_printer::print_ir_instruction(
+        std::ostream &out,
+        const ir::instruction *i
+    ) {
+        assert(i);
+
+        switch (i->op) {
+            case ir::opcode::label: {
+                const auto &data =
+                        std::get<ir::label_data>(i->data);
+
+                out << "L" << data.id << ':';
+                break;
+            }
+
+            case ir::opcode::br: {
+                const auto &data =
+                        std::get<ir::br_data>(i->data);
+
+                out << "br L" << data.branch_id;
+                break;
+            }
+
+            case ir::opcode::cond_br: {
+                const auto &data =
+                        std::get<ir::cond_br_data>(i->data);
+
+                out << "cond_br ";
+
+                assert(i->operands.size() == 1);
+                print_ir_value(out, i->operands[0]);
+
+                out << ", L" << data.true_branch;
+                out << ", L" << data.false_branch;
+
+                break;
+            }
+
+            case ir::opcode::ret: {
+                out << "ret";
+
+                if (!i->operands.empty()) {
+                    out << ' ';
+                    print_ir_operands(out, i->operands);
+                }
+
+                break;
+            }
+
+            case ir::opcode::store: {
+                out << "store ";
+
+                assert(i->operands.size() == 2);
+
+                print_ir_value(out, i->operands[0]);
+                out << ", ";
+                print_ir_value(out, i->operands[1]);
+
+                break;
+            }
+
+            case ir::opcode::iconst: {
+                assert(i->result);
+
+                const auto &data =
+                        std::get<ir::iconst_data>(i->data);
+
+                print_ir_value(out, i->result);
+                out << " = iconst " << data.value;
+
+                break;
+            }
+
+            case ir::opcode::bconst: {
+                assert(i->result);
+
+                const auto &data =
+                        std::get<ir::bconst_data>(i->data);
+
+                print_ir_value(out, i->result);
+                out << " = bconst "
+                        << (data.value ? "true" : "false");
+
+                break;
+            }
+
+            case ir::opcode::call: {
+                const auto &data =
+                        std::get<ir::call_data>(i->data);
+
+                if (i->result) {
+                    print_ir_value(out, i->result);
+                    out << " = ";
+                }
+
+                out << "call fn#" << data.target.value << '(';
+                print_ir_operands(out, i->operands);
+                out << ')';
+
+                break;
+            }
+
+            default: {
+                if (i->result) {
+                    print_ir_value(out, i->result);
+                    out << " = ";
+                }
+
+                print_ir_op(out, i->op);
+
+                if (!i->operands.empty()) {
+                    out << ' ';
+                    print_ir_operands(out, i->operands);
+                }
+
+                break;
+            }
+        }
+
+        if (i->result) {
+            out << " : ";
+            print_hir_type( out, i->result->ty );
+        }
+
+        out << '\n';
+    }
+
+    void pretty_printer::print_ir_function(std::ostream &out, const ir::function &func) {
+        for (const auto &i: func.instructions) {
+            print_ir_instruction(out, i.get());
+        }
+    }
+
+    void pretty_printer::print_ir_module(std::ostream &out, const ir::module &module) {
+        out << "IR:\n";
+        for (size_t i = 0; i < module.funcs.size(); ++i) {
+            out << "Fn #" << i << '\n';
+            print_ir_function(out, module.funcs[i]);
         }
     }
 

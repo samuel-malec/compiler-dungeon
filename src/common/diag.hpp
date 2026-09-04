@@ -1,4 +1,6 @@
 #pragma once
+#include <sstream>
+
 namespace dungeon::diag
 {
     template < typename... Args >

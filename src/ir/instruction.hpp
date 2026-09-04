@@ -1,29 +1,30 @@
 #pragma once
 #include <vector>
 
-#include "basic_block.hpp"
 #include "value.hpp"
 
 /**
  * Linear code IR, meant to be transformed into a CFG
  */
 namespace dungeon::ir {
-    enum opcode {
+    enum class opcode {
         iconst, bconst,
 
-        add, sub, mul, div, neg,
+        add, sub, mul, div, mod, shl, shr, neg,
 
-        eq, neq, leq, lt, geq, gt,
+        eq, lt,
 
         lnot, land, lor,
 
         br, cond_br,
 
-        load, store,
+        alloca, load, store,
 
         call, ret,
 
         phi,
+
+        label,
     };
 
     struct iconst_data {
@@ -34,6 +35,23 @@ namespace dungeon::ir {
         bool value;
     };
 
+    struct call_data {
+        sema::fn_id target;
+    };
+
+    struct label_data {
+        uint32_t id;
+    };
+
+    struct br_data {
+        uint32_t branch_id;
+    };
+
+    struct cond_br_data {
+        uint32_t true_branch;
+        uint32_t false_branch;
+    };
+
     struct instruction {
         opcode op;
 
@@ -41,18 +59,18 @@ namespace dungeon::ir {
 
         std::vector<value *> operands;
 
-        basic_block *parent = nullptr;
-
-        // TODO: complete these data structures
         using data_t = std::variant<
+            std::monostate,
             iconst_data,
-            bconst_data>;
+            bconst_data,
+            call_data,
+            label_data,
+            br_data,
+            cond_br_data
+        >;
 
         data_t data;
 
         bool has_side_effects() const;
-    };
-
-    struct function {
     };
 }

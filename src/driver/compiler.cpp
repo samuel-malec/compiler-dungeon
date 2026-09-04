@@ -8,6 +8,7 @@
 #include "../frontend/token.hpp"
 
 #include "../hir/ast2hir.hpp"
+#include "../ir/hir2ir.hpp"
 
 namespace dungeon {
     void compiler::run(config &conf) {
@@ -42,13 +43,15 @@ namespace dungeon {
 
         hir::module hir = hir::lower_ast_to_hir( ast.value(), sa.semantics );
         if ( conf.emit_hir || conf.stage == pipeline_stage::hir )
-            printer.print_hir_module( hir );
+            printer.print_hir_module( std::cout, hir);
         if (conf.stage == pipeline_stage::hir)
             return;
 
-        // tac::program tac_ir = tac::lower_to_tac( hir );
-        // if ( conf.emit_tac )
-        //     printer.print_tac( tac_ir, sa.st.reverse_map );
+        ir::module ir_module = ir::lower_hir_to_ir( hir, sa.semantics );
+        if (conf.emit_ir || conf.stage == pipeline_stage::ir )
+            printer.print_ir_module( std::cout, ir_module );
+        if ( conf.stage == pipeline_stage::ir)
+            return;
 
         // cfg::program cfgraph = cfg::build_cfg( tac_ir );
 

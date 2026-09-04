@@ -77,7 +77,6 @@ namespace dungeon::sema {
         data_t data;
     };
 
-    // TODO: think about naming this analysis_context and adding typemanager here
     struct analysis_result {
         type_manager types;
         std::unordered_map<ast::expr *, const type *> expr_ty;
@@ -85,7 +84,6 @@ namespace dungeon::sema {
 
         std::vector<symbol> symbols;
 
-        // TODO:: fill these two
         std::unordered_map<const ast::expr *, symbol_id> id_symbols;
         std::unordered_map<const ast::var_decl *, symbol_id> var_decl_symbols;
 
