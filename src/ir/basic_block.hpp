@@ -1,6 +1,6 @@
 #pragma once
 #include <cstdint>
-#include <unordered_map>
+#include <map>
 #include <vector>
 
 #include "instruction.hpp"
@@ -8,12 +8,20 @@
 namespace dungeon {
     struct block_id {
         uint32_t id;
+
+        bool operator==(const block_id &other) const {
+            return id == other.id;
+        }
+
+        bool operator<(const block_id &other) const {
+            return id < other.id;
+        }
     };
 
     struct phi_node {
         uint32_t base_id;
         ir::value *res;
-        std::unordered_map<block_id, ir::value *> incoming;
+        std::map<block_id, ir::value *> incoming;
     };
 
     struct terminator{};

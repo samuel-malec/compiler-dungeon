@@ -1,5 +1,8 @@
 #pragma once
 
+
+// TODO: investigate why we allow () somewhere in conditions of if and while
+
 #include <format>
 #include <iostream>
 #include <memory>

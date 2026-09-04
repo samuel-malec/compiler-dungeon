@@ -52,8 +52,8 @@ namespace dungeon::hir {
             if (auto nld = std::get_if<ast::num_lit_data>(&expr.data)) {
                 return add_expr(ty, expr::int_lit{.val = nld->value});
             }
-            if (std::get_if<ast::bool_lit_data>(&expr.data)) {
-                return add_expr(ty, expr::bool_lit{.val = true});
+            if (auto bld = std::get_if<ast::bool_lit_data>(&expr.data)) {
+                return add_expr(ty, expr::bool_lit{.val = bld->value});
             }
             if (auto id = std::get_if<ast::identifier_data>(&expr.data)) {
                 return add_expr(ty, expr::var_data{.sid = sema.id_symbols.at(&expr)});
@@ -159,6 +159,33 @@ namespace dungeon::hir {
         }
 
         function build(ast::fn_decl &fun, const sema::analysis_result &sema) {
+            auto name_it = sema.interned_names.find(std::string(fun.name));
+            assert(name_it != sema.interned_names.end());
+            std::optional<sema::fn_id> function_id;
+            for (const auto &scope : sema.scopes) {
+                if (scope.kind != sema::scope::global)
+                    continue;
+                auto symbol_it = scope.symbols.find(name_it->second);
+                if (symbol_it == scope.symbols.end())
+                    break;
+                const auto *declared = std::get_if<sema::function>(
+                    &sema.symbols.at(symbol_it->second.value).data);
+                if (declared)
+                    function_id = declared->id;
+                break;
+            }
+            assert(function_id);
+            for (const auto &scope : sema.scopes) {
+                if (!scope.enclosing_fn || scope.kind != sema::scope::function ||
+                    scope.enclosing_fn->value != function_id->value)
+                    continue;
+                for (const auto &param : fun.params.params) {
+                    auto it = sema.interned_names.find(std::string(param.name));
+                    assert(it != sema.interned_names.end());
+                    this->fn.params.push_back(scope.symbols.at(it->second));
+                }
+                break;
+            }
             fn.root = lower_expr_to_hir(*fun.body, sema);
             return std::move(fn);
         }

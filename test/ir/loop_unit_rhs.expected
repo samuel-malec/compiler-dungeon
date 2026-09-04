@@ -1,0 +1,7 @@
+IR:
+Fn #0
+v1 = alloca : unit
+L1:
+br L2
+L2:
+ret

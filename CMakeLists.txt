@@ -70,3 +70,34 @@ add_compiler_fixture_tests(lexer)
 add_compiler_fixture_tests(parser)
 add_compiler_fixture_tests(semantic)
 add_compiler_fixture_tests(typecheck)
+add_compiler_fixture_tests(ir)
+
+add_test(
+    NAME ir.if_value.lowering
+    COMMAND ${CMAKE_COMMAND}
+        -Dcompiler=$<TARGET_FILE:compiler-dungeon>
+        -Dinput=${CMAKE_SOURCE_DIR}/test/ir/if_as_rhs_of_assign.ks
+        -Dexpected=${CMAKE_SOURCE_DIR}/test/ir/if_value.expected
+        -P ${CMAKE_SOURCE_DIR}/cmake/RunCompilerOutputTest.cmake
+)
+set_tests_properties(ir.if_value.lowering PROPERTIES LABELS "ir;lowering")
+
+add_test(
+    NAME ir.while_unit_rhs.lowering
+    COMMAND ${CMAKE_COMMAND}
+        -Dcompiler=$<TARGET_FILE:compiler-dungeon>
+        -Dinput=${CMAKE_SOURCE_DIR}/test/ir/while_zero_iterations.ks
+        -Dexpected=${CMAKE_SOURCE_DIR}/test/ir/while_zero_iterations.expected
+        -P ${CMAKE_SOURCE_DIR}/cmake/RunCompilerOutputTest.cmake
+)
+set_tests_properties(ir.while_unit_rhs.lowering PROPERTIES LABELS "ir;lowering")
+
+add_test(
+    NAME ir.loop_unit_rhs.lowering
+    COMMAND ${CMAKE_COMMAND}
+        -Dcompiler=$<TARGET_FILE:compiler-dungeon>
+        -Dinput=${CMAKE_SOURCE_DIR}/test/ir/loop_as_rhs_of_let.ks
+        -Dexpected=${CMAKE_SOURCE_DIR}/test/ir/loop_unit_rhs.expected
+        -P ${CMAKE_SOURCE_DIR}/cmake/RunCompilerOutputTest.cmake
+)
+set_tests_properties(ir.loop_unit_rhs.lowering PROPERTIES LABELS "ir;lowering")

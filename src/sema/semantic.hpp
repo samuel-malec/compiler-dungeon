@@ -17,13 +17,20 @@ namespace dungeon::sema {
     struct semantic_analyzer {
         analysis_result semantics;
 
-        // TODO: add support for structures
+        // TODO: add control flow analysis for checking if every path returns
+        struct flow_result {
+            const type *ty;
+            bool falls_through;
+            bool returns;
+            bool breaks;
+            bool continues;
+        };
+
         structure create_structure() {
             struct_id id{.value = static_cast<uint32_t>(semantics.structures.size())};
             return {.id = id};
         }
 
-        // TODO: add support for enums
         enumeration create_enumeration() {
             enum_id id{.value = static_cast<uint32_t>(semantics.enumerations.size())};
             enumeration e = {.id = id};
@@ -96,6 +103,12 @@ namespace dungeon::sema {
             symbol sym = create_symbol(nid, src_loc, std::move(data));
 
             // TODO: do we want this ? Rust doesn't do it like this ....
+            // e.g this should probably be valid kerosene code:
+            /**
+             * let x = 5;
+             * let x = x + 6;
+             * let x = 20;
+             */
             if (scope.symbols.contains(nid))
                 diag::error("Symbol already present", sym.src_loc);
 
@@ -184,7 +197,7 @@ namespace dungeon::sema {
 
             if (std::get_if<ast::num_lit_data>(&expr.data)) {
                 if (!is_integer(expected))
-                    diag::error("Actual type doesn't match the expected" , expr.src_loc);
+                    diag::error("Actual type doesn't match the expected", expr.src_loc);
                 return record(expr, expected);
             }
             if (auto ud = std::get_if<ast::unary_data>(&expr.data)) {
@@ -221,9 +234,8 @@ namespace dungeon::sema {
 
                 if (blk->trailing) {
                     check(*blk->trailing, expected, block_scope.id);
-                } else if (!compatible_types(expected, semantics.types.get_unit())) {
-                    diag::error("Expected a non-unit block to have a value", expr.src_loc);
                 }
+
                 return record(expr, expected);
             }
 
@@ -328,12 +340,16 @@ namespace dungeon::sema {
                 }
 
                 scope while_scope = create_scope(sid, curr_scope.enclosing_fn, scope::loop);
-                infer(*wd->body, while_scope.id);
+                auto body_ty = infer(*wd->body, while_scope.id);
+                if (!is_unit(body_ty))
+                    diag::error("While body needs to have a unit type", expr.src_loc);
                 return record(expr, semantics.types.get_unit());
             }
             if (auto ld = std::get_if<ast::loop_data>(&expr.data)) {
                 scope loop_scope = create_scope(sid, curr_scope.enclosing_fn, scope::loop);
-                infer(*ld->body, loop_scope.id);
+                auto body_ty = infer(*ld->body, loop_scope.id);
+                if (!is_unit(body_ty))
+                    diag::error("Loop body needs to have a unit type", expr.src_loc);
                 return record(expr, semantics.types.get_unit());
             }
             if (auto md = std::get_if<ast::match_data>(&expr.data)) {

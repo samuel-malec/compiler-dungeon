@@ -12,20 +12,12 @@
 
 #include "basic_block.hpp"
 
-struct cfg {
+namespace dungeon {
+    struct cfg {
+        std::vector<std::unique_ptr<basic_block>> basic_blocks;
+        basic_block *entry = nullptr;
+    };
 };
-
-// struct cfg_builder
-// {
-//     std::vector< bb_ptr > blocks;
-//
-//     bool is_terminator( const tac::instr& i ) const
-//     {
-//         return std::holds_alternative< tac::ret_data >( i.data ) ||
-//                std::holds_alternative< tac::branch_data >( i.data ) ||
-//                std::holds_alternative< tac::jump_data >( i.data );
-//     }
-//
 
 //     void remove_unreachable( cfg& graph )
 //     {

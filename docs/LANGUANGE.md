@@ -547,8 +547,7 @@ while x < 10 {
 }
 ```
 
-Both `loop` and `while` are expressions and may eventually support values produced through `break`.
-
+Right now, both `loop` and `while` always return unit, but they may eventually support values produced through `break`.
 ---
 
 # Literals

@@ -1,0 +1,19 @@
+IR:
+Fn #0
+v1 = alloca : i32
+v2 = iconst 10 : i32
+store v1, v2
+v3 = alloca : unit
+L1:
+v5 = load v1 : i32
+v6 = iconst 10 : i32
+v4 = lt v5, v6 : bool
+cond_br v4, L2, L3
+L2:
+v8 = load v1 : i32
+v9 = iconst 1 : i32
+v7 = add v8, v9 : i32
+store v1, v7
+br L1
+L3:
+ret

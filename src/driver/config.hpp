@@ -34,6 +34,8 @@ inline pipeline_stage parse_stage(std::string_view stage_name)
         return pipeline_stage::typecheck;
     if (stage_name == "hir")
         return pipeline_stage::hir;
+    if (stage_name == "ir")
+        return pipeline_stage::ir;
     throw std::runtime_error("unknown stage: " + std::string(stage_name));
 }
 
@@ -53,7 +55,7 @@ struct config
 inline void help()
 {
     std::cout << "Usage:\n"
-              << "./compiler-dungeon file.ks [--stage lexer|parser|semantic|typecheck|hir|full] [-o output]\n"
+              << "./compiler-dungeon file.ks [--stage lexer|parser|semantic|typecheck|hir|ir|full] [-o output]\n"
               << "--emit-tokens\n"
               << "--emit-ast\n"
               << "--emit-hir\n"

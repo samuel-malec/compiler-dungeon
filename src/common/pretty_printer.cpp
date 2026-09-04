@@ -690,6 +690,10 @@ namespace dungeon::print {
             case ir::opcode::label:
                 out << "label";
                 break;
+
+            case ir::opcode::param:
+                out << "param";
+                break;
         }
     }
 
@@ -804,6 +808,29 @@ namespace dungeon::print {
                 print_ir_operands(out, i->operands);
                 out << ')';
 
+                break;
+            }
+
+            case ir::opcode::param: {
+                assert(i->result);
+                const auto &data = std::get<ir::param_data>(i->data);
+                print_ir_value(out, i->result);
+                out << " = param " << data.index;
+                break;
+            }
+
+            case ir::opcode::phi: {
+                assert(i->result);
+                const auto &data = std::get<ir::phi_data>(i->data);
+                print_ir_value(out, i->result);
+                out << " = phi ";
+                for (size_t n = 0; n < data.incoming.size(); ++n) {
+                    if (n != 0)
+                        out << ", ";
+                    out << "[L" << data.incoming[n].first << ": ";
+                    print_ir_value(out, data.incoming[n].second);
+                    out << ']';
+                }
                 break;
             }
 

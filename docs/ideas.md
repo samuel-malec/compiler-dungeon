@@ -9,3 +9,13 @@
 ## Blog & Readme
     - Add compilation pipeline to readme
     - Create a blog series about implementation notes and a little bit y
+
+
+## Known issues:
+This program should compile, but it doesn't.
+```
+def main() -> i32 {
+    let x = 42;
+    return x;
+}
+```

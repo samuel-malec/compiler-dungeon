@@ -1,4 +1,6 @@
 #pragma once
+#include <cassert>
+#include <variant>
 #include <vector>
 
 #include "value.hpp"
@@ -25,7 +27,14 @@ namespace dungeon::ir {
         phi,
 
         label,
+
+        param,
     };
+
+
+    inline bool is_terminator(opcode op) {
+        return op == opcode::br || op == opcode::cond_br || op == opcode::ret;
+    }
 
     struct iconst_data {
         uint64_t value;
@@ -52,6 +61,14 @@ namespace dungeon::ir {
         uint32_t false_branch;
     };
 
+    struct param_data {
+        uint32_t index;
+    };
+
+    struct phi_data {
+        std::vector<std::pair<uint32_t, value *> > incoming;
+    };
+
     struct instruction {
         opcode op;
 
@@ -66,11 +83,25 @@ namespace dungeon::ir {
             call_data,
             label_data,
             br_data,
-            cond_br_data
+            cond_br_data,
+            param_data,
+            phi_data
         >;
 
         data_t data;
 
-        bool has_side_effects() const;
+        bool has_side_effects() const {
+            switch (op) {
+                case opcode::alloca:
+                case opcode::store:
+                case opcode::call:
+                case opcode::br:
+                case opcode::cond_br:
+                case opcode::ret:
+                    return true;
+                default:
+                    return false;
+            }
+        }
     };
 }
