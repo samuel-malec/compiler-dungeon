@@ -10,7 +10,7 @@
  */
 namespace dungeon::ir {
     enum class opcode {
-        iconst, bconst,
+        iconst, bconst, uconst,
 
         add, sub, mul, div, mod, shl, shr, neg,
 
@@ -42,6 +42,9 @@ namespace dungeon::ir {
 
     struct bconst_data {
         bool value;
+    };
+
+    struct uconst_data {
     };
 
     struct call_data {
@@ -80,6 +83,7 @@ namespace dungeon::ir {
             std::monostate,
             iconst_data,
             bconst_data,
+            uconst_data,
             call_data,
             label_data,
             br_data,

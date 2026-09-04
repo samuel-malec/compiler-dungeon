@@ -1,0 +1,19 @@
+IR:
+Fn #0
+v1 = bconst true : bool
+ret v1
+Fn #1
+v1 = alloca : bool
+v2 = bconst false : bool
+cond_br v2, L1, L2
+L2:
+v3 = bconst false : bool
+store v1, v3
+br L3
+L1:
+v4 = call fn#0() : bool
+store v1, v4
+br L3
+L3:
+v5 = load v1 : bool
+ret v5

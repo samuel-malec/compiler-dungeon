@@ -14,6 +14,10 @@ v8 = load v1 : i32
 v9 = iconst 1 : i32
 v7 = add v8, v9 : i32
 store v1, v7
+v10 = uconst : unit
 br L1
 L3:
-ret
+v11 = uconst : unit
+store v3, v11
+v12 = uconst : unit
+ret v12

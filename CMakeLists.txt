@@ -101,3 +101,13 @@ add_test(
         -P ${CMAKE_SOURCE_DIR}/cmake/RunCompilerOutputTest.cmake
 )
 set_tests_properties(ir.loop_unit_rhs.lowering PROPERTIES LABELS "ir;lowering")
+
+add_test(
+    NAME ir.short_circuit.lowering
+    COMMAND ${CMAKE_COMMAND}
+        -Dcompiler=$<TARGET_FILE:compiler-dungeon>
+        -Dinput=${CMAKE_SOURCE_DIR}/test/ir/short_circuit.ks
+        -Dexpected=${CMAKE_SOURCE_DIR}/test/ir/short_circuit.expected
+        -P ${CMAKE_SOURCE_DIR}/cmake/RunCompilerOutputTest.cmake
+)
+set_tests_properties(ir.short_circuit.lowering PROPERTIES LABELS "ir;lowering")

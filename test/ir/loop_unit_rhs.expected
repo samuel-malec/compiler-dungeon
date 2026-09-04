@@ -4,4 +4,7 @@ v1 = alloca : unit
 L1:
 br L2
 L2:
-ret
+v2 = uconst : unit
+store v1, v2
+v3 = uconst : unit
+ret v3

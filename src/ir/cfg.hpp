@@ -12,16 +12,15 @@
 
 #include "basic_block.hpp"
 
-namespace dungeon {
+namespace dungeon::ir {
     struct cfg {
         std::vector<std::unique_ptr<basic_block>> basic_blocks;
         basic_block *entry = nullptr;
     };
-};
-
-//     void remove_unreachable( cfg& graph )
+//
+//     void remove_unreachable(cfg& graph )
 //     {
-//         std::set< block_id > visited{};
+//         std::set<block_id > visited{};
 //         std::queue< basic_block* > que{};
 //         que.push( graph.entry );
 //         visited.insert( graph.entry->id );
@@ -40,7 +39,7 @@ namespace dungeon {
 //             }
 //         }
 //
-//         std::vector< bb_ptr > blocks = std::move( graph.basic_blocks );
+//         std::vector< std::unique_ptr<basic_block> > blocks = std::move( graph.basic_blocks );
 //         graph.basic_blocks.clear();
 //
 //         for ( auto& bb : blocks )
@@ -86,14 +85,14 @@ namespace dungeon {
 //         {
 //             int start = leader_indices[ i ];
 //             int end = i == leader_indices.size() - 1 ? insns.size() : leader_indices[ i + 1 ];
-//             bb_ptr curr = std::make_unique< basic_block >( );
+//             auto curr = std::make_unique< basic_block >( );
 //             curr->id = res.basic_blocks.size();
 //
 //             for ( int ptr = start; ptr < end; ++ptr )
 //             {
-//                 if ( std::holds_alternative< tac::label_data >( insns[ ptr ].data ) )
+//                 if ( std::holds_alternative< label_data >( insns[ ptr ].data ) )
 //                 {
-//                     tac::label_data ld = std::get< tac::label_data >( insns[ ptr ].data );
+//                     label_data ld = std::get< label_data >( insns[ ptr ].data );
 //                     label_map[ ld.id ] = curr.get();
 //                 }
 //                 else
@@ -110,9 +109,9 @@ namespace dungeon {
 //                 continue;
 //
 //             auto& terminator = bb->instructions.back();
-//             if ( std::holds_alternative< tac::jump_data >( terminator.data ) )
+//             if ( std::holds_alternative< br_data>( terminator.data ) )
 //             {
-//                 tac::jump_data jd = std::get< tac::jump_data >( terminator.data );
+//                 jump_data jd = std::get< tac::jump_data >( terminator.data );
 //                 connect( bb.get(), label_map.at( jd.label ) );
 //             }
 //             else if ( std::holds_alternative< tac::branch_data >( terminator.data ) )
@@ -146,4 +145,4 @@ namespace dungeon {
 //     return res;
 // }
 //
-// };
+};

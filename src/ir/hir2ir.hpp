@@ -80,6 +80,72 @@ namespace dungeon::ir {
             return is_terminator(op);
         }
 
+        value *gen_bconst(bool val) {
+            value *result = get_value(sema.types.get_bool());
+            add_instr(opcode::bconst, result, {}, bconst_data{.value = val});
+            return result;
+        }
+
+        value *gen_uconst() {
+            value *result = get_value(sema.types.get_unit());
+            add_instr(opcode::uconst, result, {}, uconst_data{});
+            return result;
+        }
+
+        value *shortcircuit_and(const hir::expr::binary_data *bd) {
+            value *res = get_value(sema.types.get_bool());
+            add_instr(opcode::alloca, res, {}, {});
+
+            label_data ok = gen_label();
+            label_data nok = gen_label();
+            label_data end = gen_label();
+
+            value *left = lower_hir_expr(bd->lhs);
+            add_instr(opcode::cond_br, {}, {left}, cond_br_data{.true_branch = ok.id, .false_branch = nok.id});
+
+            add_instr(opcode::label, {}, {}, nok);
+            value *_false = gen_bconst(false);
+            add_instr(opcode::store, {}, {res, _false}, {});
+            add_instr(opcode::br, {}, {}, br_data{.branch_id = end.id});
+
+            add_instr(opcode::label, {}, {}, ok);
+            value *rhs = lower_hir_expr(bd->rhs);
+            add_instr(opcode::store, {}, {res, rhs}, {});
+            add_instr(opcode::br, {}, {}, br_data{.branch_id = end.id});
+
+            add_instr(opcode::label, {}, {}, end);
+            value *result = get_value(sema.types.get_bool());
+            add_instr(opcode::load, result, {res}, {});
+            return result;
+        }
+
+        value *shortcircuit_or(const hir::expr::binary_data *bd) {
+            value *res = get_value(sema.types.get_bool());
+            add_instr(opcode::alloca, res, {}, {});
+
+            label_data ok = gen_label();
+            label_data nok = gen_label();
+            label_data end = gen_label();
+
+            value *left = lower_hir_expr(bd->lhs);
+            add_instr(opcode::cond_br, {}, {left}, cond_br_data{.true_branch = ok.id, .false_branch = nok.id});
+
+            add_instr(opcode::label, {}, {}, ok);
+            value *_true = gen_bconst(true);
+            add_instr(opcode::store, {}, {res, _true}, {});
+            add_instr(opcode::br, {}, {}, br_data{.branch_id = end.id});
+
+            add_instr(opcode::label, {}, {}, nok);
+            value *rhs = lower_hir_expr(bd->rhs);
+            add_instr(opcode::store, {}, {res, rhs}, {});
+            add_instr(opcode::br, {}, {}, br_data{.branch_id = end.id});
+
+            add_instr(opcode::label, {}, {}, end);
+            value *result = get_value(sema.types.get_bool());
+            add_instr(opcode::load, result, {res}, {});
+            return result;
+        }
+
         value *lower_hir_expr(hir::expr_id eid) {
             // TODO:: add instructions
             auto &e = hir_fn.get_expr(eid.idx);
@@ -104,8 +170,12 @@ namespace dungeon::ir {
                 add_instr(from_opkind(t->op), result, {lower_hir_expr(t->lhs)}, {});
                 return result;
             }
-            // TODO: we should think about lazy evaluation of boolean expressions here
             if (auto t = std::get_if<hir::expr::binary_data>(&e.data)) {
+                if (t->op == AND)
+                    return shortcircuit_and(t);
+                if (t->op == OR)
+                    return shortcircuit_or(t);
+
                 value *result = get_value(e.ty);
                 value *lhs = lower_hir_expr(t->lhs);
                 value *rhs = lower_hir_expr(t->rhs);
@@ -125,7 +195,7 @@ namespace dungeon::ir {
                 value *rhs = lower_hir_expr(t->value);
                 value *target = symbol_value.at(t->target.value);
                 add_instr(opcode::store, nullptr, {target, rhs}, {});
-                return nullptr;
+                return rhs;
             }
             if (auto t = std::get_if<hir::expr::call_data>(&e.data)) {
                 value *result = get_value(e.ty);
@@ -171,7 +241,7 @@ namespace dungeon::ir {
                 }
                 add_instr(opcode::label, nullptr, {}, end_lab);
                 if (!res)
-                    return nullptr;
+                    return gen_uconst();
 
                 value *result = get_value(e.ty);
                 add_instr(opcode::load, result, {res}, {});
@@ -195,7 +265,7 @@ namespace dungeon::ir {
                 add_instr(opcode::label, nullptr, {}, end_lab);
 
                 jmp_table.pop_back();
-                return nullptr;
+                return gen_uconst();
             }
             if (auto t = std::get_if<hir::expr::loop_data>(&e.data)) {
                 auto body_lab = gen_label();
@@ -210,7 +280,7 @@ namespace dungeon::ir {
                 add_instr(opcode::label, nullptr, {}, end_lab);
 
                 jmp_table.pop_back();
-                return nullptr;
+                return gen_uconst();
             }
             if (auto t = std::get_if<hir::expr::block_data>(&e.data)) {
                 for (auto &s: t->stmts) {
@@ -219,7 +289,9 @@ namespace dungeon::ir {
                 if (t->trailing)
                     return lower_hir_expr(*t->trailing);
 
-                return nullptr;
+                if (current_path_terminated())
+                    return nullptr;
+                return gen_uconst();
             }
 
             assert(false && "unknown hir expression");
