@@ -1,7 +1,6 @@
 #pragma once
 #include <functional>
 
-#include "cfg.hpp"
 #include "function.hpp"
 #include <algorithm>
 #include <unordered_map>
@@ -15,15 +14,14 @@ namespace dungeon::ir {
                 to->pred.push_back(from);
         }
 
-        static bool is_terminator(const instruction *ins) {
-            return ins->op == opcode::br || ins->op == opcode::cond_br ||
-                   ins->op == opcode::ret;
+        void build(module &mod) {
+            for (auto &fn: mod.funcs)
+                build(fn);
         }
 
-        cfg build(const function &fn) {
-            cfg graph{};
+        void build(function &fn) {
             if (fn.instructions.empty())
-                return graph;
+                return;
 
             std::vector<size_t> leaders{0};
             std::unordered_map<uint32_t, size_t> label_positions;
@@ -34,7 +32,7 @@ namespace dungeon::ir {
                 if (is_terminator(ins) && i + 1 < fn.instructions.size())
                     leaders.push_back(i + 1);
             }
-            for (const auto &[_, position] : label_positions)
+            for (const auto &[_, position]: label_positions)
                 leaders.push_back(position);
 
             std::sort(leaders.begin(), leaders.end());
@@ -45,7 +43,7 @@ namespace dungeon::ir {
                 const size_t begin = leaders[i];
                 const size_t end = i + 1 < leaders.size() ? leaders[i + 1] : fn.instructions.size();
                 auto block = std::make_unique<basic_block>();
-                block->id = block_id{static_cast<uint32_t>(graph.basic_blocks.size())};
+                block->id = block_id{static_cast<uint32_t>(fn.blocks.size())};
                 for (size_t j = begin; j < end; ++j) {
                     const instruction *ins = fn.instructions[j].get();
                     if (ins->op == opcode::label)
@@ -53,14 +51,14 @@ namespace dungeon::ir {
                     else
                         block->instructions.push_back(const_cast<instruction *>(ins));
                 }
-                graph.basic_blocks.push_back(std::move(block));
+                fn.blocks.push_back(std::move(block));
             }
 
-            for (size_t i = 0; i < graph.basic_blocks.size(); ++i) {
-                basic_block *block = graph.basic_blocks[i].get();
+            for (size_t i = 0; i < fn.blocks.size(); ++i) {
+                basic_block *block = fn.blocks[i].get();
                 if (block->instructions.empty()) {
-                    if (i + 1 < graph.basic_blocks.size())
-                        connect(block, graph.basic_blocks[i + 1].get());
+                    if (i + 1 < fn.blocks.size())
+                        connect(block, fn.blocks[i + 1].get());
                     continue;
                 }
                 const instruction *last = block->instructions.back();
@@ -70,12 +68,12 @@ namespace dungeon::ir {
                     const auto &data = std::get<cond_br_data>(last->data);
                     connect(block, labels.at(data.true_branch));
                     connect(block, labels.at(data.false_branch));
-                } else if (last->op != opcode::ret && i + 1 < graph.basic_blocks.size()) {
-                    connect(block, graph.basic_blocks[i + 1].get());
+                } else if (last->op != opcode::ret && i + 1 < fn.blocks.size()) {
+                    connect(block, fn.blocks[i + 1].get());
                 }
             }
-            graph.entry = graph.basic_blocks.front().get();
-            return graph;
+
+            fn.entry = fn.blocks.front().get();
         }
     };
 }

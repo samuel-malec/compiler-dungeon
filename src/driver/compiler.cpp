@@ -53,7 +53,9 @@ namespace dungeon {
         if ( conf.stage == pipeline_stage::ir)
             return;
 
-        // cfg::program cfgraph = cfg::build_cfg( tac_ir );
+        ir::cfg_builder builder{};
+        builder.build(ir_module);
+        if ( conf.emit_cfg || conf.stage == pipeline_stage::cfg ) {}
 
 
         // TODO: should the analysis pipeline just be inlined here ? 

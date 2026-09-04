@@ -22,19 +22,13 @@ namespace dungeon::ir {
 
         alloca, load, store,
 
-        call, ret,
+        call, ret, param,
 
         phi,
 
         label,
-
-        param,
     };
 
-
-    inline bool is_terminator(opcode op) {
-        return op == opcode::br || op == opcode::cond_br || op == opcode::ret;
-    }
 
     struct iconst_data {
         uint64_t value;
@@ -110,4 +104,12 @@ namespace dungeon::ir {
 
         // TODO: additional api: set_operand, replace_all_uses_with
     };
+
+    inline bool is_terminator(const opcode op) {
+        return op == opcode::br || op == opcode::cond_br || op == opcode::ret;
+    }
+
+    inline bool is_terminator(const instruction *i) {
+        return is_terminator(i->op);
+    }
 }
