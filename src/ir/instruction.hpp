@@ -107,5 +107,7 @@ namespace dungeon::ir {
                     return false;
             }
         }
+
+        // TODO: additional api: set_operand, replace_all_uses_with
     };
 }

@@ -438,18 +438,18 @@ namespace dungeon {
         std::vector<ast::match_arm> arms;
 
         if (match(cat::punct, "}"))
-            diag::error(peek(), "Match expressions require at least one arm");
+            diag::error(peek(), "Match expressions require at least one aarch64");
 
         {
             while (true) {
                 auto pattern = parse_pattern();
                 if (!pattern)
-                    diag::error(peek(), "Expected pattern in match arm");
+                    diag::error(peek(), "Expected pattern in match aarch64");
 
                 require(cat::punct, "=>");
                 auto arm_expr = parse_expr();
                 if (!arm_expr)
-                    diag::error(t, "Expected expression in match arm");
+                    diag::error(t, "Expected expression in match aarch64");
 
                 arms.push_back(ast::match_arm{
                     .pattern = make_expr(std::move(*pattern)),
