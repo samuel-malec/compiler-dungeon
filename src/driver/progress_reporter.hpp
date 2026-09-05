@@ -29,6 +29,21 @@ namespace dungeon {
             }
         };
 
+        // We have use std::cerr here, because some tests require comparing actual/expected std::cout output from compiler pipeline
+        void pad(int depth) {
+            for (int i = 0; i < 2 * depth; ++i)
+                std::cerr << " ";
+        }
+
+        ~progress_reporter() {
+            // TODO: add a percentage of time here
+            for (auto &e: entries) {
+                pad(e.depth);
+                std::cerr << '[' << e.name << "] ";
+                std::cerr << "took " << e.duration.count() << " ms" << '\n';
+            }
+        }
+
         scope time(std::string name) { return scope(*this, std::move(name)); }
 
         void print(std::ostream &out) const;

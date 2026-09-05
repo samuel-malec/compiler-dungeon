@@ -60,22 +60,7 @@ namespace dungeon::print {
 
         void print_ir_module(std::ostream& out, const ir::module &module);
 
-        // std::string tac_operand_to_string(tac::operand &operand, const atom_map &am);
-        //
-        // std::string tac_instr_symbolic(tac::instr &i, const atom_map &am);
-        //
-        // void print_tac_inst(std::ostream &out, tac::instr &i, const atom_map &am) {
-        //     std::holds_alternative<tac::label_data>(i.data) ? pad(out, 2) : pad(out, 4);
-        //     out << tac_instr_symbolic(i, am) << '\n';
-        // }
-        //
-        // void print_tac(tac::program &tac, const atom_map &am);
-        //
-        // std::string value_to_string(const tac::value &v, const atom_map &am);
-        //
-        // std::string phi_to_string(const cfg::phi_node &phi, const atom_map &am);
-        //
-        // void export_to_dot(cfg::cfg &graph, std::ostream &out, const atom_map &am);
+        void export_to_dot(std::ostream& out, const ir::module & module);
 
         static void print_tokens(const std::vector<token> &toks);
     };

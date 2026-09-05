@@ -884,6 +884,9 @@ namespace dungeon::print {
         }
     }
 
+    void pretty_printer::export_to_dot(std::ostream &out, const ir::module &module) {
+    }
+
     void pretty_printer::print_tokens(const std::vector<token> &toks) {
         for (auto &t: toks)
             std::cout << t << "\n";

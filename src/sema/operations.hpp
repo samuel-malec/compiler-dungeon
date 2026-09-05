@@ -19,7 +19,6 @@ namespace dungeon {
         AND, OR,
     };
 
-    // In these functions, we omit the operations representing compound assignments, since these get desugared after parsing
     inline bool is_rel_op(op_kind op) {
         return op == EQ || op == NEQ || op == LT || op == LEQ || op == GT || op == GEQ;
     }
