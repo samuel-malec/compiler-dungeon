@@ -60,6 +60,8 @@ namespace dungeon::print {
 
         void print_ir_module(std::ostream& out, const ir::module &module);
 
+        void export_to_dot(std::ostream &out, const ir::function &fn);
+
         void export_to_dot(std::ostream& out, const ir::module & module);
 
         static void print_tokens(const std::vector<token> &toks);

@@ -218,12 +218,12 @@ namespace dungeon::ir {
 
                 value *cond = lower_hir_expr(t->cond);
                 add_instr(opcode::cond_br, nullptr, {cond}, cond_br_data{
-                              .true_branch = then_lab.id, .false_branch = else_lab.id
-                          });
+                              .true_branch = then_lab.id, .false_branch = else_lab.id});
                 // then branch
                 add_instr(opcode::label, nullptr, {}, then_lab);
                 value *tbody = lower_hir_expr(t->then_body);
-                if (res)
+
+                if (res && tbody)
                     add_instr(opcode::store, {}, {res, tbody}, {});
 
                 if (!current_path_terminated())
@@ -234,7 +234,7 @@ namespace dungeon::ir {
                 value *ebody = nullptr;
                 if (t->else_body) {
                     ebody = lower_hir_expr(*t->else_body);
-                    if (res)
+                    if (res && ebody)
                         add_instr(opcode::store, {}, {res, ebody}, {});
                     if (!current_path_terminated())
                         add_instr(opcode::br, nullptr, {}, br_data{.branch_id = end_lab.id});

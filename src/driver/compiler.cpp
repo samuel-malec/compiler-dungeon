@@ -20,7 +20,7 @@ namespace dungeon {
         progress_reporter reporter{};
 
         // Lexing
-        std::vector<token> toks;
+        std::vector<token> toks{};
         {
             reporter.time("lexing");
             lexer l{doc};
@@ -33,8 +33,7 @@ namespace dungeon {
 
         // Parsing
         parser p{std::move(toks)};
-        std::optional<ast::module> ast;
-
+        std::optional<ast::module> ast = std::nullopt;
         {
             reporter.time("parsing");
             ast = p.parse_module();
@@ -49,14 +48,14 @@ namespace dungeon {
         // Semantic analysis
         sema::semantic_analyzer sa{};
         {
-            reporter.time("parsing");
+            reporter.time("semantic analysis");
             sa.run(ast.value());
             if (conf.stage == pipeline_stage::semantic || conf.stage == pipeline_stage::typecheck)
                 return;
         }
 
         // AST -> HIR lowering
-        hir::module hir;
+        hir::module hir{};
         {
             reporter.time("hir lowering");
             hir = hir::lower_ast_to_hir(ast.value(), sa.semantics);
@@ -67,7 +66,7 @@ namespace dungeon {
         }
 
         // Generating IR
-        ir::module ir_module;
+        ir::module ir_module{};
         {
             reporter.time("generating ir");
             ir_module = ir::lower_hir_to_ir(hir, sa.semantics);

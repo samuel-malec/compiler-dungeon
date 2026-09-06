@@ -10,7 +10,7 @@ enable_testing()
 add_executable(compiler-dungeon
         src/sema/semantic.hpp
         src/sema/types.hpp
-        src/analysis/analysis.hpp
+        src/analysis/pass.hpp
 )
 target_sources(compiler-dungeon
     PRIVATE

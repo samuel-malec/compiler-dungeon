@@ -36,7 +36,6 @@ namespace dungeon {
         }
 
         ~progress_reporter() {
-            // TODO: add a percentage of time here
             for (auto &e: entries) {
                 pad(e.depth);
                 std::cerr << '[' << e.name << "] ";
