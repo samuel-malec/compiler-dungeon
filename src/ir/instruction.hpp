@@ -1,8 +1,8 @@
 #pragma once
-#include <cassert>
 #include <variant>
 #include <vector>
 
+#include "../sema/symbol_table.hpp"
 #include "value.hpp"
 
 /**
@@ -10,7 +10,7 @@
  */
 namespace dungeon::ir {
     enum class opcode {
-        iconst, bconst, uconst,
+        iconst, bconst,
 
         add, sub, mul, div, mod, shl, shr, neg,
 
@@ -29,16 +29,12 @@ namespace dungeon::ir {
         label,
     };
 
-
     struct iconst_data {
         uint64_t value;
     };
 
     struct bconst_data {
         bool value;
-    };
-
-    struct uconst_data {
     };
 
     struct call_data {
@@ -77,7 +73,6 @@ namespace dungeon::ir {
             std::monostate,
             iconst_data,
             bconst_data,
-            uconst_data,
             call_data,
             label_data,
             br_data,

@@ -9,5 +9,3 @@ namespace dungeon {
         virtual ~pass() = default;
     };
 }
-
-}

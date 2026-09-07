@@ -603,10 +603,6 @@ namespace dungeon::print {
                 out << "bconst";
                 break;
 
-            case ir::opcode::uconst:
-                out << "uconst";
-                break;
-
             case ir::opcode::add:
                 out << "add";
                 break;
@@ -796,13 +792,6 @@ namespace dungeon::print {
                 out << " = bconst "
                         << (data.value ? "true" : "false");
 
-                break;
-            }
-
-            case ir::opcode::uconst: {
-                assert(i->result);
-                print_ir_value(out, i->result);
-                out << " = uconst";
                 break;
             }
 

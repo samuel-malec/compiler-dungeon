@@ -198,9 +198,15 @@ namespace dungeon {
     };
 
     struct cfg2ssa : pass {
+
+        void verify_ssa(const ir::function & fn) {
+            // TODO:
+        }
+
         void run(ir::function &fn) override {
             ssa_builder sb{};
             sb.transform_ssa(fn);
+            verify_ssa(fn);
         }
     };
 }

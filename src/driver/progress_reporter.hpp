@@ -24,22 +24,26 @@ namespace dungeon {
             }
 
             ~scope() {
-                --r.current_depth;
                 r.entries.push_back({name, std::chrono::steady_clock::now() - start, r.current_depth});
+                --r.current_depth;
             }
         };
 
-        // We have use std::cerr here, because some tests require comparing actual/expected std::cout output from compiler pipeline
-        void pad(int depth) {
-            for (int i = 0; i < 2 * depth; ++i)
-                std::cerr << " ";
+        // FIXME: Currently, we have use std::cerr here, because some tests require comparing actual/expected std::cout output from compiler pipeline
+        std::string indent(std::ostream &out, int depth) {
+            return std::string(depth * 2, ' ');
+        }
+
+        void pad(std::ostream &out, int depth) {
+            out << indent(out, depth);
         }
 
         ~progress_reporter() {
+            std::cout << "\033[1;32mCompilation report:\033[m\n";
             for (auto &e: entries) {
-                pad(e.depth);
-                std::cerr << '[' << e.name << "] ";
-                std::cerr << "took " << e.duration.count() << " ms" << '\n';
+                pad(std::cout, e.depth);
+                std::cout << '[' << e.name << "] ";
+                std::cout << "took " << e.duration.count() << " ms" << '\n';
             }
         }
 

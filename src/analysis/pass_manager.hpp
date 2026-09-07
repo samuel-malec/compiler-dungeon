@@ -3,6 +3,7 @@
 #include <vector>
 
 #include "pass.hpp"
+#include "../ir/module.hpp"
 
 namespace dungeon::analysis {
     struct pass_manager {
@@ -11,8 +12,8 @@ namespace dungeon::analysis {
         void add(std::unique_ptr<pass> pass) { passes.push_back(std::move(pass)); }
 
         void run(ir::function &fn) {
-            for (auto pass: passes)
-                pass->run(fn);
+            for (auto& pass: passes)
+                    pass->run(fn);
         }
     };
 }
