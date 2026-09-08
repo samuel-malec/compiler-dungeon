@@ -44,7 +44,7 @@ namespace dungeon {
             return bb1;
         }
 
-        void compute_dom_tree(ir::function& fn) {
+        static void compute_dom_tree(ir::function& fn) {
             const order rpo = reverse_postorder(fn);
 
             // computing idoms
@@ -89,7 +89,7 @@ namespace dungeon {
                     bb->idom->dom_children.push_back(bb.get());
         }
 
-        void compute_dom_frontiers(ir::function& fn) {
+        static void compute_dom_frontiers(ir::function& fn) {
             for (auto &bb: fn.blocks) {
                 if (bb->pred.size() < 2)
                     continue;
@@ -111,16 +111,16 @@ namespace dungeon {
             // }
         }
 
-        void insert_phi(ir::function &fn) {
-            std::set<ir::value> vars;
+        static void insert_phi(ir::function &fn) {
+            std::set<ir::value*> vars;
             std::map<uint32_t, std::set<basic_block *> > def_blocks;
-            // for (auto &bb: fn.blocks) {
-            //     for (auto &ins: bb->instructions) {
-            //         ir::value v = *ins->result;
-            //         vars.insert(v);
-            //         def_blocks[v.id].insert(bb.get());
-            //     }
-            // }
+            for (auto &bb: fn.blocks) {
+                for (auto &ins: bb->instructions) {
+                    auto v = ins->result;
+                    vars.insert(v);
+                    def_blocks[v->id].insert(bb.get());
+                }
+            }
 
             for (auto &[vid, defs]: def_blocks) {
                 std::set<basic_block *> has_phi;
@@ -148,38 +148,15 @@ namespace dungeon {
         }
 
         void rename(basic_block *block, version_map &vm, stack &s) {
-            // std::map<value_id, int> pushed;
-            // auto fresh = [ & ](value_id id) -> ir::value {
-            //     ir::value nv{.id = id, .version = vm[id]++};
-            //     s[id].push_back(nv);
-            //     pushed[id]++;
-            //     return nv;
-            // };
-            //
-            // for (auto &phi: block->phis)
-            //     phi.res = fresh(phi.base_id);
-            //
-            // for (auto &ins: block->instructions) {
-            //     ins.for_each_use([ & ](tac::value &v) {
-            //         auto &tmp = s[v.id];
-            //         if (!tmp.empty())
-            //             v = tmp.back();
-            //         // empty : use before any reaching def
-            //     });
-            //
-            //     auto d = ins->result;
-            //     ins.set_target(fresh(d->id));
-            // }
-            //
-            // for (basic_block *succ: block->succ) {
-            //     for (auto &phi: succ->phis) {
-            //         if (auto &tmp = s[phi.base_id]; !tmp.empty())
-            //             phi.incoming[block->id] = &tmp.back();
-            //     }
-            // }
-            //
-            // for (basic_block *child: block->dom_children)
-            //     rename(child, vm, s);
+            for (basic_block *succ: block->succ) {
+                for (auto &phi: succ->phis) {
+                    if (auto &tmp = s[phi.base_id]; !tmp.empty())
+                        phi.incoming[block->id] = &tmp.back();
+                }
+            }
+
+            for (basic_block *child: block->dom_children)
+                rename(child, vm, s);
             //
             // for (auto &[id, n]: pushed)
             //     for (int k = 0; k < n; ++k)
@@ -191,15 +168,14 @@ namespace dungeon {
             compute_dom_frontiers(fn);
             insert_phi(fn);
 
-            version_map vm;
-            stack s;
+            version_map vm{};
+            stack s{};
             rename(fn.entry, vm, s);
         }
     };
 
     struct cfg2ssa : pass {
-
-        void verify_ssa(const ir::function & fn) {
+        static void verify_ssa(const ir::function & fn) {
             // TODO:
         }
 

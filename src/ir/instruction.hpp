@@ -97,6 +97,10 @@ namespace dungeon::ir {
             }
         }
 
+        void for_each_use() {
+
+        }
+
         // TODO: additional api: set_operand, replace_all_uses_with
     };
 
