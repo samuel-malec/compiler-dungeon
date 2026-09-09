@@ -19,6 +19,8 @@
 .idea/
 *.swp
 *~
+*.dot
+*.svg
 
 build-debug/
 build-asan/

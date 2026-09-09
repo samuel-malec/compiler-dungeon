@@ -86,6 +86,15 @@ namespace dungeon {
             builder.build(ir_module);
         }
 
+        {
+            reporter.time("analysis");
+            analysis::pass_manager pm = get_defult_pipeline();
+            for (auto& fn : ir_module.funcs)
+                pm.run(fn);
+        }
+
+        // hmm, we are dumping this here because we want to get an ssa-based cfg, but once we implement destroy_ssa in analysis,
+        // this won't work anymore
         if (conf.emit_cfg || conf.stage == pipeline_stage::cfg) {
             std::string file_name = "cfg.dot";
             std::ofstream ofs{file_name};
@@ -94,11 +103,5 @@ namespace dungeon {
             printer.export_to_dot(ofs, ir_module);
         }
 
-        {
-            reporter.time("analysis");
-            analysis::pass_manager pm = get_defult_pipeline();
-            for (auto &fn: ir_module.funcs)
-                pm.run(fn);
-        }
     }
 }

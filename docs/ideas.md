@@ -1,6 +1,5 @@
-## Frontend:
-    - Remove curly brackets from the syntax and make the language identation-based to feel more like a scripting language
-    - Make function return type optional, but if no type is provided, assign unit type as the actual return type 
+## Frontend
+    - Whip out a Pratt parser for expression parsing
 
 ## Semantics
     - Allow unitialized variables, but report errors once unitialized variables are used
@@ -9,13 +8,3 @@
 ## Blog & Readme
     - Add compilation pipeline to readme
     - Create a blog series about implementation notes and a little bit y
-
-
-## Known issues:
-This program should compile, but it doesn't.
-```
-def main() -> i32 {
-    let x = 42;
-    return x;
-}
-```

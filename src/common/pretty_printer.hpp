@@ -58,6 +58,8 @@ namespace dungeon::print {
 
         void print_ir_function(std::ostream &out, const ir::function &func);
 
+        void print_phi_node(std::ostream &out, const phi_node &phi);
+
         void print_ir_module(std::ostream& out, const ir::module &module);
 
         void export_to_dot(std::ostream &out, const ir::function &fn);
