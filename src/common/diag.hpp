@@ -15,6 +15,7 @@ namespace dungeon::diag
         throw std::runtime_error( buf.str() );
     }
 
+
 struct diag
 {
 

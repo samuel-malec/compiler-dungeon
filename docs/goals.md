@@ -9,23 +9,28 @@
 [] Algebraic data types
 [] Affine/linear types
 ```
+## Diagnostics
+```
+[wip] Add a mechanism that allows creating nicer diagnostics like warnings/errors 
+```
+
 ## Middle-end
 ```
 [x] CFG
 [x] SSA
-[X] Pass Manager
+[] Pass Manager
 [] Analysis Manager
 ```
 
 ## SSA Optimizations
 ```
-[X] Constant folding
+[wip] Constant folding
 [] SCCP
 [X] DCE
 [] CSE
 [] GVN
 [] Copy propagation
-[X] CFG simplification
+[wip] CFG simplification
 [] Jump threading
 [] LICM
 [] Strength reduction
