@@ -21,6 +21,22 @@ target_sources(compiler-dungeon
     src/common/pretty_printer.cpp
 )
 
+if (EMSCRIPTEN)
+    add_executable(compiler-dungeon-wasm
+        src/wasm/api.cpp
+        src/driver/compiler.cpp
+        src/frontend/lexer.cpp
+        src/frontend/parser.cpp
+        src/common/pretty_printer.cpp
+    )
+    target_compile_options(compiler-dungeon-wasm PRIVATE "-fwasm-exceptions")
+    target_link_options(compiler-dungeon-wasm PRIVATE
+        "-lembind" "-sMODULARIZE=1" "-sEXPORT_ES6=1"
+        "-sENVIRONMENT=web" "-sALLOW_MEMORY_GROWTH=1"
+        "-fwasm-exceptions"
+    )
+endif()
+
 function(add_compiler_fixture_tests stage)
     file(GLOB_RECURSE stage_good CONFIGURE_DEPENDS
         "${CMAKE_SOURCE_DIR}/test/${stage}/good/*"

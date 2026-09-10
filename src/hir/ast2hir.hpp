@@ -191,7 +191,7 @@ namespace dungeon::hir {
         }
     };
 
-    hir::module lower_ast_to_hir(ast::module &ast, const sema::analysis_result &sema) {
+    inline hir::module lower_ast_to_hir(ast::module &ast, const sema::analysis_result &sema) {
         hir::module res{};
         for (auto &[loc, data]: ast.toplevel_items) {
             if (const auto fdecl = std::get_if<ast::fn_decl>(&data)) {
