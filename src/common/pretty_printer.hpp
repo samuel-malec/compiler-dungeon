@@ -54,17 +54,17 @@ namespace dungeon::print {
 
         void print_ir_operands(std::ostream &out, const std::vector<ir::value *> &operands);
 
-        void print_ir_instruction(std::ostream &out, const ir::instruction *i);
+        void print_ir_instruction(std::ostream &out, const ir::instruction *i, const basic_block *owner = nullptr);
 
         void print_ir_function(std::ostream &out, const ir::function &func);
 
         void print_phi_node(std::ostream &out, const phi_node &phi);
 
-        void print_ir_module(std::ostream& out, const ir::module &module);
+        void print_ir_module(std::ostream &out, const ir::module &module);
 
-        void export_to_dot(std::ostream &out, const ir::function &fn);
+        void print_cfg_function(std::ostream &out, const ir::function &fn);
 
-        void export_to_dot(std::ostream& out, const ir::module & module);
+        void print_cfg_module(std::ostream &out, const ir::module &module);
 
         static void print_tokens(std::ostream &out, const std::vector<token> &toks);
 

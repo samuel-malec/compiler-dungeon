@@ -17,7 +17,7 @@
 
 namespace dungeon {
     struct compile_result {
-        std::string tokens, ast, hir, ir, cfg_dot;
+        std::string tokens, ast, hir, ir, cfg;
         std::string stage;
         std::string error;
     };
@@ -87,8 +87,8 @@ namespace dungeon {
             }
             {
                 std::ostringstream oss;
-                printer.export_to_dot(oss, ir_mod);
-                r.cfg_dot = oss.str();
+                printer.print_cfg_module(TODO, ir_mod);
+                r.cfg = oss.str();
             }
             r.stage = "analysis";
 
@@ -106,7 +106,7 @@ EMSCRIPTEN_BINDINGS(compiler_dungeon) {
         .field("ast", &dungeon::compile_result::ast)
         .field("hir", &dungeon::compile_result::hir)
         .field("ir", &dungeon::compile_result::ir)
-        .field("cfg_dot", &dungeon::compile_result::cfg_dot)
+        .field("cfg", &dungeon::compile_result::cfg)
         .field("stage", &dungeon::compile_result::stage)
         .field("error", &dungeon::compile_result::error);
     emscripten::function("compile", &dungeon::compile);

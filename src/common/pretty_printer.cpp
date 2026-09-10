@@ -710,7 +710,8 @@ namespace dungeon::print {
 
     void pretty_printer::print_ir_instruction(
         std::ostream &out,
-        const ir::instruction *i
+        const ir::instruction *i,
+        const basic_block *owner
     ) {
         assert(i);
 
@@ -727,7 +728,12 @@ namespace dungeon::print {
                 const auto &data =
                         std::get<ir::br_data>(i->data);
 
-                out << "br L" << data.branch_id;
+                if (owner) {
+                    assert(owner->succ.size() == 1);
+                    out << "br bb" << owner->succ[0]->id.id;
+                } else {
+                    out << "br L" << data.branch_id;
+                }
                 break;
             }
 
@@ -740,8 +746,14 @@ namespace dungeon::print {
                 assert(i->operands.size() == 1);
                 print_ir_value(out, i->operands[0]);
 
-                out << ", L" << data.true_branch;
-                out << ", L" << data.false_branch;
+                if (owner) {
+                    assert(owner->succ.size() == 2);
+                    out << ", bb" << owner->succ[0]->id.id;
+                    out << ", bb" << owner->succ[1]->id.id;
+                } else {
+                    out << ", L" << data.true_branch;
+                    out << ", L" << data.false_branch;
+                }
 
                 break;
             }
@@ -829,7 +841,7 @@ namespace dungeon::print {
                     if (!first)
                         out << ", ";
                     first = false;
-                    out << "[L" << bid.id << ": ";
+                    out << "[bb" << bid.id << ": ";
                     print_ir_value(out, val);
                     out << ']';
                 }
@@ -891,90 +903,40 @@ namespace dungeon::print {
         }
     }
 
-    std::string escape_dot_label(const std::string &s) {
-        std::string out;
-        out.reserve(s.size());
-        for (char c: s) {
-            if (c == '"' || c == '\\')
-                out.push_back('\\');
-            out.push_back(c);
-        }
-        return out;
-    }
-
-    void pretty_printer::export_to_dot(std::ostream &out, const ir::function &fn) {
-        out << "digraph CFG {\n";
-        out << "    node [shape=box, fontname=\"Courier New\", fontsize=10, style=filled, fillcolor=\"#f9f9f9\"];\n";
-        out << "    edge [fontname=\"Courier New\", fontsize=9];\n\n";
-
-
-        if (fn.entry) {
-            out <<
-                    "    entry [shape=circle, label=\"entry\", style=filled, fillcolor=\"#d4edda\", fontname=\"Courier New\", fontsize=10, width=0.5, fixedsize=true];\n";
-            out << "    entry -> block_" << fn.entry->id.id << ";\n\n";
-        }
-
-
+    void pretty_printer::print_cfg_function(std::ostream &out, const ir::function &fn) {
         for (const auto &bb: fn.blocks) {
-            std::ostringstream label;
-            label << "BB " << bb->id.id << "\\l";
-            label << "--------------------------------\\l";
+            out << "bb" << bb->id.id << ":";
 
-
-            if (!bb->phis.empty()) {
-                for (auto &phi: bb->phis) {
-                    std::ostringstream ps;
-                    print_phi_node(ps, phi);
-                    label << escape_dot_label(ps.str()) << "\\l";
+            if (!bb->pred.empty()) {
+                out << "  ; preds: ";
+                for (size_t i = 0; i < bb->pred.size(); ++i) {
+                    if (i != 0)
+                        out << ", ";
+                    out << "bb" << bb->pred[i]->id.id;
                 }
-                label << "................................\\l";
             }
+            out << "\n";
 
+            for (const auto &phi: bb->phis) {
+                out << "  ";
+                print_phi_node(out, phi);
+                out << "\n";
+            }
 
             for (const auto *ins: bb->instructions) {
-                std::ostringstream is;
-                print_ir_instruction(is, ins);
-                std::string s = is.str();
-                if (!s.empty() && s.back() == '\n')
-                    s.pop_back();
-                label << escape_dot_label(s) << "\\l";
+                out << "  ";
+                print_ir_instruction(out, ins, bb.get());
             }
 
-
-            out << "    block_" << bb->id.id << " [label=\"" << label.str() << "\"];\n";
+            out << "\n";
         }
-
-
-        out << "\n";
-
-
-        for (const auto &bb: fn.blocks) {
-            const bool is_conditional = !bb->instructions.empty() &&
-                                        bb->instructions.back()->op == ir::opcode::cond_br;
-
-
-            for (size_t i = 0; i < bb->succ.size(); ++i) {
-                out << "    block_" << bb->id.id << " -> block_" << bb->succ[i]->id.id;
-
-
-                if (is_conditional) {
-                    if (i == 0)
-                        out << " [label=\"true\", color=\"#2ca02c\", fontcolor=\"#2ca02c\"]";
-                    else if (i == 1)
-                        out << " [label=\"false\", color=\"#d62728\", fontcolor=\"#d62728\"]";
-                }
-
-
-                out << ";\n";
-            }
-        }
-
-        out << "}\n";
     }
 
-    void pretty_printer::export_to_dot(std::ostream &out, const ir::module &module) {
-        for (const auto &fn: module.funcs)
-            export_to_dot(out, fn);
+    void pretty_printer::print_cfg_module(std::ostream &out, const ir::module &module) {
+        for (size_t i = 0; i < module.funcs.size(); ++i) {
+            out << "Fn #" << i << "\n";
+            print_cfg_function(out, module.funcs[i]);
+        }
     }
 
     void pretty_printer::print_tokens(std::ostream &out, const std::vector<token> &toks) {

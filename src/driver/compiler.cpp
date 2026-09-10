@@ -92,14 +92,8 @@ namespace dungeon {
                 pm.run(fn);
         }
 
-        // hmm, we are dumping this here because we want to get an ssa-based cfg, but once we implement destroy_ssa in analysis,
-        // this won't work anymore
         if (conf.emit_cfg || conf.stage == pipeline_stage::cfg) {
-            std::string file_name = "cfg.dot";
-            std::ofstream ofs{file_name};
-            if (!ofs)
-                diag::error("Couldn't open file:", file_name);
-            printer.export_to_dot(ofs, ir_module);
+            printer.print_cfg_module(std::cout, ir_module);
         }
     }
 }
