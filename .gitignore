@@ -24,6 +24,7 @@
 
 build-debug/
 build-asan/
+build-wasm/
 build/
 bin/
 debug/

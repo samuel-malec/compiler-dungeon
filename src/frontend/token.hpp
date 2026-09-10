@@ -1,8 +1,9 @@
 #pragma once
 
+#include <memory>
+#include <ostream>
 #include <string>
 #include <string_view>
-#include <memory>
 
 namespace dungeon
 {
