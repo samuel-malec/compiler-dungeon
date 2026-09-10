@@ -107,8 +107,7 @@ namespace dungeon::hir {
             }
             if (auto cd = std::get_if<ast::call_data>(&expr.data)) {
                 expr::call_data hcd{};
-                auto fn = sema.expr_fn.at(&expr);
-                hcd.target = fn->id;
+                hcd.target = sema.expr_fn.at(&expr);
 
                 for (auto &arg: cd->args)
                     hcd.args.push_back(lower_expr_to_hir(*arg, sema));

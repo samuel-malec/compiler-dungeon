@@ -265,7 +265,6 @@ namespace dungeon::print {
     }
 
     void pretty_printer::print_ast_module(std::ostream &out, ast::module &ast_module) {
-        std::cout << "AST\n";
         for (auto &toplevel: ast_module.toplevel_items) {
             if (auto t = std::get_if<ast::fn_decl>(&toplevel.data)) {
                 out << "Fn " << t->name;
@@ -565,7 +564,7 @@ namespace dungeon::print {
         for (size_t i = 0; i < hir_module.functions.size(); ++i) {
             const auto &fn = hir_module.functions[i];
 
-            os << "Function #" << i << '\n';
+            os << "Fn #" << i << '\n';
 
             if (fn.root.idx >= fn.exprs.size()) {
                 os << "  <invalid root stmt #" << fn.root.idx << ">\n";
@@ -874,7 +873,7 @@ namespace dungeon::print {
     void pretty_printer::print_ir_function(std::ostream &out, const ir::function &func) {
         for (const auto &i: func.instructions)
             print_ir_instruction(out, i.get());
-        std::cout << '\n';
+        out << '\n';
     }
 
     void pretty_printer::print_phi_node(std::ostream &out, const phi_node &phi) {
@@ -927,7 +926,6 @@ namespace dungeon::print {
 
             out << '\n';
         }
-        out << '\n';
     }
 
     void pretty_printer::print_cfg_module(std::ostream &out, const ir::module &module) {

@@ -299,7 +299,7 @@ namespace dungeon::sema {
                 if (!fn)
                     diag::error("Expected a function", expr.src_loc);
 
-                semantics.expr_fn[&expr] = fn;
+                semantics.expr_fn[&expr] = fn->id;
                 if (cd->args.size() != fn->param_types.size())
                     diag::error("Mismatch in the amount of arguments", expr.src_loc);
 

@@ -80,7 +80,7 @@ namespace dungeon::sema {
     struct analysis_result {
         type_manager types;
         std::unordered_map<ast::expr *, const type *> expr_ty;
-        std::unordered_map<ast::expr *, const function *> expr_fn;
+        std::unordered_map<ast::expr *, fn_id > expr_fn;
 
         std::vector<symbol> symbols;
 
