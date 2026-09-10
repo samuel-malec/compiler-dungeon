@@ -23,6 +23,7 @@ namespace dungeon {
                 ir::instruction *inst = worklist.front();
                 worklist.pop();
                 for (auto &operand: inst->operands) {
+                    
                     ir::instruction *def_instr = operand->defining_instruction;
                     if (!useful.contains(def_instr)) {
                         worklist.push(def_instr);

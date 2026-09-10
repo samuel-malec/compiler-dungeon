@@ -1,5 +1,6 @@
 #pragma once
 #include <algorithm>
+#include <ranges>
 #include <set>
 
 #include "pass.hpp"
@@ -221,6 +222,32 @@ namespace dungeon {
                     s[vid].pop_back();
         }
 
+        void add_phi_instrs(ir::function &fn) {
+            for (auto &block: fn.blocks) {
+                std::vector<ir::instruction *> new_instrs;
+
+                for (auto &phi: block->phis) {
+                    auto i = std::make_unique<ir::instruction>();
+                    i->op = ir::opcode::phi;
+                    i->result = phi.res;
+                    phi.res->defining_instruction = i.get();
+                    for (auto &val: phi.incoming | std::views::values) {
+                        i->operands.push_back(val);
+                        val->users.push_back(i.get());
+                    }
+
+                    i->data = ir::phi_data{.incoming = phi.incoming};
+                    fn.instructions.push_back(std::move(i));
+                    new_instrs.push_back(fn.instructions.back().get());
+                }
+
+                block->phis.clear();
+                for (auto &old_instr: block->instructions)
+                    new_instrs.push_back(old_instr);
+                block->instructions = std::move(new_instrs);
+            }
+        }
+
         void build(ir::function &fn) {
             for (auto &v: fn.values)
                 next_val_id = std::max(next_val_id, v->id + 1);
@@ -233,17 +260,25 @@ namespace dungeon {
 
             stack s{};
             rename(fn.entry, s, vars);
+            add_phi_instrs(fn);
         }
     };
 
     struct mem2reg : pass {
         static void verify_ssa(const ir::function &fn) {
-            for (auto &bb: fn.blocks)
-                for (auto &phi: bb->phis)
-                    for (basic_block *pred: bb->pred)
-                        if (!phi.incoming.contains(pred->id))
-                            diag::error("phi for v", phi.base_id, "in bb", bb->id.id,
+            for (auto &bb: fn.blocks) {
+                for (auto &ins: bb->instructions) {
+                    if (ins->op != ir::opcode::phi)
+                        continue;
+
+                    const auto &data = std::get<ir::phi_data>(ins->data);
+                    for (basic_block *pred: bb->pred) {
+                        if (!data.incoming.contains(pred->id))
+                            diag::error("phi for v", ins->result->id, "in bb", bb->id.id,
                                         "is missing an incoming value from predecessor bb", pred->id.id);
+                    }
+                }
+            }
         }
 
         void run(ir::function &fn) override {

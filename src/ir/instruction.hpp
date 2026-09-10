@@ -5,9 +5,11 @@
 #include "../sema/symbol_table.hpp"
 #include "value.hpp"
 
-/**
- * Linear code IR, meant to be transformed into a CFG
- */
+namespace dungeon {
+    struct block_id;
+}
+
+// TODO: make phi an actual instruction
 namespace dungeon::ir {
     enum class opcode {
         iconst, bconst,
@@ -59,7 +61,7 @@ namespace dungeon::ir {
     };
 
     struct phi_data {
-        std::vector<std::pair<uint32_t, value *> > incoming;
+        std::map<block_id, value *> incoming;
     };
 
     struct instruction {
@@ -86,7 +88,6 @@ namespace dungeon::ir {
         bool has_side_effects() const {
             switch (op) {
                 case opcode::alloca:
-                case opcode::load:
                 case opcode::store:
                 case opcode::call:
                 case opcode::br:

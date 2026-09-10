@@ -823,11 +823,14 @@ namespace dungeon::print {
                 const auto &data = std::get<ir::phi_data>(i->data);
                 print_ir_value(out, i->result);
                 out << " = phi ";
-                for (size_t n = 0; n < data.incoming.size(); ++n) {
-                    if (n != 0)
+
+                bool first = true;
+                for (auto &[bid, val]: data.incoming) {
+                    if (!first)
                         out << ", ";
-                    out << "[L" << data.incoming[n].first << ": ";
-                    print_ir_value(out, data.incoming[n].second);
+                    first = false;
+                    out << "[L" << bid.id << ": ";
+                    print_ir_value(out, val);
                     out << ']';
                 }
                 break;
