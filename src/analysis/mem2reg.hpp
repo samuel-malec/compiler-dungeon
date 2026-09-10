@@ -5,7 +5,6 @@
 #include "pass.hpp"
 #include "../common/diag.hpp"
 
-// mem2reg-like ssa building algorithm
 namespace dungeon {
     struct ssa_builder {
         using value_id = uint32_t;
@@ -24,10 +23,24 @@ namespace dungeon {
             res.push_back(bb);
         }
 
-        static order reverse_postorder(const ir::function &fn) {
+        static void remove_unreachable_blocks(ir::function &fn, const std::set<block_id> &reachable) {
+            std::vector<std::unique_ptr<basic_block> > new_blocks;
+            for (auto &block: fn.blocks) {
+                if (!reachable.contains(block->id))
+                    continue;
+                new_blocks.push_back(std::move(block));
+            }
+
+            fn.blocks = std::move(new_blocks);
+        }
+
+        static order reverse_postorder(ir::function &fn) {
             order res{};
             std::set<block_id> visited{};
             dfs(fn.entry, res, visited);
+
+            remove_unreachable_blocks(fn, visited);
+
             std::ranges::reverse(res);
 
             for (int i = 0; i < res.size(); ++i)
@@ -47,10 +60,9 @@ namespace dungeon {
             return bb1;
         }
 
-        static void compute_dom_tree(ir::function &fn) {
-            const order rpo = reverse_postorder(fn);
+        static void compute_idom_tree(ir::function &fn) {
+            auto rpo = reverse_postorder(fn);
 
-            // computing idoms
             for (auto &bb: fn.blocks)
                 bb->idom = nullptr;
             fn.entry->idom = fn.entry;
@@ -58,11 +70,11 @@ namespace dungeon {
 
             while (changed) {
                 changed = false;
-                for (int i = 0; i < rpo.size(); ++i) {
-                    if (rpo[i]->id == fn.entry->id)
+                for (auto i: rpo) {
+                    if (i->id == fn.entry->id)
                         continue;
 
-                    basic_block *b = rpo[i];
+                    basic_block *b = i;
                     basic_block *new_idom = nullptr;
 
                     for (basic_block *pred: b->pred) {
@@ -123,23 +135,6 @@ namespace dungeon {
             auto v = std::make_unique<ir::value>(next_val_id++, ty, std::vector<ir::instruction *>{});
             fn.values.push_back(std::move(v));
             return fn.values.back().get();
-        }
-
-        static void erase_use(ir::value *v, const ir::instruction *user) {
-            if (!v)
-                return;
-            auto &users = v->users;
-            std::erase(users, user);
-        }
-
-        static void replace_all_uses_with(ir::value *old_val, ir::value *new_val) {
-            for (ir::instruction *user: old_val->users) {
-                for (auto &op: user->operands)
-                    if (op == old_val)
-                        op = new_val;
-                new_val->users.push_back(user);
-            }
-            old_val->users.clear();
         }
 
         void insert_phi(ir::function &fn, const var_map &vars) {
@@ -226,11 +221,11 @@ namespace dungeon {
                     s[vid].pop_back();
         }
 
-        void transform_ssa(ir::function &fn) {
+        void build(ir::function &fn) {
             for (auto &v: fn.values)
                 next_val_id = std::max(next_val_id, v->id + 1);
 
-            compute_dom_tree(fn);
+            compute_idom_tree(fn);
             compute_dom_frontiers(fn);
 
             const var_map vars = collect_promotable_vars(fn);
@@ -241,7 +236,7 @@ namespace dungeon {
         }
     };
 
-    struct cfg2ssa : pass {
+    struct mem2reg : pass {
         static void verify_ssa(const ir::function &fn) {
             for (auto &bb: fn.blocks)
                 for (auto &phi: bb->phis)
@@ -253,7 +248,7 @@ namespace dungeon {
 
         void run(ir::function &fn) override {
             ssa_builder sb{};
-            sb.transform_ssa(fn);
+            sb.build(fn);
             verify_ssa(fn);
         }
     };

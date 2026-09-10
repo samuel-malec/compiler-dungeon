@@ -74,6 +74,7 @@ namespace dungeon::ir {
             }
 
             fn.entry = fn.blocks.front().get();
+            remove_unreachable_blocks(fn);
         }
     };
 }

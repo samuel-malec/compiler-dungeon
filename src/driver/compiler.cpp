@@ -78,7 +78,6 @@ namespace dungeon {
         if (conf.stage == pipeline_stage::ir)
             return;
 
-
         // Building CFG
         {
             reporter.time("building cfg");
@@ -88,7 +87,7 @@ namespace dungeon {
 
         {
             reporter.time("analysis");
-            analysis::pass_manager pm = get_defult_pipeline();
+            analysis::pass_manager pm = get_default_pipeline();
             for (auto& fn : ir_module.funcs)
                 pm.run(fn);
         }
@@ -102,6 +101,5 @@ namespace dungeon {
                 diag::error("Couldn't open file:", file_name);
             printer.export_to_dot(ofs, ir_module);
         }
-
     }
 }

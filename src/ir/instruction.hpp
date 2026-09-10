@@ -96,12 +96,6 @@ namespace dungeon::ir {
                     return false;
             }
         }
-
-        void for_each_use() {
-
-        }
-
-        // TODO: additional api: set_operand, replace_all_uses_with
     };
 
     inline bool is_terminator(const opcode op) {
@@ -110,5 +104,22 @@ namespace dungeon::ir {
 
     inline bool is_terminator(const instruction *i) {
         return is_terminator(i->op);
+    }
+
+    inline void replace_all_uses_with(value *old_val, value *new_val) {
+        for (instruction *user: old_val->users) {
+            for (auto &op: user->operands)
+                if (op == old_val)
+                    op = new_val;
+            new_val->users.push_back(user);
+        }
+        old_val->users.clear();
+    }
+
+    static void erase_use(value *v, const instruction *user) {
+        if (!v)
+            return;
+        auto &users = v->users;
+        std::erase(users, user);
     }
 }

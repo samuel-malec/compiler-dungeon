@@ -24,7 +24,8 @@ namespace dungeon {
         std::map<block_id, ir::value *> incoming;
     };
 
-    struct terminator{};
+    struct terminator {
+    };
 
     struct basic_block {
         block_id id;
@@ -40,5 +41,24 @@ namespace dungeon {
         basic_block *idom = nullptr;
         std::vector<basic_block *> df;
         std::vector<basic_block *> dom_children;
+
+        // TODO: We should remove the redundant code
+        void remove_succ(const basic_block *to_remove) {
+            for (int i = 0; i < succ.size(); i++) {
+                if (succ[i] == to_remove) {
+                    std::swap(succ[i], succ.back());
+                    succ.pop_back();
+                }
+            }
+        }
+
+        void remove_pred(const basic_block *to_remove) {
+            for (int i = 0; i < pred.size(); i++) {
+                if (pred[i] == to_remove) {
+                    std::swap(pred[i], pred.back());
+                    pred.pop_back();
+                }
+            }
+        }
     };
 }
