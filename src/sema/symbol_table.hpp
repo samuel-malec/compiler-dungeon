@@ -72,7 +72,7 @@ namespace dungeon::sema {
     struct symbol {
         symbol_id id;
         name_id nid;
-        src_location src_loc;
+        diag::src_location src_loc;
         using data_t = std::variant<std::monostate, function, structure, enumeration, variable>;
         data_t data;
     };

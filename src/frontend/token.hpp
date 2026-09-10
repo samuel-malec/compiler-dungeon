@@ -1,69 +1,40 @@
 #pragma once
 
-#include <memory>
 #include <ostream>
 #include <string>
 #include <string_view>
 
-namespace dungeon
-{
+#include "../diag/diag.hpp"
 
-struct source_file
-{
-    std::string name, data;
-    source_file( std::string name, std::string data ) :
-            name{ std::move( name ) },
-            data{ std::move( data ) }
-    {}
-};
+namespace dungeon {
+    struct token {
+        diag::src_location loc;
+        std::string_view data;
 
-using source_ptr = std::shared_ptr< source_file >;
+        enum cat_t {
+            invalid,
+            punct,
+            keyword,
+            ident,
+            number,
+            string,
+        } cat = invalid;
+    };
 
-struct src_location
-{
-    source_ptr doc;
-    int line = 1, col = 1, byte = 0;
-};
-
-inline std::ostream& operator<<( std::ostream& os, const src_location& loc )
-{
-    os << "Ln " << loc.line << ", Col " << loc.col;
-    return os;
-}
-
-struct token
-{
-    src_location loc;
-    std::string_view data;
-    enum cat_t
-    {
-        invalid,
-        punct,
-        keyword,
-        ident,
-        number,
-        string,
-    } cat = invalid;
-};
-
-inline std::ostream& operator<<( std::ostream& os, const token::cat_t c )
-{
-    switch ( c )
-    {
-        case token::punct:    return os << "punct";
-        case token::keyword:  return os << "keyword";
-        case token::ident:    return os << "ident";
-        case token::number:   return os << "number";
-        case token::string:   return os << "string";
-        case token::invalid:  return os << "invalid";
+    inline std::ostream &operator<<(std::ostream &os, const token::cat_t c) {
+        switch (c) {
+            case token::punct: return os << "punct";
+            case token::keyword: return os << "keyword";
+            case token::ident: return os << "ident";
+            case token::number: return os << "number";
+            case token::string: return os << "string";
+            case token::invalid: return os << "invalid";
+        }
+        return os << "unknown";
     }
-    return os << "unknown";
-}
 
-inline std::ostream& operator<<( std::ostream& os, const token& t )
-{
-    os << t.loc << "[ " << t.data << ", " << t.cat << " ]";
-    return os;
-}
-
+    inline std::ostream &operator<<(std::ostream &os, const token &t) {
+        os << t.loc << "[ " << t.data << ", " << t.cat << " ]";
+        return os;
+    }
 }

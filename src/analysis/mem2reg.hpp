@@ -4,7 +4,7 @@
 #include <set>
 
 #include "pass.hpp"
-#include "../common/diag.hpp"
+#include "../diag/diag.hpp"
 
 namespace dungeon {
     struct ssa_builder {

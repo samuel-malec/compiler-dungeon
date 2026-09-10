@@ -17,7 +17,7 @@ namespace dungeon {
     void compiler::run(config &conf) {
         std::string in_name = conf.in_name;
         std::string out_name = conf.out_name;
-        source_ptr doc = std::make_shared<source_file>(in_name, read_file(in_name));
+        diag::source_ptr doc = std::make_shared<diag::source_file>(in_name, read_file(in_name));
         print::pretty_printer printer{};
         progress_reporter reporter{};
 

@@ -2,7 +2,7 @@
 #include <cassert>
 #include <iosfwd>
 
-#include "../common/diag.hpp"
+#include "../diag/diag.hpp"
 
 namespace dungeon {
     // TODO: we can potentially split these opkinds for ast, semantic, hir becase each stage removes some of these and

@@ -57,7 +57,7 @@ namespace dungeon::sema {
             return curr;
         }
 
-        symbol create_symbol(name_id nid, const src_location &src_loc, symbol::data_t data) {
+        symbol create_symbol(name_id nid, const diag::src_location &src_loc, symbol::data_t data) {
             symbol_id sid{.value = static_cast<uint32_t>(semantics.symbols.size())};
             symbol sym = {.id = sid, .nid = nid, .src_loc = src_loc, .data = std::move(data)};
             semantics.symbols.push_back(sym);
@@ -97,7 +97,7 @@ namespace dungeon::sema {
             return {true, nid};
         }
 
-        symbol_id declare(std::string_view name, const src_location &src_loc, symbol::data_t data, scope_id sid) {
+        symbol_id declare(std::string_view name, const diag::src_location &src_loc, symbol::data_t data, scope_id sid) {
             const auto &[_, nid] = intern_name(name);
             scope &scope = get_scope(sid);
             symbol sym = create_symbol(nid, src_loc, std::move(data));
@@ -180,7 +180,7 @@ namespace dungeon::sema {
             assert(false && "unknown type");
         }
 
-        const symbol &require_symbol(std::string_view name, const src_location &loc, scope_id sid) {
+        const symbol &require_symbol(std::string_view name, const diag::src_location &loc, scope_id sid) {
             auto sym_id = lookup_symbol(name, sid);
             if (!sym_id)
                 diag::error("Unknown identifier", loc);
@@ -372,7 +372,7 @@ namespace dungeon::sema {
             assert(false && "Non-exhaustive data cases!");
         }
 
-        const type *analyze(const ast::var_decl &vdecl, const src_location &loc, scope_id sid) {
+        const type *analyze(const ast::var_decl &vdecl, const diag::src_location &loc, scope_id sid) {
             // TODO: I guess we do not need to require an initilizer, but we should check that we aren't using unitialized variables
             assert(vdecl.initializer && "Expected an initializer");
             const type *var_ty = vdecl.ty

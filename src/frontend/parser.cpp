@@ -116,7 +116,7 @@ namespace dungeon {
 
         while (true) {
             if (match(cat::punct, "(")) {
-                src_location loc = e->src_loc;
+                diag::src_location loc = e->src_loc;
                 fetch();
 
                 ast::call_data cd{};
@@ -283,7 +283,7 @@ namespace dungeon {
                 ast::assign_data ad{};
                 ad.id = *eid;
                 ad.val = make_expr(std::move(rhs.value()));
-                src_location loc = e->src_loc;
+                diag::src_location loc = e->src_loc;
                 e = expr{.src_loc = e->src_loc, .data = std::move(ad)};
             } else
                 e = make_compound_assignment(std::move(e.value()), std::move(rhs.value()), t->data);

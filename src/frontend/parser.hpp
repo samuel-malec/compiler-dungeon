@@ -13,7 +13,7 @@
 
 #include "ast.hpp"
 #include "lexer.hpp"
-#include "../common/diag.hpp"
+#include "../diag/diag.hpp"
 #include "../sema/types.hpp"
 
 namespace dungeon {
@@ -94,7 +94,7 @@ namespace dungeon {
                 diag::error("Left-hand side of compound assignment must be an identifier");
 
             ast::identifier_data id = *v;
-            src_location loc = lhs.src_loc;
+            diag::src_location loc = lhs.src_loc;
             std::string_view base_op = op.substr(0, op.size() - 1);
             ast::expr bin = make_binary(std::move(lhs), std::move(rhs), op_kind_from_str(base_op));
 

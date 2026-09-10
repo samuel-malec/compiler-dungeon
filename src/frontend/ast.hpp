@@ -115,7 +115,7 @@ namespace dungeon::ast {
     };
 
     struct expr {
-        src_location src_loc;
+        diag::src_location src_loc;
         using data_t = std::variant<
             num_lit_data,
             float_lit_data,
@@ -161,7 +161,9 @@ namespace dungeon::ast {
 
     struct var_decl {
         enum mod_t { mut, imut } modifier;
+
         enum stor_t { local, global } storage;
+
         std::string_view name;
         std::optional<type_annotation> ty;
         expr_ptr initializer;
@@ -176,7 +178,7 @@ namespace dungeon::ast {
     };
 
     struct stmt {
-        src_location src_loc;
+        diag::src_location src_loc;
         using data_t = std::variant<
             ret_data,
             cont_data,
@@ -230,7 +232,7 @@ namespace dungeon::ast {
     };
 
     struct toplevel {
-        src_location loc;
+        diag::src_location loc;
         using data_t = std::variant<fn_decl, enum_decl, struct_decl, global_var_decl>;
         data_t data;
     };
