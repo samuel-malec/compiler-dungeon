@@ -86,6 +86,7 @@ namespace dungeon::ir {
         bool has_side_effects() const {
             switch (op) {
                 case opcode::alloca:
+                case opcode::load:
                 case opcode::store:
                 case opcode::call:
                 case opcode::br:

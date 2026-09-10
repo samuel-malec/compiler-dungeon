@@ -64,11 +64,16 @@ namespace dungeon::ir {
 
         void add_instr(opcode op, value *result, std::vector<value *> operands, instruction::data_t data) {
             auto instr = std::make_unique<instruction>();
+            if (result != nullptr)
+                result->defining_instruction = instr.get();
+
             instr->op = op;
             instr->result = result;
             instr->operands = std::move(operands);
+
             for (auto *operand: instr->operands)
                 operand->users.push_back(instr.get());
+
             instr->data = std::move(data);
             ir_fn.instructions.push_back(std::move(instr));
         }
