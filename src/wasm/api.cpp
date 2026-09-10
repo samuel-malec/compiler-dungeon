@@ -26,7 +26,7 @@ namespace dungeon {
         compile_result r;
         print::pretty_printer printer{};
         try {
-            source_ptr doc = std::make_shared<source_file>("<input>", source);
+            diag::source_ptr doc = std::make_shared<diag::source_file>("<input>", source);
 
             // Lexing
             std::vector<token> toks;
@@ -87,7 +87,7 @@ namespace dungeon {
             }
             {
                 std::ostringstream oss;
-                printer.print_cfg_module(TODO, ir_mod);
+                printer.print_cfg_module(oss, ir_mod);
                 r.cfg = oss.str();
             }
             r.stage = "analysis";
@@ -100,14 +100,14 @@ namespace dungeon {
     }
 }
 
-EMSCRIPTEN_BINDINGS(compiler_dungeon) {
+EMSCRIPTEN_BINDINGS (compiler_dungeon) {
     emscripten::value_object<dungeon::compile_result>("CompileResult")
-        .field("tokens", &dungeon::compile_result::tokens)
-        .field("ast", &dungeon::compile_result::ast)
-        .field("hir", &dungeon::compile_result::hir)
-        .field("ir", &dungeon::compile_result::ir)
-        .field("cfg", &dungeon::compile_result::cfg)
-        .field("stage", &dungeon::compile_result::stage)
-        .field("error", &dungeon::compile_result::error);
+            .field("tokens", &dungeon::compile_result::tokens)
+            .field("ast", &dungeon::compile_result::ast)
+            .field("hir", &dungeon::compile_result::hir)
+            .field("ir", &dungeon::compile_result::ir)
+            .field("cfg", &dungeon::compile_result::cfg)
+            .field("stage", &dungeon::compile_result::stage)
+            .field("error", &dungeon::compile_result::error);
     emscripten::function("compile", &dungeon::compile);
 }

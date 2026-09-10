@@ -218,7 +218,7 @@ namespace dungeon::print {
     }
 
     void pretty_printer::print_var_decl(std::ostream &out, ast::var_decl &decl, int depth) {
-        out << (decl.storage == ast::var_decl::local ? " Let" : " Static")
+        out << (decl.storage == ast::var_decl::local ? " Let " : " Static ")
                 << decl.name
                 << (decl.modifier == ast::var_decl::mod_t::mut ? " (mut)" : " (imut)")
                 << " : ";
@@ -562,8 +562,6 @@ namespace dungeon::print {
     void pretty_printer::print_hir_module(
         std::ostream &os,
         const hir::module &hir_module) {
-        os << "HIR:\n";
-
         for (size_t i = 0; i < hir_module.functions.size(); ++i) {
             const auto &fn = hir_module.functions[i];
 
@@ -714,7 +712,7 @@ namespace dungeon::print {
         const basic_block *owner
     ) {
         assert(i);
-
+        out << "  ";
         switch (i->op) {
             case ir::opcode::label: {
                 const auto &data =
@@ -874,9 +872,9 @@ namespace dungeon::print {
     }
 
     void pretty_printer::print_ir_function(std::ostream &out, const ir::function &func) {
-        for (const auto &i: func.instructions) {
+        for (const auto &i: func.instructions)
             print_ir_instruction(out, i.get());
-        }
+        std::cout << '\n';
     }
 
     void pretty_printer::print_phi_node(std::ostream &out, const phi_node &phi) {
@@ -896,7 +894,6 @@ namespace dungeon::print {
     }
 
     void pretty_printer::print_ir_module(std::ostream &out, const ir::module &module) {
-        out << "IR:\n";
         for (size_t i = 0; i < module.funcs.size(); ++i) {
             out << "Fn #" << i << '\n';
             print_ir_function(out, module.funcs[i]);
@@ -928,8 +925,9 @@ namespace dungeon::print {
                 print_ir_instruction(out, ins, bb.get());
             }
 
-            out << "\n";
+            out << '\n';
         }
+        out << '\n';
     }
 
     void pretty_printer::print_cfg_module(std::ostream &out, const ir::module &module) {

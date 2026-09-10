@@ -441,7 +441,9 @@ namespace dungeon::sema {
                     if (!fn)
                         diag::error("The symbol ", fd->name, " does not correspond to a function", loc);
 
+                    const type *fn_return_type = fn->return_type;
                     scope fn_scope = create_scope(global_id, fn->id, scope::function);
+
                     for (auto &param: fd->params.params) {
                         variable v{
                             .modifier = variable::imut, .storage = variable::local, .ty = type_from_annotation(param.ty)
@@ -449,7 +451,7 @@ namespace dungeon::sema {
                         declare(param.name, loc, v, fn_scope.id);
                     }
 
-                    check(*fd->body, fn->return_type, fn_scope.id);
+                    check(*fd->body, fn_return_type, fn_scope.id);
                 } else if (const auto ed = std::get_if<ast::enum_decl>(&data)) {
                     // TODO:
                 } else if (const auto sd = std::get_if<ast::struct_decl>(&data)) {

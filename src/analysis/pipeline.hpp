@@ -1,4 +1,5 @@
 #pragma once
+#include "constant_folding.hpp"
 #include "dce.hpp"
 #include "destroy_ssa.hpp"
 #include "mem2reg.hpp"
@@ -11,6 +12,7 @@ namespace dungeon {
 
         pm.add(std::make_unique<mem2reg>());
         pm.add(std::make_unique<dce>());
+        pm.add(std::make_unique<constant_folding>());
         pm.add(std::make_unique<destroy_ssa>());
         
         return pm;
