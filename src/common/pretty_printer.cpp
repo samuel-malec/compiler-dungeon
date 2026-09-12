@@ -713,6 +713,7 @@ namespace dungeon::print {
                 break;
             }
 
+            out << "  ";
             case ir::opcode::br: {
                 const auto &data =
                         std::get<ir::br_data>(i->data);

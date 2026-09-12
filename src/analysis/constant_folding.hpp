@@ -73,7 +73,6 @@ namespace dungeon {
         }
 
         void run(ir::function &fn) override {
-            std::cout << "constant folding" << '\n';
             for (auto &block: fn.blocks) {
                 for (auto inst: block->instructions) {
                     if (!is_foldable(inst->op))
