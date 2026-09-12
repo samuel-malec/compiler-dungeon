@@ -583,7 +583,7 @@ namespace dungeon::print {
             return;
         }
 
-        out << 'v' << value->id;
+        out << '%' << value->id;
     }
 
     void pretty_printer::print_ir_op(
@@ -641,14 +641,6 @@ namespace dungeon::print {
 
             case ir::opcode::lnot:
                 out << "lnot";
-                break;
-
-            case ir::opcode::land:
-                out << "land";
-                break;
-
-            case ir::opcode::lor:
-                out << "lor";
                 break;
 
             case ir::opcode::br:
@@ -772,7 +764,7 @@ namespace dungeon::print {
                 assert(i->operands.size() == 2);
 
                 print_ir_value(out, i->operands[0]);
-                out << ", ";
+                out << " <- ";
                 print_ir_value(out, i->operands[1]);
 
                 break;

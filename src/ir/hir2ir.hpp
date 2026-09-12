@@ -41,8 +41,6 @@ namespace dungeon::ir {
                 case EQ: return opcode::eq;
                 case LT: return opcode::lt;
                 case NOT: return opcode::lnot;
-                case AND: return opcode::land;
-                case OR: return opcode::lor;
                 default: assert(false && "unexpected op kind in lowering to ir phase");
             }
             assert(false && "unknown op kind");

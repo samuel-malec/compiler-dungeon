@@ -18,7 +18,7 @@ namespace dungeon::ir {
 
         eq, lt,
 
-        lnot, land, lor,
+        lnot,
 
         br, cond_br,
 

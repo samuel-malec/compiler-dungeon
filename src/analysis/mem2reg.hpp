@@ -123,6 +123,7 @@ namespace dungeon {
         // an alloca is "promotable" if it's a local slot produced by lowering
         // (let-bindings and compiler-generated temporaries); nothing in the
         // frontend can currently take its address, so every alloca qualifies
+        // TODO: maybe we var which is a function argument shouldn't be promotable...
         static var_map collect_promotable_vars(const ir::function &fn) {
             var_map vars;
             for (auto &bb: fn.blocks)

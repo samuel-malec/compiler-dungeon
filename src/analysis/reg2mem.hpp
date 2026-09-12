@@ -2,7 +2,7 @@
 #include "pass.hpp"
 
 namespace dungeon {
-    struct destroy_ssa : pass {
+    struct reg2mem : pass {
         void run(ir::function &fn) override {
         }
     };
