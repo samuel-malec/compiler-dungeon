@@ -1,4 +1,4 @@
-include<emscripten / bind.h>
+#include<emscripten/bind.h>
 #include <sstream>
 #include <string>
 
