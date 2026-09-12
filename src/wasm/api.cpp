@@ -1,8 +1,10 @@
-#include <emscripten/bind.h>
-
+include<emscripten / bind.h>
 #include <sstream>
 #include <string>
 
+#include "../analysis/constant_folding.hpp"
+#include "../analysis/dce.hpp"
+#include "../analysis/mem2reg.hpp"
 #include "../analysis/pass_manager.hpp"
 #include "../analysis/pipeline.hpp"
 #include "../common/pretty_printer.hpp"
@@ -98,6 +100,73 @@ namespace dungeon {
         }
         return r;
     }
+
+    struct optimize_result {
+        std::string before;
+        std::string after;
+        std::string stage;
+        std::string error;
+    };
+
+    optimize_result optimize(const std::string &source, bool enable_constant_folding, bool enable_dce) {
+        optimize_result r;
+        print::pretty_printer printer{};
+        try {
+            diag::source_ptr doc = std::make_shared<diag::source_file>("<input>", source);
+
+            lexer l{doc};
+            std::vector<token> toks = l.lex();
+            r.stage = "lexer";
+
+            parser p{std::move(toks)};
+            std::optional<ast::module> ast_mod = p.parse_module();
+            if (!ast_mod)
+                throw std::runtime_error("parser failed");
+            r.stage = "parser";
+
+            sema::semantic_analyzer sa{};
+            sa.run(ast_mod.value());
+            r.stage = "semantic";
+
+            hir::module hir_mod = hir::lower_ast_to_hir(ast_mod.value(), sa.semantics);
+            r.stage = "hir";
+
+            ir::module ir_mod = ir::lower_hir_to_ir(hir_mod, sa.semantics);
+            r.stage = "ir";
+
+            ir::cfg_builder builder{};
+            builder.build(ir_mod);
+
+            mem2reg m2r{};
+            for (auto &fn: ir_mod.funcs)
+                m2r.run(fn);
+            {
+                std::ostringstream oss;
+                printer.print_cfg_module(oss, ir_mod);
+                r.before = oss.str();
+            }
+
+            if (enable_constant_folding) {
+                constant_folding cf{};
+                for (auto &fn: ir_mod.funcs)
+                    cf.run(fn);
+            }
+            if (enable_dce) {
+                dce d{};
+                for (auto &fn: ir_mod.funcs)
+                    d.run(fn);
+            }
+            {
+                std::ostringstream oss;
+                printer.print_cfg_module(oss, ir_mod);
+                r.after = oss.str();
+            }
+            r.stage = "done";
+        } catch (const std::exception &e) {
+            r.error = e.what();
+        }
+        return r;
+    }
 }
 
 EMSCRIPTEN_BINDINGS (compiler_dungeon) {
@@ -110,4 +179,11 @@ EMSCRIPTEN_BINDINGS (compiler_dungeon) {
             .field("stage", &dungeon::compile_result::stage)
             .field("error", &dungeon::compile_result::error);
     emscripten::function("compile", &dungeon::compile);
+
+    emscripten::value_object<dungeon::optimize_result>("OptimizeResult")
+            .field("before", &dungeon::optimize_result::before)
+            .field("after", &dungeon::optimize_result::after)
+            .field("stage", &dungeon::optimize_result::stage)
+            .field("error", &dungeon::optimize_result::error);
+    emscripten::function("optimize", &dungeon::optimize);
 }
