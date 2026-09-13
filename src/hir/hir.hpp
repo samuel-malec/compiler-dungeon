@@ -36,7 +36,6 @@ namespace dungeon::hir {
             expr_id lhs;
         };
 
-        // TODO: split this into binary_arith and binary_logic data ?
         struct binary_data {
             op_kind op;
             expr_id lhs;

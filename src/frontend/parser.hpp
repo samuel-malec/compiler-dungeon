@@ -1,10 +1,7 @@
 #pragma once
 
-
-// TODO: investigate why we allow () somewhere in conditions of if and while
-
+// TODO: we should consider if we want to keep it compatible
 #include <format>
-#include <iostream>
 #include <memory>
 #include <optional>
 #include <sstream>
@@ -14,7 +11,6 @@
 #include "ast.hpp"
 #include "lexer.hpp"
 #include "../diag/diag.hpp"
-#include "../sema/types.hpp"
 
 namespace dungeon {
     struct parser {

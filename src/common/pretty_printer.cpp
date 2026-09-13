@@ -703,7 +703,7 @@ namespace dungeon::print {
         const basic_block *owner
     ) {
         assert(i);
-        out << "  ";
+        i->op == ir::opcode::label ? out << "  " : out << "    ";
         switch (i->op) {
             case ir::opcode::label: {
                 const auto &data =
@@ -713,7 +713,6 @@ namespace dungeon::print {
                 break;
             }
 
-            out << "  ";
             case ir::opcode::br: {
                 const auto &data =
                         std::get<ir::br_data>(i->data);

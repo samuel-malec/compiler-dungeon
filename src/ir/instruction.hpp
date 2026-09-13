@@ -9,7 +9,6 @@ namespace dungeon {
     struct block_id;
 }
 
-// TODO: make phi an actual instruction
 namespace dungeon::ir {
     enum class opcode {
         iconst, bconst,
@@ -123,5 +122,11 @@ namespace dungeon::ir {
             return;
         auto &users = v->users;
         std::erase(users, user);
+    }
+
+    inline void erase_operands(instruction* inst) {
+        for (auto operand : inst->operands)
+            erase_use(operand, inst);
+        inst->operands.clear();
     }
 }

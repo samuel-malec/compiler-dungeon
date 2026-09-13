@@ -82,11 +82,7 @@ namespace dungeon {
                     if (!con)
                         continue;
 
-                    // TODO: I guess this could be extracted to a separate function ?
-                    for (auto operand : inst->operands)
-                        erase_use(operand, inst);
-                    inst->operands.clear();
-
+                    ir::erase_operands(inst);
                     if (auto ic = std::get_if<const_int>(&con.value())) {
                         inst->op = ir::opcode::iconst;
                         inst->data = ir::iconst_data{.value = ic->value};

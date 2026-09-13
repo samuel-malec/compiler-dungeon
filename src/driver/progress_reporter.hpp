@@ -29,7 +29,6 @@ namespace dungeon {
             }
         };
 
-        // FIXME: Currently, we have use std::cerr here, because some tests require comparing actual/expected std::cout output from compiler pipeline
         static std::string indent(std::ostream &out, int depth) {
             return std::string(depth * 2, ' ');
         }
