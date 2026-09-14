@@ -287,5 +287,9 @@ namespace dungeon {
             sb.build(fn);
             verify_ssa(fn);
         }
+
+        std::string description() override {
+            return "Promote memory allocated variables to registers";
+        }
     };
 }

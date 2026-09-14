@@ -240,10 +240,11 @@ namespace dungeon::sema {
                     if (auto ty = analyze(*s, block_scope.id); !is_unit(ty))
                         diag::error("Expected a unit type", s->src_loc);
 
-                if (blk->trailing) {
+                if (blk->trailing)
                     check(*blk->trailing, expected, block_scope.id);
+                else if (!compatible_types(expected, semantics.types.get_unit())) {
+                    diag::error("Block without a trailing expression must be unit-typed", expr.src_loc);
                 }
-
                 return record(expr, expected);
             }
 

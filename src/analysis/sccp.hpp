@@ -2,12 +2,12 @@
 #include "pass.hpp"
 
 namespace dungeon {
-    struct reg2mem : pass {
+    struct sccp : pass {
         void run(ir::function &fn) override {
         }
 
         std::string description() override {
-            return "Allocate space for variables";
+            return "Sparse Conditional Constant Propagation";
         }
     };
 }

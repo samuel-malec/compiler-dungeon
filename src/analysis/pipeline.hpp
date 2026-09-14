@@ -4,12 +4,14 @@
 #include "reg2mem.hpp"
 #include "mem2reg.hpp"
 #include "pass_manager.hpp"
+#include "sccp.hpp"
 
 namespace dungeon {
     inline analysis::pass_manager get_default_pipeline() {
         analysis::pass_manager pm;
         // TODO: add a mechanism to check if preconditions of individual passes are satisfied
         pm.add(std::make_unique<mem2reg>());
+        pm.add(std::make_unique<sccp>());
         pm.add(std::make_unique<constant_folding>());
         pm.add(std::make_unique<dce>());
         pm.add(std::make_unique<reg2mem>());

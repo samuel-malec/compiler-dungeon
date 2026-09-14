@@ -4,7 +4,7 @@
 namespace dungeon {
     struct pass {
         virtual void run(ir::function &fn) = 0;
-
+        virtual std::string description() = 0;
         virtual ~pass() = default;
     };
 }

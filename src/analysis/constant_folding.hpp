@@ -94,5 +94,9 @@ namespace dungeon {
                 }
             }
         }
+
+        std::string description() override {
+            return "Perform compile-time evaluation of constant computation and replace variables with their compile-time constant values";
+        }
     };
 }

@@ -41,5 +41,9 @@ namespace dungeon {
                 std::erase_if(instructions, [&](ir::instruction *inst) { return !useful.contains(inst); });
             }
         }
+
+        std::string description() override {
+            return "Remove unused code";
+        }
     };
 }

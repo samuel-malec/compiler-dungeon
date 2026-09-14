@@ -15,7 +15,6 @@ namespace dungeon {
         size_t bits;
     };
 
-    // TODO: how to make sure we cannot accidentally create two separately constructed int32 types ??
     struct type_manager {
         type int8_{.kind = type_kind::_int, .bits = 8};
         type int16_{.kind = type_kind::_int, .bits = 16};
@@ -85,8 +84,7 @@ namespace dungeon {
         return ty->kind == type_kind::_unit;
     }
 
-    // TODO: think about what are the prerequisities of thiese infer_** should we check the ops kinds are good or is this a precondition ?
-    // TODO: actually think about how to infer these types, this is a preliminiary impl
+    // TODO: in the next functions, should we check the ops kinds are good or is this a precondition ?
     inline const type *infer_unary(op_kind op, const type *lhs, type_manager &types) {
         if (!is_unary_op(op))
             diag::error("Invalid unary operation");
