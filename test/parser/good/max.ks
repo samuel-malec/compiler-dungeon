@@ -1,4 +1,4 @@
-def max(a: i32, b: i32) -> i32 {
+fn max(a: i32, b: i32) -> i32 {
     if a > b {
         a
     } else {
@@ -6,7 +6,7 @@ def max(a: i32, b: i32) -> i32 {
     }
 }
 
-def main() -> i32 {
+fn main() -> i32 {
     return max(10, 20);
 }
 

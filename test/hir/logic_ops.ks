@@ -1,4 +1,4 @@
-def main() {
+fn main() {
     let a = true;
     let b = false;
     let c = a && b;

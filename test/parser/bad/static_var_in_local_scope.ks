@@ -1,4 +1,4 @@
-def foo() {
+fn foo() {
     static x = 10;
     let y = x + 2;
 }

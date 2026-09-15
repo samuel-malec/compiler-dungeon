@@ -1,4 +1,4 @@
-def main() -> i32 {
+fn main() -> i32 {
     /* unterminated comment
     let x = 1;
     return 0;

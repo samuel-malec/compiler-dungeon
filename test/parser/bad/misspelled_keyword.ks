@@ -1,4 +1,4 @@
-def main() -> i32
+fn main() -> i32
 {
     returns 4;
 }

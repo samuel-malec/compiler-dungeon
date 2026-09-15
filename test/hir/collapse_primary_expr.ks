@@ -1,4 +1,4 @@
-def main() -> i32 {
+fn main() -> i32 {
     let x = 5;
     let y = (((((6)))));
     x + y

@@ -1,4 +1,4 @@
-def main() -> bool {
+fn main() -> bool {
     let a: bool = true;
     let b: bool = false;
     a || b

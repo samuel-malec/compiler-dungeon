@@ -1,4 +1,4 @@
-def main() -> i32
+fn main() -> i32
 {
     let x: i32 = 5;
     let y: i32 = ( 5 * 4 ) - 2;

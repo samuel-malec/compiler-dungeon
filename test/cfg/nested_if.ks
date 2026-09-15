@@ -1,4 +1,4 @@
-def sign(x: i32) -> i32 {
+fn sign(x: i32) -> i32 {
     let mut r = 0;
     if x > 0 {
         r = 1;

@@ -1,7 +1,7 @@
-def side() -> bool {
+fn side() -> bool {
     true
 }
 
-def main() -> bool {
+fn main() -> bool {
     false && side()
 }

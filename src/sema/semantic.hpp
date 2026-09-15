@@ -13,15 +13,6 @@
 #include "../frontend/ast.hpp"
 #include "types.hpp"
 
-/**
-    TODO: error in typechecking:
-*def max(a: i32, b: i32) -> i32 {
-   let x = +(+(+1));
-}
-
- *
- *
- */
 namespace dungeon::sema {
     struct semantic_analyzer {
         analysis_result semantics;

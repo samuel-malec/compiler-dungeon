@@ -774,7 +774,7 @@ namespace dungeon {
     }
 
     std::optional<ast::toplevel> parser::parse_fn_decl() {
-        if (!match(cat::keyword, "def"))
+        if (!match(cat::keyword, "fn"))
             return {};
 
         const auto loc = fetch().loc;

@@ -1,4 +1,4 @@
-def main() -> i32
+fn main() -> i32
 {
     let a: i32 = 0;
     if ( a < 10 )

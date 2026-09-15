@@ -1,5 +1,5 @@
 let x = 10;
 
-def foo() {
+fn foo() {
     let a = 10;
 }

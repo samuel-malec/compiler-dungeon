@@ -1,4 +1,4 @@
-def sum_to(n: i32) -> i32 {
+fn sum_to(n: i32) -> i32 {
     let mut sum = 0;
     let mut i = 0;
 

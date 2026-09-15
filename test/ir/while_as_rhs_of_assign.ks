@@ -1,4 +1,4 @@
-def main() {
+fn main() {
     let mut i = 0;
 
     let a = while i < 10 {

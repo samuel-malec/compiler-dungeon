@@ -1,4 +1,4 @@
-def main() -> i32 {
+fn main() -> i32 {
     let mut x: i32 = 0;
     if true {
         x += 1;
