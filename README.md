@@ -4,9 +4,7 @@ My current personal goals for this project are outlined in the [goals](docs/goal
 
 ## Kerosene Language
 Kerosene is a custom programming language which we are compiling in this project.
-The syntax of Keresone is inspired off of Rust and Python, because I believe that it is modern and has exactly what I look for in a language
-(at the end of the day I don't plan invent an entirely new syntax in this project)
-The entire EBNF format of Kerosene's grammar can be viewed [here](docs/language.md)
+The syntax of Kerosene is inspired by Rust, and its grammar can be viewed [here](docs/language.md).
 
 ## Compiler Overview
 As any compiler, this project is divided into individual passes with clearly outlined functionality.
