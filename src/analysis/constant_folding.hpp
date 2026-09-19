@@ -29,7 +29,8 @@ namespace dungeon {
                    op == ir::opcode::mul || op == ir::opcode::div ||
                    op == ir::opcode::mod || op == ir::opcode::shl ||
                    op == ir::opcode::shr || op == ir::opcode::neg ||
-                   op == ir::opcode::lnot;
+                   op == ir::opcode::lnot || op == ir::opcode::lt ||
+                   op == ir::opcode::eq;
         }
 
         std::optional<const_value> folded_value(ir::instruction *inst) {
@@ -68,6 +69,32 @@ namespace dungeon {
                 return const_int{std::get<const_int>(*lhs).value << std::get<const_int>(*rhs).value};
             if (inst->op == ir::opcode::shr)
                 return const_int{std::get<const_int>(*lhs).value >> std::get<const_int>(*rhs).value};
+            if (inst->op == ir::opcode::eq) {
+                auto blhs = std::get_if<const_bool>(&*lhs);
+                auto brhs = std::get_if<const_bool>(&*lhs);
+                if ((blhs && !brhs) || (!blhs && brhs)) {
+                    // this should never happen in our type system, we will think if we want to change this later
+                    assert(false && "should not reach here");
+                }
+                if (blhs && brhs)
+                    return const_bool{.value = blhs->value == brhs->value};
+
+                auto ilhs = std::get_if<const_int>(&*lhs);
+                auto irhs = std::get_if<const_int>(&*lhs);
+                if ((ilhs && !irhs) || (!ilhs && irhs)) {
+                    // this should never happen in our type system, we will think if we want to change this later
+                    assert(false && "should not reach here");
+                }
+
+                assert( ilhs && irhs );
+                return const_bool{.value = ilhs->value == irhs->value};
+            }
+            if (inst->op == ir::opcode::lt) {
+                auto ilhs = std::get_if<const_int>(&*lhs);
+                auto irhs = std::get_if<const_int>(&*rhs);
+                assert( ilhs && irhs );
+                return const_bool{.value = ilhs->value < irhs->value};
+            }
 
             assert(false && "should not reach here");
         }
@@ -96,7 +123,8 @@ namespace dungeon {
         }
 
         std::string description() override {
-            return "Perform compile-time evaluation of constant computation and replace variables with their compile-time constant values";
+            return
+                    "Perform compile-time evaluation of constant computation and replace variables with their compile-time constant values";
         }
     };
 }

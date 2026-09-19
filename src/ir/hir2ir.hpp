@@ -208,7 +208,7 @@ namespace dungeon::ir {
             }
             if (auto t = std::get_if<hir::expr::if_data>(&e.data)) {
                 value *res = nullptr;
-                if (!is_unit(e.ty)) {
+                if (!is_unit_ty(e.ty)) {
                     res = get_value(e.ty);
                     add_instr(opcode::alloca, res, {}, {});
                 }

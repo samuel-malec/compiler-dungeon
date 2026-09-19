@@ -63,24 +63,24 @@ namespace dungeon {
         return a == b;
     }
 
-    inline bool is_boolean(const type *ty) {
+    inline bool is_boolean_ty(const type *ty) {
         return ty->kind == type_kind::_bool;
     }
 
-    inline bool is_signed_integer(const type *ty) {
+    inline bool is_signed_integer_ty(const type *ty) {
         return ty->kind == type_kind::_int;
     }
 
-    inline bool is_unsigned_integer(const type *ty) {
+    inline bool is_unsigned_integer_ty(const type *ty) {
         return ty->kind == type_kind::_uint;
     }
 
-    inline bool is_integer(const type *ty) {
-        return is_signed_integer(ty) ||
-               is_unsigned_integer(ty);
+    inline bool is_integer_ty(const type *ty) {
+        return is_signed_integer_ty(ty) ||
+               is_unsigned_integer_ty(ty);
     }
 
-    inline bool is_unit(const type *ty) {
+    inline bool is_unit_ty(const type *ty) {
         return ty->kind == type_kind::_unit;
     }
 
@@ -101,6 +101,10 @@ namespace dungeon {
         if (lhs != rhs)
             diag::error("Expected ordering types");
 
+        // TODO: we should find a more sophisticated way to declare which types are allowed to be ordered
+        if (!is_integer_ty(lhs) || !is_integer_ty(rhs))
+            diag::error("Expected ordering types");
+
         return types.get_bool();
     }
 
@@ -118,7 +122,7 @@ namespace dungeon {
     }
 
     inline const type *infer_numerical(op_kind op, const type *lhs, const type *rhs, type_manager &types) {
-        if (!is_integer(lhs) || !is_integer(rhs))
+        if (!is_integer_ty(lhs) || !is_integer_ty(rhs))
             diag::error("Invalid numerical operation");
 
         if (lhs != rhs)
@@ -128,7 +132,7 @@ namespace dungeon {
     }
 
     inline const type *infer_logical_op(op_kind op, const type *lhs, const type *rhs, const type_manager &types) {
-        if (!is_boolean(lhs) || !is_boolean(rhs))
+        if (!is_boolean_ty(lhs) || !is_boolean_ty(rhs))
             diag::error("Invalid operands, expected booleans");
 
         return lhs;

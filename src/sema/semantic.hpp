@@ -195,7 +195,7 @@ namespace dungeon::sema {
             const scope &curr_scope = get_scope(sid);
 
             if (std::get_if<ast::num_lit_data>(&expr.data)) {
-                if (!is_integer(expected))
+                if (!is_integer_ty(expected))
                     diag::error("Actual type doesn't match the expected", expr.src_loc);
                 return record(expr, expected);
             }
@@ -211,7 +211,7 @@ namespace dungeon::sema {
             }
             if (auto ifd = std::get_if<ast::if_data>(&expr.data)) {
                 auto cond = infer(*ifd->cond, sid);
-                if (!is_boolean(cond))
+                if (!is_boolean_ty(cond))
                     diag::error("Expected a condition", expr.src_loc);
 
                 scope then_scope = create_scope(sid, curr_scope.enclosing_fn, scope::block);
@@ -228,7 +228,7 @@ namespace dungeon::sema {
             if (auto blk = std::get_if<ast::block_data>(&expr.data)) {
                 scope block_scope = create_scope(sid, curr_scope.enclosing_fn, scope::block);
                 for (auto &s: blk->stmts)
-                    if (auto ty = analyze(*s, block_scope.id); !is_unit(ty))
+                    if (auto ty = analyze(*s, block_scope.id); !is_unit_ty(ty))
                         diag::error("Expected a unit type", s->src_loc);
 
                 if (blk->trailing)
@@ -316,7 +316,7 @@ namespace dungeon::sema {
             }
             if (auto ifd = std::get_if<ast::if_data>(&expr.data)) {
                 auto cond = infer(*ifd->cond, sid);
-                if (!is_boolean(cond)) {
+                if (!is_boolean_ty(cond)) {
                     diag::error("Expected a condition", expr.src_loc);
                 }
 
@@ -328,27 +328,27 @@ namespace dungeon::sema {
                     auto else_ty = infer(*ifd->else_body, else_scope.id);
                     if (!compatible_types(then_ty, else_ty))
                         diag::error("Incompatible semantics.types in branches", expr.src_loc);
-                } else if (!is_unit(then_ty)) {
+                } else if (!is_unit_ty(then_ty)) {
                     diag::error("If without else must be unit-typed", expr.src_loc);
                 }
                 return record(expr, then_ty);
             }
             if (auto wd = std::get_if<ast::while_data>(&expr.data)) {
                 auto cond = infer(*wd->cond, sid);
-                if (!is_boolean(cond)) {
+                if (!is_boolean_ty(cond)) {
                     diag::error("Expected a condition", expr.src_loc);
                 }
 
                 scope while_scope = create_scope(sid, curr_scope.enclosing_fn, scope::loop);
                 auto body_ty = infer(*wd->body, while_scope.id);
-                if (!is_unit(body_ty))
+                if (!is_unit_ty(body_ty))
                     diag::error("While body needs to have a unit type", expr.src_loc);
                 return record(expr, semantics.types.get_unit());
             }
             if (auto ld = std::get_if<ast::loop_data>(&expr.data)) {
                 scope loop_scope = create_scope(sid, curr_scope.enclosing_fn, scope::loop);
                 auto body_ty = infer(*ld->body, loop_scope.id);
-                if (!is_unit(body_ty))
+                if (!is_unit_ty(body_ty))
                     diag::error("Loop body needs to have a unit type", expr.src_loc);
                 return record(expr, semantics.types.get_unit());
             }
@@ -361,7 +361,7 @@ namespace dungeon::sema {
             if (auto blk = std::get_if<ast::block_data>(&expr.data)) {
                 scope block_scope = create_scope(sid, curr_scope.enclosing_fn, scope::block);
                 for (auto &s: blk->stmts) {
-                    if (auto ty = analyze(*s, block_scope.id); !is_unit(ty))
+                    if (auto ty = analyze(*s, block_scope.id); !is_unit_ty(ty))
                         diag::error("Expected a unit type", s->src_loc);
                 }
                 if (blk->trailing)
@@ -405,7 +405,7 @@ namespace dungeon::sema {
                 auto &enclosing_fn = get_function(*curr_scope.enclosing_fn);
                 if (rd->val)
                     check(*rd->val, enclosing_fn.return_type, sid);
-                else if (!is_unit(enclosing_fn.return_type))
+                else if (!is_unit_ty(enclosing_fn.return_type))
                     diag::error("Missing return value", stmt.src_loc);
                 return semantics.types.get_unit();
             }
