@@ -12,8 +12,8 @@ namespace dungeon {
         // TODO: add a mechanism to check if preconditions of individual passes are satisfied
         pm.add(std::make_unique<mem2reg>());
         pm.add(std::make_unique<sccp>());
-        pm.add(std::make_unique<constant_folding>());
-        pm.add(std::make_unique<dce>());
+        // pm.add(std::make_unique<constant_folding>());
+        // pm.add(std::make_unique<dce>());
         pm.add(std::make_unique<reg2mem>());
         
         return pm;

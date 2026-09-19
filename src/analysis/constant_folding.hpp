@@ -86,13 +86,13 @@ namespace dungeon {
                     assert(false && "should not reach here");
                 }
 
-                assert( ilhs && irhs );
+                assert(ilhs && irhs);
                 return const_bool{.value = ilhs->value == irhs->value};
             }
             if (inst->op == ir::opcode::lt) {
                 auto ilhs = std::get_if<const_int>(&*lhs);
                 auto irhs = std::get_if<const_int>(&*rhs);
-                assert( ilhs && irhs );
+                assert(ilhs && irhs);
                 return const_bool{.value = ilhs->value < irhs->value};
             }
 
@@ -123,8 +123,7 @@ namespace dungeon {
         }
 
         std::string description() override {
-            return
-                    "Perform compile-time evaluation of constant computation and replace variables with their compile-time constant values";
+            return "Perform compile-time evaluation of constant computation and replace variables with their compile-time constant values";
         }
     };
 }

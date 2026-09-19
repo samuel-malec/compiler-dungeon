@@ -830,7 +830,7 @@ namespace dungeon::print {
                     if (!first)
                         out << ", ";
                     first = false;
-                    out << "[bb" << bid.id << ": ";
+                    out << "[bb" << bid->id.id << ": ";
                     print_ir_value(out, val);
                     out << ']';
                 }
@@ -878,7 +878,7 @@ namespace dungeon::print {
                 out << ", ";
             first = false;
 
-            out << "[bb" << pred.id << ": ";
+            out << "[bb" << pred->id.id << ": ";
             print_ir_value(out, val);
             out << ']';
         }
@@ -891,7 +891,7 @@ namespace dungeon::print {
         }
     }
 
-    void pretty_printer::print_cfg_function(std::ostream &out, const ir::function &fn) {
+    void pretty_printer::print_ssa_ir_function(std::ostream &out, const ir::function &fn) {
         for (const auto &bb: fn.blocks) {
             out << "bb" << bb->id.id << ":";
 
@@ -920,10 +920,10 @@ namespace dungeon::print {
         }
     }
 
-    void pretty_printer::print_cfg_module(std::ostream &out, const ir::module &module) {
+    void pretty_printer::print_ssa_ir(std::ostream &out, const ir::module &module) {
         for (size_t i = 0; i < module.funcs.size(); ++i) {
             out << "Fn #" << i << "\n";
-            print_cfg_function(out, module.funcs[i]);
+            print_ssa_ir_function(out, module.funcs[i]);
         }
     }
 

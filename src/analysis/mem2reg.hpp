@@ -120,10 +120,7 @@ namespace dungeon {
             }
         }
 
-        // an alloca is "promotable" if it's a local slot produced by lowering
-        // (let-bindings and compiler-generated temporaries); nothing in the
-        // frontend can currently take its address, so every alloca qualifies
-        // TODO: maybe we var which is a function argument shouldn't be promotable...
+        // TODO: fix this once we add variables that are not promotable
         static var_map collect_promotable_vars(const ir::function &fn) {
             var_map vars;
             for (auto &bb: fn.blocks)
@@ -213,7 +210,7 @@ namespace dungeon {
             for (basic_block *succ: block->succ)
                 for (phi_node &phi: succ->phis)
                     if (auto &st = s[phi.base_id]; !st.empty())
-                        phi.incoming[block->id] = st.back();
+                        phi.incoming[block] = st.back();
 
             for (basic_block *child: block->dom_children)
                 rename(child, s, vars);
@@ -231,6 +228,7 @@ namespace dungeon {
                     auto i = std::make_unique<ir::instruction>();
                     i->op = ir::opcode::phi;
                     i->result = phi.res;
+                    i->parent = block.get();
                     phi.res->defining_instruction = i.get();
                     for (auto &val: phi.incoming | std::views::values) {
                         i->operands.push_back(val);
@@ -274,7 +272,7 @@ namespace dungeon {
 
                     const auto &data = std::get<ir::phi_data>(ins->data);
                     for (basic_block *pred: bb->pred) {
-                        if (!data.incoming.contains(pred->id))
+                        if (!data.incoming.contains(pred))
                             diag::error("phi for v", ins->result->id, "in bb", bb->id.id,
                                         "is missing an incoming value from predecessor bb", pred->id.id);
                     }

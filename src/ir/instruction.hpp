@@ -70,7 +70,7 @@ namespace dungeon::ir {
         opcode op;
         value *result = nullptr;
         std::vector<value *> operands;
-        basic_block* parent;
+        basic_block* parent = nullptr;
 
         using data_t = std::variant<
             std::monostate,

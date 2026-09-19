@@ -68,6 +68,8 @@ namespace dungeon {
             return;
 
         // Generating IR
+        // TODO: do we really want to print plain IR ? I think we should at least print ssa version of the IR
+        // TODO: think what phases we want to show
         ir::module ir_module{};
         {
             reporter.time("generating ir");
@@ -88,12 +90,12 @@ namespace dungeon {
         {
             reporter.time("analysis");
             analysis::pass_manager pm = get_default_pipeline();
-            for (auto& fn : ir_module.funcs)
+            for (auto &fn: ir_module.funcs)
                 pm.run(fn);
         }
 
-        if (conf.emit_cfg || conf.stage == pipeline_stage::cfg) {
-            printer.print_cfg_module(std::cout, ir_module);
+        if (conf.emit_ssa || conf.stage == pipeline_stage::ssa) {
+            printer.print_ssa_ir(std::cout, ir_module);
         }
     }
 }

@@ -62,9 +62,9 @@ namespace dungeon::print {
 
         void print_ir_module(std::ostream &out, const ir::module &module);
 
-        void print_cfg_function(std::ostream &out, const ir::function &fn);
+        void print_ssa_ir_function(std::ostream &out, const ir::function &fn);
 
-        void print_cfg_module(std::ostream &out, const ir::module &module);
+        void print_ssa_ir(std::ostream &out, const ir::module &module);
 
         static void print_tokens(std::ostream &out, const std::vector<token> &toks);
 
