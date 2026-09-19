@@ -84,7 +84,6 @@ namespace dungeon {
         return ty->kind == type_kind::_unit;
     }
 
-    // TODO: in the next functions, should we check the ops kinds are good or is this a precondition ?
     inline const type *infer_unary(op_kind op, const type *lhs, type_manager &types) {
         if (!is_unary_op(op))
             diag::error("Invalid unary operation");
@@ -130,7 +129,7 @@ namespace dungeon {
             diag::error("Invalid numerical operation");
 
         if (lhs != rhs)
-            return nullptr;
+            diag::error("Invalid types in arithmetic operation");
 
         return lhs;
     }
