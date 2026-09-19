@@ -88,6 +88,10 @@ namespace dungeon {
     inline const type *infer_unary(op_kind op, const type *lhs, type_manager &types) {
         if (!is_unary_op(op))
             diag::error("Invalid unary operation");
+        if (op == NOT && !is_boolean_ty(lhs))
+            diag::error("Unary not expects a boolean operand");
+        if (op == MINUS && !is_integer_ty(lhs))
+            diag::error("Unary not expects an integer type");
         return lhs;
     }
 
