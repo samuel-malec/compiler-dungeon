@@ -65,7 +65,6 @@ namespace dungeon::ir {
         std::map<basic_block*, value *> incoming;
     };
 
-    // TODO: Should instruction keep a pointer to its basic block ?
     struct instruction {
         opcode op;
         value *result = nullptr;

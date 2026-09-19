@@ -68,8 +68,6 @@ namespace dungeon {
             return;
 
         // Generating IR
-        // TODO: do we really want to print plain IR ? I think we should at least print ssa version of the IR
-        // TODO: think what phases we want to show
         ir::module ir_module{};
         {
             reporter.time("generating ir");

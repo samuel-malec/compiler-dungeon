@@ -59,7 +59,7 @@ namespace dungeon::hir {
                 return add_expr(ty, expr::var_data{.sid = sema.id_symbols.at(&expr)});
             }
             if (auto ud = std::get_if<ast::unary_data>(&expr.data)) {
-                if (ud->op == ADD) {
+                if (ud->op == PLUS) {
                     return lower_expr_to_hir(*ud->lhs, sema);
                 }
 
