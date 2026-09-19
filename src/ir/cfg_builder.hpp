@@ -74,6 +74,12 @@ namespace dungeon::ir {
             }
 
             fn.entry = fn.blocks.front().get();
+
+            for (auto &block: fn.blocks) {
+                for (auto ins: block->instructions) {
+                    ins->parent = block.get();
+                }
+            }
         }
     };
 }

@@ -21,7 +21,7 @@ namespace dungeon {
     struct phi_node {
         uint32_t base_id;
         ir::value *res;
-        std::map<block_id, ir::value *> incoming;
+        std::map<basic_block *, ir::value *> incoming;
     };
 
     struct terminator {
@@ -41,5 +41,20 @@ namespace dungeon {
         basic_block *idom = nullptr;
         std::vector<basic_block *> df;
         std::vector<basic_block *> dom_children;
+    };
+
+    struct edge {
+        basic_block *from;
+        basic_block *to;
+
+        bool operator==(const edge &o) const {
+            return from == o.from && to == o.to;
+        }
+
+        bool operator<(const edge &o) const {
+            if (from == o.from)
+                return to < o.to;
+            return from < o.from;
+        }
     };
 }

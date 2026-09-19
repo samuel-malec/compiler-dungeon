@@ -2,10 +2,12 @@
 #include <variant>
 #include <vector>
 
+#include "basic_block.hpp"
 #include "../sema/symbol_table.hpp"
 #include "value.hpp"
 
 namespace dungeon {
+    struct basic_block;
     struct block_id;
 }
 
@@ -60,15 +62,15 @@ namespace dungeon::ir {
     };
 
     struct phi_data {
-        std::map<block_id, value *> incoming;
+        std::map<basic_block*, value *> incoming;
     };
 
+    // TODO: Should instruction keep a pointer to its basic block ?
     struct instruction {
         opcode op;
-
         value *result = nullptr;
-
         std::vector<value *> operands;
+        basic_block* parent;
 
         using data_t = std::variant<
             std::monostate,
