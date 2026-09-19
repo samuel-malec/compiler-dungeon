@@ -89,7 +89,7 @@ namespace dungeon {
             }
             {
                 std::ostringstream oss;
-                printer.print_cfg_module(oss, ir_mod);
+                printer.print_ssa_ir(oss, ir_mod);
                 r.cfg = oss.str();
             }
             r.stage = "analysis";
@@ -108,7 +108,7 @@ namespace dungeon {
         std::string error;
     };
 
-    optimize_result optimize(const std::string &source, bool enable_constant_folding, bool enable_dce) {
+    optimize_result optimize(const std::string &source, bool enable_sccp, bool enable_dce) {
         optimize_result r;
         print::pretty_printer printer{};
         try {
@@ -142,14 +142,14 @@ namespace dungeon {
                 m2r.run(fn);
             {
                 std::ostringstream oss;
-                printer.print_cfg_module(oss, ir_mod);
+                printer.print_ssa_ir(oss, ir_mod);
                 r.before = oss.str();
             }
 
-            if (enable_constant_folding) {
-                constant_folding cf{};
+            if (enable_sccp) {
+                sccp s{};
                 for (auto &fn: ir_mod.funcs)
-                    cf.run(fn);
+                    s.run(fn);
             }
             if (enable_dce) {
                 dce d{};
@@ -158,7 +158,7 @@ namespace dungeon {
             }
             {
                 std::ostringstream oss;
-                printer.print_cfg_module(oss, ir_mod);
+                printer.print_ssa_ir(oss, ir_mod);
                 r.after = oss.str();
             }
             r.stage = "done";
