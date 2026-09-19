@@ -187,6 +187,7 @@ namespace dungeon::sema {
         }
 
         const type *record(ast::expr &expr, const type *ty) {
+            assert(ty);
             semantics.expr_ty[&expr] = ty;
             return ty;
         }
@@ -201,7 +202,7 @@ namespace dungeon::sema {
             }
             if (auto ud = std::get_if<ast::unary_data>(&expr.data)) {
                 check(*ud->lhs, expected, sid);
-                infer_unary(ud->op, expected, semantics.types);
+                infer_op(ud->op, expected, nullptr, semantics.types);
                 return record(expr, expected);
             }
             if (auto bd = std::get_if<ast::binary_data>(&expr.data)) {
@@ -263,17 +264,17 @@ namespace dungeon::sema {
             }
             if (auto ud = std::get_if<ast::unary_data>(&expr.data)) {
                 auto ty = infer(*ud->lhs, sid);
-                return record(expr, infer_unary(ud->op, ty, semantics.types));
+                return record(expr, infer_op(ud->op, ty, nullptr, semantics.types));
             }
             if (auto bd = std::get_if<ast::binary_data>(&expr.data)) {
                 auto lhs = infer(*bd->lhs, sid);
                 auto rhs = infer(*bd->rhs, sid);
-                return record(expr, infer_binary(bd->op, lhs, rhs, semantics.types));
+                return record(expr, infer_op(bd->op, lhs, rhs, semantics.types));
             }
             if (auto rd = std::get_if<ast::relational_data>(&expr.data)) {
                 auto lhs = infer(*rd->lhs, sid);
                 auto rhs = infer(*rd->rhs, sid);
-                return record(expr, infer_relational(rd->op, lhs, rhs, semantics.types));
+                return record(expr, infer_op(rd->op, lhs, rhs, semantics.types));
             }
             if (auto ad = std::get_if<ast::assign_data>(&expr.data)) {
                 const auto &sym = require_symbol(ad->id.name, expr.src_loc, sid);

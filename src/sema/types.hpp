@@ -10,6 +10,15 @@ namespace dungeon {
         _unit,
     };
 
+    enum class op_category {
+        numeric,
+        ordering,
+        equality,
+        logical,
+        unary_numeric,
+        unary_logical
+    };
+
     struct type {
         type_kind kind;
         size_t bits;
@@ -54,7 +63,6 @@ namespace dungeon {
         }
     };
 
-    // TODO: we actually need to refactor this, since this is retarded af
     inline bool same_type(const type *a, const type *b) {
         return a == b;
     }
@@ -84,73 +92,70 @@ namespace dungeon {
         return ty->kind == type_kind::_unit;
     }
 
-    inline const type *infer_unary(op_kind op, const type *lhs, type_manager &types) {
-        if (!is_unary_op(op))
-            diag::error("Invalid unary operation");
-        if (op == NOT && !is_boolean_ty(lhs))
-            diag::error("Unary not expects a boolean operand");
-        if (op == MINUS && !is_integer_ty(lhs))
-            diag::error("Unary not expects an integer type");
-        return lhs;
+    inline op_category category_of(op_kind op) {
+        switch (op) {
+            case ADD:
+            case SUB:
+            case MUL:
+            case DIV:
+            case MOD:
+            case SHL:
+            case SHR:
+                return op_category::numeric;
+            case EQ:
+            case NEQ:
+                return op_category::equality;
+            case LT:
+            case LEQ:
+            case GT:
+            case GEQ:
+                return op_category::ordering;
+            case NOT:
+                return op_category::unary_logical;
+            case MINUS:
+            case PLUS:
+                return op_category::unary_numeric;
+            case AND:
+            case OR:
+                return op_category::logical;
+            default: assert(false && "should not reach here");
+        }
     }
 
-    inline const type *infer_equality_op(op_kind op, const type *lhs, const type *rhs, const type_manager &types) {
-        if (lhs != rhs)
-            diag::error("Expected equal types");
-        return types.get_bool();
+    inline bool operand_ok(op_category cat, const type *t) {
+        switch (cat) {
+            case op_category::numeric:
+                return is_integer_ty(t);
+            case op_category::ordering:
+                return is_integer_ty(t);
+            case op_category::equality:
+                return true;
+            case op_category::logical:
+                return is_boolean_ty(t);
+            case op_category::unary_numeric:
+                return is_integer_ty(t);
+            case op_category::unary_logical:
+                return is_boolean_ty(t);
+        }
+        return false;
     }
 
-    inline const type *infer_ordering_op(op_kind op, const type *lhs, const type *rhs, const type_manager &types) {
-        if (lhs != rhs)
-            diag::error("Expected ordering types");
-
-        // TODO: we should find a more sophisticated way to declare which types are allowed to be ordered
-        if (!is_integer_ty(lhs) || !is_integer_ty(rhs))
-            diag::error("Expected ordering types");
-
-        return types.get_bool();
+    inline const type *result_type(op_category cat, const type *operand, type_manager &types) {
+        if (cat == op_category::numeric || cat == op_category::unary_numeric)
+            return operand;
+        if (cat == op_category::unary_logical || cat == op_category::logical)
+            return operand;
+        if ( cat == op_category::equality || cat == op_category::ordering)
+            return types.get_bool();
+        assert(false && "should not reach here");
     }
 
-    inline const type *infer_relational(op_kind op, const type *lhs, const type *rhs, type_manager &types) {
-        if (!is_rel_op(op))
-            diag::error("Invalid relational operation");
-
-        if (is_equality_op(op))
-            return infer_equality_op(op, lhs, rhs, types);
-
-        if (is_ordering_op(op))
-            return infer_ordering_op(op, lhs, rhs, types);
-
-        return nullptr;
-    }
-
-    inline const type *infer_numerical(op_kind op, const type *lhs, const type *rhs, type_manager &types) {
-        if (!is_integer_ty(lhs) || !is_integer_ty(rhs))
-            diag::error("Invalid numerical operation");
-
-        if (lhs != rhs)
-            diag::error("Invalid types in arithmetic operation");
-
-        return lhs;
-    }
-
-    inline const type *infer_logical_op(op_kind op, const type *lhs, const type *rhs, const type_manager &types) {
-        if (!is_boolean_ty(lhs) || !is_boolean_ty(rhs))
-            diag::error("Invalid operands, expected booleans");
-
-        return lhs;
-    }
-
-    inline const type *infer_binary(op_kind op, const type *lhs, const type *rhs, type_manager &types) {
-        if (!is_binary_op(op))
-            diag::error("Invalid binary operation");
-
-        if (is_numerical_op(op))
-            return infer_numerical(op, lhs, rhs, types);
-
-        if (is_logical_op(op))
-            return infer_logical_op(op, lhs, rhs, types);
-
-        return nullptr;
+    inline const type *infer_op(op_kind op, const type *lhs, const type *rhs, type_manager &types) {
+        auto cat = category_of(op);
+        if (!operand_ok(cat, lhs) || (rhs && !operand_ok(cat, rhs)))
+            diag::error("Invalid operand type for operator", op);
+        if (rhs && !same_type(lhs, rhs))
+            diag::error("Mismatched operand types", op);
+        return result_type(cat, lhs, types);
     }
 }
