@@ -48,6 +48,7 @@ namespace dungeon::ir {
         uint32_t id;
     };
 
+    // TODO: Investigate whetehr these branch_ids in br_data and cond_br_data are consistent with the basic block ids
     struct br_data {
         uint32_t branch_id;
     };
@@ -62,14 +63,14 @@ namespace dungeon::ir {
     };
 
     struct phi_data {
-        std::map<basic_block*, value *> incoming;
+        std::map<basic_block *, value *> incoming;
     };
 
     struct instruction {
         opcode op;
         value *result = nullptr;
         std::vector<value *> operands;
-        basic_block* parent = nullptr;
+        basic_block *parent = nullptr;
 
         using data_t = std::variant<
             std::monostate,
@@ -98,15 +99,24 @@ namespace dungeon::ir {
                     return false;
             }
         }
+
+        bool is_terminator() const {
+            return op == opcode::br || op == opcode::cond_br || op == opcode::ret;
+        }
+
+        void erase_use(value *operand) const {
+            if (!operand)
+                return;
+            auto &users = operand->users;
+            std::erase(users, this);
+        }
+
+        void erase_operands() {
+            for (auto operand: operands)
+                erase_use(operand);
+            operands.clear();
+        }
     };
-
-    inline bool is_terminator(const opcode op) {
-        return op == opcode::br || op == opcode::cond_br || op == opcode::ret;
-    }
-
-    inline bool is_terminator(const instruction *i) {
-        return is_terminator(i->op);
-    }
 
     inline void replace_all_uses_with(value *old_val, value *new_val) {
         for (instruction *user: old_val->users) {
@@ -116,18 +126,5 @@ namespace dungeon::ir {
             new_val->users.push_back(user);
         }
         old_val->users.clear();
-    }
-
-    static void erase_use(value *v, const instruction *user) {
-        if (!v)
-            return;
-        auto &users = v->users;
-        std::erase(users, user);
-    }
-
-    inline void erase_operands(instruction* inst) {
-        for (auto operand : inst->operands)
-            erase_use(operand, inst);
-        inst->operands.clear();
     }
 }
