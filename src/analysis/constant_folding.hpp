@@ -109,7 +109,7 @@ namespace dungeon {
                     if (!con)
                         continue;
 
-                    ir::erase_operands(inst);
+                    inst->erase_operands();
                     if (auto ic = std::get_if<const_int>(&con.value())) {
                         inst->op = ir::opcode::iconst;
                         inst->data = ir::iconst_data{.value = ic->value};
