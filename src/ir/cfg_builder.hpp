@@ -29,7 +29,7 @@ namespace dungeon::ir {
                 const instruction *ins = fn.instructions[i].get();
                 if (ins->op == opcode::label)
                     label_positions.emplace(std::get<label_data>(ins->data).id, i);
-                if (is_terminator(ins) && i + 1 < fn.instructions.size())
+                if (ins->is_terminator() && i + 1 < fn.instructions.size())
                     leaders.push_back(i + 1);
             }
             for (const auto &[_, position]: label_positions)

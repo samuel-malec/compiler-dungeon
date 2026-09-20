@@ -79,7 +79,7 @@ namespace dungeon::ir {
         bool current_path_terminated() const {
             if (ir_fn.instructions.empty())
                 return false;
-            return is_terminator(ir_fn.instructions.back()->op);
+            return ir_fn.instructions.back()->is_terminator();
         }
 
         void br_if_not_terminated(uint32_t target_label_id) {
@@ -340,7 +340,7 @@ namespace dungeon::ir {
             value *root = lower_hir_expr(hir_fn.root);
             if (root)
                 add_instr(opcode::ret, nullptr, {root}, {});
-            else if (ir_fn.instructions.empty() || !is_terminator(ir_fn.instructions.back()->op))
+            else if (ir_fn.instructions.empty() || !ir_fn.instructions.back()->is_terminator())
                 add_instr(opcode::ret, nullptr, {}, {});
 
             return std::move(ir_fn);

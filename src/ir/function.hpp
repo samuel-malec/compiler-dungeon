@@ -16,9 +16,7 @@ namespace dungeon::ir {
         std::vector<ins_ptr> instructions;
         std::vector<value_ptr> values;
 
-        std::vector< std::unique_ptr<basic_block> > blocks;
-        basic_block* entry = nullptr;
+        std::vector<std::unique_ptr<basic_block> > blocks;
+        basic_block *entry = nullptr;
     };
-
-
 }
