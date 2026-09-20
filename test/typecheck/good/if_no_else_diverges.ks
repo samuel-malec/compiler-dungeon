@@ -1,0 +1,6 @@
+fn foo(cond: bool) -> i32 {
+    if cond {
+        return 1;
+    }
+    2
+}

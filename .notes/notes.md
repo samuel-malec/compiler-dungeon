@@ -5,18 +5,14 @@
 
 ## Semantics
 
-    - Improve typechecker - currently lot of things are hardcoded and allowed only for integers, find a way to easily declare
-        - What operations are allowed on what types, create a class hierarchy of some kind...
-        - Enforce linear types (we don't have any non-primitive type yet, so this is currently out of our reach )
+    - Typechecking:
+        Enforce linear types (we don't have any non-primitive type yet, so this is currently out of our reach )
     - We could allow unitialized variables, but report errors once unitialized variables are used
     - We could add `const` - a compile-time constant, that gets replaced for every its occurence in the code
 
 # Analyses and Optimizations
-
-    - Implement SCCP (Sparse Conditional Constant Propagation)
+    - Implement Control flow simplification 
     - Implement general scaffolding around analyses, such as lattice and forward/backward analysis driver...
-    - Reasearch different kinds of control flow analysis
 
 ## Docs
-
-    - Improve the web visualization with SCCP optimization
+    - Maybe write up about SCCP...

@@ -101,13 +101,6 @@ namespace dungeon::sema {
             scope &scope = get_scope(sid);
             symbol sym = create_symbol(nid, src_loc, std::move(data));
 
-            // TODO: do we want this ? Rust doesn't do it like this ....
-            // e.g this should probably be valid kerosene code:
-            /**
-             * let x = 5;
-             * let x = x + 6;
-             * let x = 20;
-             */
             if (scope.symbols.contains(nid))
                 diag::error("Symbol already present", sym.src_loc);
 
@@ -179,6 +172,14 @@ namespace dungeon::sema {
             assert(false && "unknown type");
         }
 
+        static bool diverges(const ast::stmt &s) {
+            return std::holds_alternative<ast::ret_data>(s.data);
+        }
+
+        static bool block_diverges(const ast::block_data &bd) {
+            return !bd.stmts.empty() && diverges(*bd.stmts.back());
+        }
+
         const symbol &require_symbol(std::string_view name, const diag::src_location &loc, scope_id sid) {
             auto sym_id = lookup_symbol(name, sid);
             if (!sym_id)
@@ -234,7 +235,7 @@ namespace dungeon::sema {
 
                 if (blk->trailing)
                     check(*blk->trailing, expected, block_scope.id);
-                else if (!compatible_types(expected, semantics.types.get_unit())) {
+                else if (!block_diverges(*blk) && !compatible_types(expected, semantics.types.get_unit())) {
                     diag::error("Block without a trailing expression must be unit-typed", expr.src_loc);
                 }
                 return record(expr, expected);
