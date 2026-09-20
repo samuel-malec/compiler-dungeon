@@ -24,24 +24,10 @@ namespace dungeon {
             res.push_back(bb);
         }
 
-        static void remove_unreachable_blocks(ir::function &fn, const std::set<block_id> &reachable) {
-            std::vector<std::unique_ptr<basic_block> > new_blocks;
-            for (auto &block: fn.blocks) {
-                if (!reachable.contains(block->id))
-                    continue;
-                new_blocks.push_back(std::move(block));
-            }
-
-            fn.blocks = std::move(new_blocks);
-        }
-
         static order reverse_postorder(ir::function &fn) {
             order res{};
             std::set<block_id> visited{};
             dfs(fn.entry, res, visited);
-
-            remove_unreachable_blocks(fn, visited);
-
             std::ranges::reverse(res);
 
             for (int i = 0; i < res.size(); ++i)
@@ -188,8 +174,8 @@ namespace dungeon {
                 if (ins->op == ir::opcode::store && vars.contains(ins->operands[0]->id)) {
                     const value_id vid = ins->operands[0]->id;
                     ir::value *stored = ins->operands[1];
-                    erase_use(ins->operands[0], ins);
-                    erase_use(stored, ins);
+                    ins->erase_use(ins->operands[0]);
+                    ins->erase_use(stored);
                     s[vid].push_back(stored);
                     ++pushed[vid];
                     continue;
@@ -197,7 +183,7 @@ namespace dungeon {
 
                 if (ins->op == ir::opcode::load && vars.contains(ins->operands[0]->id)) {
                     const value_id vid = ins->operands[0]->id;
-                    erase_use(ins->operands[0], ins);
+                    ins->erase_use(ins->operands[0]);
                     if (auto &st = s[vid]; !st.empty())
                         replace_all_uses_with(ins->result, st.back());
                     continue;

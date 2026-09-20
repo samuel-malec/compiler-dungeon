@@ -273,9 +273,7 @@ namespace dungeon {
                     for (auto &ins: current->instructions)
                         visit(ins);
 
-                    bool has_terminator = !current->instructions.empty() && ir::is_terminator(
-                                              current->instructions.back());
-                    if (!has_terminator && !current->succ.empty())
+                    if (!current->has_terminator() && !current->succ.empty())
                         mark_executable(edge{.from = current, .to = current->succ.front()});
                 }
                 if (!ssa_worklist.empty()) {
@@ -299,11 +297,15 @@ namespace dungeon {
                         auto cbr = std::get<ir::cond_br_data>(inst->data);
                         auto true_id = cbr.true_branch;
                         auto false_id = cbr.false_branch;
+                        auto true_branch = block->succ[0];
+                        auto false_branch = block->succ[1];
                         bool taken = std::get<bcons>(elem.as_constant()).value;
 
-                        ir::erase_operands(inst);
+                        block->succ.clear();
+                        inst->erase_operands();
                         inst->op = ir::opcode::br;
                         inst->data = ir::br_data{.branch_id = taken ? true_id : false_id};
+                        block->succ.push_back(taken ? true_branch : false_branch);
                         continue;
                     }
 
@@ -312,7 +314,7 @@ namespace dungeon {
                     if (!elem.is_constant())
                         continue;
 
-                    ir::erase_operands(inst);
+                    inst->erase_operands();
                     auto cons = elem.as_constant();
 
                     if (auto ic = std::get_if<icons>(&cons)) {
@@ -325,31 +327,6 @@ namespace dungeon {
                     }
                 }
             }
-
-            // Drop every edge that was proved to never be executable
-            for (auto &block: fn.blocks) {
-                std::erase_if(block->succ, [&](basic_block *s) {
-                    return !executable_edges.contains(edge{.from = block.get(), .to = s});
-                });
-
-                std::erase_if(block->pred, [&](basic_block *p) {
-                    return !executable_edges.contains(edge{.from = p, .to = block.get()});
-                });
-
-                for (auto inst: block->instructions) {
-                    if (inst->op != ir::opcode::phi)
-                        continue;
-
-                    auto &incoming = std::get<ir::phi_data>(inst->data).incoming;
-                    std::erase_if(incoming, [&](const auto &kv) {
-                        return !executable_edges.contains(edge{.from = kv.first, .to = block.get()});
-                    });
-                }
-            }
-
-            std::erase_if(fn.blocks, [&](const std::unique_ptr<basic_block> &b) {
-                return !executable_blocks.contains(b.get());
-            });
         }
 
         void run(ir::function &fn) override {
