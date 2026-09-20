@@ -1,5 +1,4 @@
 ## Frontend
-
     - There is a Pratt parser for expressions ready, just extend it with all the operators ... 
     - Create better diagnostics and error reporting
 
@@ -15,4 +14,7 @@
     - Implement general scaffolding around analyses, such as lattice and forward/backward analysis driver...
 
 ## Docs
-    - Maybe write up about SCCP...
+    Topics to write up about:
+        - Pratt Parsing
+        - Bidirectional Type Checking
+        - SCCP analysis
