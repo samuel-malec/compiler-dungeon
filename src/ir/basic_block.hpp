@@ -33,7 +33,6 @@ namespace dungeon {
 
         std::vector<phi_node> phis;
         std::vector<ir::instruction *> instructions;
-        std::unique_ptr<terminator> terminator;
 
         std::vector<basic_block *> succ;
         std::vector<basic_block *> pred;
@@ -41,6 +40,32 @@ namespace dungeon {
         basic_block *idom = nullptr;
         std::vector<basic_block *> df;
         std::vector<basic_block *> dom_children;
+
+        bool has_terminator() const {
+            return !instructions.empty() && instructions.back()->is_terminator();
+        }
+
+        void replace_successor(basic_block *old_succ, basic_block *new_succ) {
+            for (int i = 0; i < succ.size(); ++i)
+                if (succ[i] == old_succ)
+                    succ[i] = new_succ;
+
+            assert(!instructions.empty());
+            auto terminator = instructions.back();
+            if (terminator->op == ir::opcode::br) {
+                auto brd = std::get<ir::br_data>(terminator->data);
+                brd.branch_id = new_succ->id.id;
+                return;
+            }
+
+            assert(terminator->op == ir::opcode::cond_br);
+            auto cbrd = std::get<ir::cond_br_data>(terminator->data);
+            if (cbrd.true_branch == old_succ->id.id) {
+                cbrd.true_branch = new_succ->id.id;
+            } else {
+                cbrd.false_branch = new_succ->id.id;
+            }
+        }
     };
 
     struct edge {
