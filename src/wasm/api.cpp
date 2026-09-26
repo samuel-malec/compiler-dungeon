@@ -4,8 +4,6 @@
 
 #include "../analysis/dce.hpp"
 #include "../analysis/mem2reg.hpp"
-#include "../analysis/pass_manager.hpp"
-#include "../analysis/pipeline.hpp"
 #include "../analysis/sccp.hpp"
 #include "../analysis/simplify_cfg.hpp"
 #include "../common/pretty_printer.hpp"
@@ -74,13 +72,16 @@ namespace dungeon {
             }
             r.stage = "ir";
 
+            // Building CFG + lowering to (unoptimized) SSA form. This is what the SSA
+            // representation tab shows, so it deliberately stops at mem2reg — sccp/dce/
+            // simplify_cfg are shown separately, opt-in, via optimize().
             {
                 ir::cfg_builder builder{};
                 builder.build(ir_mod);
 
-                analysis::pass_manager pm = get_default_pipeline();
+                mem2reg m2r{};
                 for (auto &fn: ir_mod.funcs)
-                    pm.run(fn);
+                    m2r.run(fn);
             }
             {
                 std::ostringstream oss;
