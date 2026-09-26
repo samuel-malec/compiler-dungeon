@@ -2,11 +2,12 @@
 #include <sstream>
 #include <string>
 
-#include "../analysis/constant_folding.hpp"
 #include "../analysis/dce.hpp"
 #include "../analysis/mem2reg.hpp"
 #include "../analysis/pass_manager.hpp"
 #include "../analysis/pipeline.hpp"
+#include "../analysis/sccp.hpp"
+#include "../analysis/simplify_cfg.hpp"
 #include "../common/pretty_printer.hpp"
 #include "../frontend/ast.hpp"
 #include "../frontend/lexer.hpp"
@@ -30,7 +31,6 @@ namespace dungeon {
         try {
             diag::source_ptr doc = std::make_shared<diag::source_file>("<input>", source);
 
-            // Lexing
             std::vector<token> toks;
             {
                 lexer l{doc};
@@ -43,7 +43,6 @@ namespace dungeon {
             }
             r.stage = "lexer";
 
-            // Parsing
             parser p{std::move(toks)};
             std::optional<ast::module> ast_mod = p.parse_module();
             if (!ast_mod)
@@ -55,12 +54,10 @@ namespace dungeon {
             }
             r.stage = "parser";
 
-            // Semantic analysis
             sema::semantic_analyzer sa{};
             sa.run(ast_mod.value());
             r.stage = "semantic";
 
-            // AST -> HIR lowering
             hir::module hir_mod = hir::lower_ast_to_hir(ast_mod.value(), sa.semantics);
             {
                 std::ostringstream oss;
@@ -69,7 +66,6 @@ namespace dungeon {
             }
             r.stage = "hir";
 
-            // HIR -> IR lowering
             ir::module ir_mod = ir::lower_hir_to_ir(hir_mod, sa.semantics);
             {
                 std::ostringstream oss;
@@ -78,7 +74,6 @@ namespace dungeon {
             }
             r.stage = "ir";
 
-            // Building CFG + running the default analysis pipeline
             {
                 ir::cfg_builder builder{};
                 builder.build(ir_mod);
@@ -108,7 +103,7 @@ namespace dungeon {
         std::string error;
     };
 
-    optimize_result optimize(const std::string &source, bool enable_sccp, bool enable_dce) {
+    optimize_result optimize(const std::string &source, bool enable_sccp, bool enable_dce, bool enable_simplify_cfg) {
         optimize_result r;
         print::pretty_printer printer{};
         try {
@@ -155,6 +150,11 @@ namespace dungeon {
                 dce d{};
                 for (auto &fn: ir_mod.funcs)
                     d.run(fn);
+            }
+            if (enable_simplify_cfg) {
+                simplify_cfg cfg{};
+                for (auto &fn: ir_mod.funcs)
+                    cfg.run(fn);
             }
             {
                 std::ostringstream oss;

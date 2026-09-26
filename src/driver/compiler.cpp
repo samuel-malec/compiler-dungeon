@@ -21,7 +21,6 @@ namespace dungeon {
         print::pretty_printer printer{};
         progress_reporter reporter{};
 
-        // Lexing
         std::vector<token> toks{};
         {
             reporter.time("lexing");
@@ -33,7 +32,6 @@ namespace dungeon {
         if (conf.stage == pipeline_stage::lexer)
             return;
 
-        // Parsing
         parser p{std::move(toks)};
         std::optional<ast::module> ast = std::nullopt;
         {
@@ -47,7 +45,6 @@ namespace dungeon {
         if (conf.stage == pipeline_stage::parser)
             return;
 
-        // Semantic analysis
         sema::semantic_analyzer sa{};
         {
             reporter.time("semantic analysis");
@@ -56,7 +53,6 @@ namespace dungeon {
         if (conf.stage == pipeline_stage::semantic || conf.stage == pipeline_stage::typecheck)
             return;
 
-        // AST -> HIR lowering
         hir::module hir{};
         {
             reporter.time("hir lowering");
@@ -67,7 +63,6 @@ namespace dungeon {
         if (conf.stage == pipeline_stage::hir)
             return;
 
-        // Generating IR
         ir::module ir_module{};
         {
             reporter.time("generating ir");
@@ -78,7 +73,6 @@ namespace dungeon {
         if (conf.stage == pipeline_stage::ir)
             return;
 
-        // Building CFG
         {
             reporter.time("building cfg");
             ir::cfg_builder builder{};
