@@ -11,13 +11,24 @@ namespace dungeon {
     struct block_id;
 }
 
+// TODO:
+// how to handle numeric operations ?
+// how to handle overflow -> wrap the result
+// how to do division rounding
+// how to shift by >= width 
+// normalize constants to their type's width and signedness
+// route all folding through one eval_binary( op, type, a, b )
 namespace dungeon::ir {
     enum class opcode {
         iconst, bconst,
 
-        add, sub, mul, div, mod, shl, shr, neg,
+        add, sub, mul, shl, shr, neg,
 
-        eq, lt,
+        umod, udiv, smod, sdiv,
+
+        slt, sgt, sle, sge,
+        ult, ugt, ule, uge,
+        eq,
 
         lnot,
 
@@ -48,7 +59,6 @@ namespace dungeon::ir {
         uint32_t id;
     };
 
-    // TODO: Investigate whetehr these branch_ids in br_data and cond_br_data are consistent with the basic block ids
     struct br_data {
         uint32_t branch_id;
     };

@@ -611,12 +611,20 @@ namespace dungeon::print {
                 out << "mul";
                 break;
 
-            case ir::opcode::div:
-                out << "div";
+            case ir::opcode::udiv:
+                out << "udiv";
                 break;
 
-            case ir::opcode::mod:
-                out << "mod";
+            case ir::opcode::umod:
+                out << "umod";
+                break;
+
+            case ir::opcode::sdiv:
+                out << "sdiv";
+                break;
+
+            case ir::opcode::smod:
+                out << "smod";
                 break;
 
             case ir::opcode::shl:
@@ -635,8 +643,36 @@ namespace dungeon::print {
                 out << "eq";
                 break;
 
-            case ir::opcode::lt:
-                out << "lt";
+            case ir::opcode::ult:
+                out << "ult";
+                break;
+
+            case ir::opcode::ule:
+                out << "ule";
+                break;
+
+            case ir::opcode::ugt:
+                out << "ugt";
+                break;
+
+            case ir::opcode::uge:
+                out << "uge";
+                break;
+
+            case ir::opcode::slt:
+                out << "slt";
+                break;
+
+            case ir::opcode::sle:
+                out << "sle";
+                break;
+
+            case ir::opcode::sgt:
+                out << "sgt";
+                break;
+
+            case ir::opcode::sge:
+                out << "sge";
                 break;
 
             case ir::opcode::lnot:
@@ -697,6 +733,17 @@ namespace dungeon::print {
         }
     }
 
+    static bool is_comparison(ir::opcode op) {
+        switch (op) {
+            case ir::opcode::eq:
+            case ir::opcode::slt: case ir::opcode::sle: case ir::opcode::sgt: case ir::opcode::sge:
+            case ir::opcode::ult: case ir::opcode::ule: case ir::opcode::ugt: case ir::opcode::uge:
+                return true;
+            default:
+                return false;
+        }
+    }
+
     void pretty_printer::print_ir_instruction(
         std::ostream &out,
         const ir::instruction *i,
@@ -748,24 +795,29 @@ namespace dungeon::print {
             }
 
             case ir::opcode::ret: {
-                out << "ret";
-
+                out << "ret ";
                 if (!i->operands.empty()) {
+                    // `ret` defines no value, so the type comes from what is returned.
+                    print_hir_type(out, i->operands[0]->ty);
                     out << ' ';
                     print_ir_operands(out, i->operands);
+                } else {
+                    out << "unit";
                 }
 
                 break;
             }
 
             case ir::opcode::store: {
-                out << "store ";
-
                 assert(i->operands.size() == 2);
 
-                print_ir_value(out, i->operands[0]);
-                out << " <- ";
+                // operands are {address, value}; print LLVM's order: store <ty> <value>, <address>
+                out << "store ";
+                print_hir_type(out, i->operands[1]->ty);
+                out << ' ';
                 print_ir_value(out, i->operands[1]);
+                out << ", ";
+                print_ir_value(out, i->operands[0]);
 
                 break;
             }
@@ -777,8 +829,9 @@ namespace dungeon::print {
                         std::get<ir::iconst_data>(i->data);
 
                 print_ir_value(out, i->result);
-                out << " = iconst " << data.value;
-
+                out << " = iconst ";
+                print_hir_type(out, i->result->ty);
+                out << " " << data.value;
                 break;
             }
 
@@ -789,7 +842,7 @@ namespace dungeon::print {
                         std::get<ir::bconst_data>(i->data);
 
                 print_ir_value(out, i->result);
-                out << " = bconst "
+                out << " = bconst bool "
                         << (data.value ? "true" : "false");
 
                 break;
@@ -804,7 +857,12 @@ namespace dungeon::print {
                     out << " = ";
                 }
 
-                out << "call fn#" << data.target.value << '(';
+                out << "call ";
+                if (i->result) {
+                    print_hir_type(out, i->result->ty);
+                    out << ' ';
+                }
+                out << "fn#" << data.target.value << '(';
                 print_ir_operands(out, i->operands);
                 out << ')';
 
@@ -815,7 +873,9 @@ namespace dungeon::print {
                 assert(i->result);
                 const auto &data = std::get<ir::param_data>(i->data);
                 print_ir_value(out, i->result);
-                out << " = param " << data.index;
+                out << " = param ";
+                print_hir_type(out, i->result->ty);
+                out << ' ' << data.index;
                 break;
             }
 
@@ -824,6 +884,8 @@ namespace dungeon::print {
                 const auto &data = std::get<ir::phi_data>(i->data);
                 print_ir_value(out, i->result);
                 out << " = phi ";
+                print_hir_type(out, i->result->ty);
+                out << " ";
 
                 bool first = true;
                 for (auto &[bid, val]: data.incoming) {
@@ -845,18 +907,26 @@ namespace dungeon::print {
 
                 print_ir_op(out, i->op);
 
-                if (!i->operands.empty()) {
+                // The type after the opcode is the type the instruction operates on: for a
+                // comparison that is the operand type, not the bool it produces.
+                const type *ty = nullptr;
+                if (is_comparison(i->op) && !i->operands.empty())
+                    ty = i->operands[0]->ty;
+                else if (i->result)
+                    ty = i->result->ty;
+
+                if (ty) {
                     out << ' ';
+                    print_hir_type(out, ty);
+                }
+
+                if (!i->operands.empty()) {
+                    out << (i->op == ir::opcode::load ? ", " : " ");
                     print_ir_operands(out, i->operands);
                 }
 
                 break;
             }
-        }
-
-        if (i->result) {
-            out << " : ";
-            print_hir_type(out, i->result->ty);
         }
 
         out << '\n';

@@ -5,7 +5,6 @@
 #include "../diag/diag.hpp"
 
 namespace dungeon {
-    // TODO: we can potentially split these opkinds for ast, semantic, hir becase each stage removes some of these and are forced to keep in mind which ops are relevant for each phase
     enum op_kind {
         ADD, SUB, MUL, DIV, MOD, SHL, SHR,
 

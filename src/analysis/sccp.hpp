@@ -118,11 +118,15 @@ namespace dungeon {
         static bool is_foldable(ir::opcode op) {
             return op == ir::opcode::iconst || op == ir::opcode::bconst ||
                    op == ir::opcode::add || op == ir::opcode::sub ||
-                   op == ir::opcode::mul || op == ir::opcode::div ||
-                   op == ir::opcode::mod || op == ir::opcode::shl ||
+                   op == ir::opcode::mul || op == ir::opcode::sdiv ||
+                   op == ir::opcode::smod || op == ir::opcode::udiv ||
+                   op == ir::opcode::umod || op == ir::opcode::shl ||
                    op == ir::opcode::shr || op == ir::opcode::neg ||
-                   op == ir::opcode::lnot || op == ir::opcode::lt ||
-                   op == ir::opcode::eq;
+                   op == ir::opcode::lnot || op == ir::opcode::ult ||
+                   op == ir::opcode::ule || op == ir::opcode::ugt ||
+                   op == ir::opcode::uge || op == ir::opcode::slt ||
+                   op == ir::opcode::sle || op == ir::opcode::sgt ||
+                   op == ir::opcode::sge || op == ir::opcode::eq;
         }
 
         static lattice_element folded_value(ir::instruction *inst, lattice &values) {
@@ -159,18 +163,23 @@ namespace dungeon {
                 return {icons{std::get<icons>(lhs_const).value - std::get<icons>(rhs_const).value}};
             if (inst->op == ir::opcode::mul)
                 return {icons{std::get<icons>(lhs_const).value * std::get<icons>(rhs_const).value}};
-            if (inst->op == ir::opcode::div) {
+            if (inst->op == ir::opcode::sdiv) {
                 // TODO: should we crash the compiler if we encounter compile-time division by zero ?
                 if (std::get<icons>(rhs_const).value == 0)
                     return {overdefined{}};
                 return {icons{std::get<icons>(lhs_const).value / std::get<icons>(rhs_const).value}};
             }
-            if (inst->op == ir::opcode::mod) {
+
+            if (inst->op == ir::opcode::smod) {
                 // TODO: same question as in the div-case
                 if (std::get<icons>(rhs_const).value == 0)
                     return {overdefined{}};
                 return {icons{std::get<icons>(lhs_const).value % std::get<icons>(rhs_const).value}};
             }
+
+            if (inst->op == ir::opcode ::udiv ) {}
+            if (inst->op == ir::opcode ::sdiv ) {}
+
             if (inst->op == ir::opcode::shl)
                 return {icons{std::get<icons>(lhs_const).value << std::get<icons>(rhs_const).value}};
             if (inst->op == ir::opcode::shr)
@@ -196,12 +205,20 @@ namespace dungeon {
                 assert(ilhs && irhs);
                 return {bcons{.value = ilhs->value == irhs->value}};
             }
-            if (inst->op == ir::opcode::lt) {
+            if (inst->op == ir::opcode::ult) {
                 auto ilhs = std::get_if<icons>(&lhs_const);
                 auto irhs = std::get_if<icons>(&rhs_const);
                 assert(ilhs && irhs);
                 return {bcons{.value = ilhs->value < irhs->value}};
             }
+            if (inst->op == ir::opcode::ult) {}
+            if (inst->op == ir::opcode::ule) {}
+            if (inst->op == ir::opcode::ugt) {}
+            if (inst->op == ir::opcode::uge) {}
+            if (inst->op == ir::opcode::slt) {}
+            if (inst->op == ir::opcode::sle) {}
+            if (inst->op == ir::opcode::sgt) {}
+            if (inst->op == ir::opcode::sge) {}
 
             assert(false && "should not reach here");
         }

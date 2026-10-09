@@ -33,13 +33,13 @@ namespace dungeon::ir {
                 case ADD: return opcode::add;
                 case SUB: return opcode::sub;
                 case MUL: return opcode::mul;
-                case DIV: return opcode::div;
-                case MOD: return opcode::mod;
+                case DIV: return opcode::udiv; // TODO: handle the sdiv case
+                case MOD: return opcode::umod; // TODO: handle the smod case
                 case SHL: return opcode::shl;
                 case SHR: return opcode::shr;
                 case MINUS: return opcode::neg;
                 case EQ: return opcode::eq;
-                case LT: return opcode::lt;
+                case LT: return opcode::ult; // TODO handle the slt case
                 case NOT: return opcode::lnot;
                 default: assert(false && "unexpected op kind in lowering to ir phase");
             }
