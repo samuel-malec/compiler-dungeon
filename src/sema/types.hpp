@@ -1,5 +1,9 @@
 #pragma once
 
+#include <cassert>
+#include <cstdint>
+#include <string>
+
 #include "../frontend/ast.hpp"
 
 namespace dungeon {
@@ -88,6 +92,22 @@ namespace dungeon {
                is_unsigned_integer_ty(ty);
     }
 
+    inline std::string int_type_name(const type *ty) {
+        return (is_signed_integer_ty(ty) ? "i" : "u") + std::to_string(ty->bits);
+    }
+
+    inline bool is_within_bounds(const type *ty, uint64_t magnitude, bool negated) {
+        assert(is_integer_ty(ty));
+        if (negated && is_unsigned_integer_ty(ty))
+            return magnitude == 0;
+
+        const size_t value_bits = is_signed_integer_ty(ty) ? ty->bits - 1 : ty->bits;
+        uint64_t max = value_bits >= 64 ? UINT64_MAX : (uint64_t{1} << value_bits) - 1;
+        if (negated)
+            max += 1;
+        return magnitude <= max;
+    }
+
     inline bool is_unit_ty(const type *ty) {
         return ty->kind == type_kind::_unit;
     }
@@ -145,7 +165,7 @@ namespace dungeon {
             return operand;
         if (cat == op_category::unary_logical || cat == op_category::logical)
             return operand;
-        if ( cat == op_category::equality || cat == op_category::ordering)
+        if (cat == op_category::equality || cat == op_category::ordering)
             return types.get_bool();
         assert(false && "should not reach here");
     }

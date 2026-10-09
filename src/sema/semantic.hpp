@@ -193,16 +193,67 @@ namespace dungeon::sema {
             return ty;
         }
 
+        static const ast::num_lit_data *negated_literal(const ast::unary_data &ud) {
+            if (ud.op != MINUS)
+                return nullptr;
+            return std::get_if<ast::num_lit_data>(&ud.lhs->data);
+        }
+
+        static void check_int_literal(uint64_t magnitude, const type *ty, bool negated,
+                                      const diag::src_location &loc) {
+            if (!is_within_bounds(ty, magnitude, negated))
+                diag::error("Integer literal", (negated ? "-" : "") + std::to_string(magnitude),
+                            "does not fit in", int_type_name(ty), loc);
+        }
+
+        static bool is_context_typed(const ast::expr &expr) {
+            if (std::get_if<ast::num_lit_data>(&expr.data))
+                return true;
+            if (auto ud = std::get_if<ast::unary_data>(&expr.data))
+                return category_of(ud->op) == op_category::unary_numeric && is_context_typed(*ud->lhs);
+            if (auto bd = std::get_if<ast::binary_data>(&expr.data))
+                return category_of(bd->op) == op_category::numeric &&
+                       is_context_typed(*bd->lhs) && is_context_typed(*bd->rhs);
+            return false;
+        }
+
+        std::pair<const type *, const type *> infer_operands(ast::expr &lhs, ast::expr &rhs, scope_id sid) {
+            const bool lhs_free = is_context_typed(lhs);
+            const bool rhs_free = is_context_typed(rhs);
+
+            const type *lhs_ty;
+            const type *rhs_ty;
+            if (lhs_free && !rhs_free) {
+                rhs_ty = infer(rhs, sid);
+                lhs_ty = rhs_ty && is_integer_ty(rhs_ty) ? check(lhs, rhs_ty, sid) : infer(lhs, sid);
+            } else if (rhs_free && !lhs_free) {
+                lhs_ty = infer(lhs, sid);
+                rhs_ty = lhs_ty && is_integer_ty(lhs_ty) ? check(rhs, lhs_ty, sid) : infer(rhs, sid);
+            } else {
+                lhs_ty = infer(lhs, sid);
+                rhs_ty = infer(rhs, sid);
+            }
+            return {lhs_ty, rhs_ty};
+        }
+
         const type *check(ast::expr &expr, const type *expected, scope_id sid) {
             const scope &curr_scope = get_scope(sid);
 
-            if (std::get_if<ast::num_lit_data>(&expr.data)) {
+            if (auto nld = std::get_if<ast::num_lit_data>(&expr.data)) {
                 if (!is_integer_ty(expected))
                     diag::error("Actual type doesn't match the expected", expr.src_loc);
+                check_int_literal(nld->value, expected, false, expr.src_loc);
                 return record(expr, expected);
             }
             if (auto ud = std::get_if<ast::unary_data>(&expr.data)) {
-                check(*ud->lhs, expected, sid);
+                if (auto lit = negated_literal(*ud)) {
+                    if (!is_integer_ty(expected))
+                        diag::error("Actual type doesn't match the expected", expr.src_loc);
+                    check_int_literal(lit->value, expected, true, ud->lhs->src_loc);
+                    record(*ud->lhs, expected);
+                } else {
+                    check(*ud->lhs, expected, sid);
+                }
                 infer_op(ud->op, expected, nullptr, semantics.types);
                 return record(expr, expected);
             }
@@ -249,8 +300,11 @@ namespace dungeon::sema {
 
         const type *infer(ast::expr &expr, scope_id sid) {
             const scope &curr_scope = get_scope(sid);
-            if (std::get_if<ast::num_lit_data>(&expr.data)) {
-                return record(expr, semantics.types.get_int(32));
+            if (auto nld = std::get_if<ast::num_lit_data>(&expr.data)) {
+                // an unannotated literal defaults to i32, so it has to fit in an i32
+                const type *ty = semantics.types.get_int(32);
+                check_int_literal(nld->value, ty, false, expr.src_loc);
+                return record(expr, ty);
             }
             if (std::get_if<ast::bool_lit_data>(&expr.data)) {
                 return record(expr, semantics.types.get_bool());
@@ -264,17 +318,22 @@ namespace dungeon::sema {
                 return record(expr, var->ty);
             }
             if (auto ud = std::get_if<ast::unary_data>(&expr.data)) {
-                auto ty = infer(*ud->lhs, sid);
+                const type *ty;
+                if (auto lit = negated_literal(*ud)) {
+                    ty = semantics.types.get_int(32);
+                    check_int_literal(lit->value, ty, true, ud->lhs->src_loc);
+                    record(*ud->lhs, ty);
+                } else {
+                    ty = infer(*ud->lhs, sid);
+                }
                 return record(expr, infer_op(ud->op, ty, nullptr, semantics.types));
             }
             if (auto bd = std::get_if<ast::binary_data>(&expr.data)) {
-                auto lhs = infer(*bd->lhs, sid);
-                auto rhs = infer(*bd->rhs, sid);
+                auto [lhs, rhs] = infer_operands(*bd->lhs, *bd->rhs, sid);
                 return record(expr, infer_op(bd->op, lhs, rhs, semantics.types));
             }
             if (auto rd = std::get_if<ast::relational_data>(&expr.data)) {
-                auto lhs = infer(*rd->lhs, sid);
-                auto rhs = infer(*rd->rhs, sid);
+                auto [lhs, rhs] = infer_operands(*rd->lhs, *rd->rhs, sid);
                 return record(expr, infer_op(rd->op, lhs, rhs, semantics.types));
             }
             if (auto ad = std::get_if<ast::assign_data>(&expr.data)) {
