@@ -87,3 +87,18 @@ add_compiler_fixture_tests(parser)
 add_compiler_fixture_tests(semantic)
 add_compiler_fixture_tests(typecheck)
 
+# Whole-pipeline tests: compile with every pass enabled and check the printed IR.
+# Each test/pipeline/<name>.ks has a sibling <name>.check (see cmake/RunPipelineCheckTest.cmake).
+file(GLOB pipeline_inputs CONFIGURE_DEPENDS "${CMAKE_SOURCE_DIR}/test/pipeline/*.ks")
+foreach (input_file IN LISTS pipeline_inputs)
+    get_filename_component(test_name "${input_file}" NAME_WE)
+    add_test(
+            NAME pipeline.${test_name}
+            COMMAND ${CMAKE_COMMAND}
+            -Dcompiler=$<TARGET_FILE:compiler-dungeon>
+            -Dinput=${input_file}
+            -Dcheck=${CMAKE_SOURCE_DIR}/test/pipeline/${test_name}.check
+            -P ${CMAKE_SOURCE_DIR}/cmake/RunPipelineCheckTest.cmake
+    )
+    set_tests_properties(pipeline.${test_name} PROPERTIES LABELS "pipeline")
+endforeach ()

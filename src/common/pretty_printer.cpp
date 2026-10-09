@@ -3,6 +3,7 @@
 #include <sstream>
 
 #include "pretty_printer.hpp"
+#include "../ir/int_semantics.hpp"
 #include "../frontend/ast.hpp"
 
 namespace dungeon::print {
@@ -733,17 +734,6 @@ namespace dungeon::print {
         }
     }
 
-    static bool is_comparison(ir::opcode op) {
-        switch (op) {
-            case ir::opcode::eq:
-            case ir::opcode::slt: case ir::opcode::sle: case ir::opcode::sgt: case ir::opcode::sge:
-            case ir::opcode::ult: case ir::opcode::ule: case ir::opcode::ugt: case ir::opcode::uge:
-                return true;
-            default:
-                return false;
-        }
-    }
-
     void pretty_printer::print_ir_instruction(
         std::ostream &out,
         const ir::instruction *i,
@@ -831,7 +821,11 @@ namespace dungeon::print {
                 print_ir_value(out, i->result);
                 out << " = iconst ";
                 print_hir_type(out, i->result->ty);
-                out << " " << data.value;
+                // constants are stored sign-extended; show signed types as signed
+                if (is_signed_integer_ty(i->result->ty))
+                    out << " " << static_cast<int64_t>(data.value);
+                else
+                    out << " " << data.value;
                 break;
             }
 
@@ -910,7 +904,7 @@ namespace dungeon::print {
                 // The type after the opcode is the type the instruction operates on: for a
                 // comparison that is the operand type, not the bool it produces.
                 const type *ty = nullptr;
-                if (is_comparison(i->op) && !i->operands.empty())
+                if (ir::is_comparison(i->op) && !i->operands.empty())
                     ty = i->operands[0]->ty;
                 else if (i->result)
                     ty = i->result->ty;

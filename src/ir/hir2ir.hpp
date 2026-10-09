@@ -28,18 +28,18 @@ namespace dungeon::ir {
             : hir_fn{hir_fn}, sema{sema} {
         }
 
-        opcode from_opkind(op_kind op) {
+        opcode from_opkind(op_kind op, const type *ty) {
             switch (op) {
                 case ADD: return opcode::add;
                 case SUB: return opcode::sub;
                 case MUL: return opcode::mul;
-                case DIV: return opcode::udiv; // TODO: handle the sdiv case
-                case MOD: return opcode::umod; // TODO: handle the smod case
+                case DIV: return is_signed_integer_ty(ty) ? opcode::sdiv : opcode::udiv;
+                case MOD: return is_signed_integer_ty(ty) ? opcode::smod : opcode::umod;
                 case SHL: return opcode::shl;
                 case SHR: return opcode::shr;
                 case MINUS: return opcode::neg;
                 case EQ: return opcode::eq;
-                case LT: return opcode::ult; // TODO handle the slt case
+                case LT: return is_signed_integer_ty(ty) ? opcode::slt : opcode::ult;
                 case NOT: return opcode::lnot;
                 default: assert(false && "unexpected op kind in lowering to ir phase");
             }
@@ -147,6 +147,7 @@ namespace dungeon::ir {
             return result;
         }
 
+
         value *lower_hir_expr(hir::expr_id eid) {
             auto &e = hir_fn.get_expr(eid.idx);
 
@@ -167,7 +168,7 @@ namespace dungeon::ir {
             }
             if (auto t = std::get_if<hir::expr::unary_data>(&e.data)) {
                 value *result = get_value(e.ty);
-                add_instr(from_opkind(t->op), result, {lower_hir_expr(t->lhs)}, {});
+                add_instr(from_opkind(t->op, result->ty), result, {lower_hir_expr(t->lhs)}, {});
                 return result;
             }
             if (auto t = std::get_if<hir::expr::binary_data>(&e.data)) {
@@ -177,14 +178,14 @@ namespace dungeon::ir {
                 value *result = get_value(e.ty);
                 value *lhs = lower_hir_expr(t->lhs);
                 value *rhs = lower_hir_expr(t->rhs);
-                add_instr(from_opkind(t->op), result, {lhs, rhs}, {});
+                add_instr(from_opkind(t->op, lhs->ty), result, {lhs, rhs}, {});
                 return result;
             }
             if (auto t = std::get_if<hir::expr::relational_data>(&e.data)) {
                 value *result = get_value(e.ty);
                 value *lhs = lower_hir_expr(t->lhs);
                 value *rhs = lower_hir_expr(t->rhs);
-                add_instr(from_opkind(t->op), result, {lhs, rhs}, {});
+                add_instr(from_opkind(t->op, lhs->ty), result, {lhs, rhs}, {});
                 return result;
             }
             if (auto t = std::get_if<hir::expr::assign_data>(&e.data)) {

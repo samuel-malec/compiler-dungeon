@@ -2,6 +2,7 @@
 #include <unordered_set>
 
 #include "pass.hpp"
+#include "../ir/int_semantics.hpp"
 
 namespace dungeon {
     struct sccp : pass {
@@ -131,7 +132,7 @@ namespace dungeon {
 
         static lattice_element folded_value(ir::instruction *inst, lattice &values) {
             if (inst->op == ir::opcode::iconst)
-                return {icons{.value = std::get<ir::iconst_data>(inst->data).value}};
+                return {icons{.value = ir::normalize(std::get<ir::iconst_data>(inst->data).value, inst->result->ty)}};
 
             if (inst->op == ir::opcode::bconst)
                 return {bcons{.value = std::get<ir::bconst_data>(inst->data).value}};
@@ -142,7 +143,7 @@ namespace dungeon {
 
             auto lhs_const = lhs.as_constant();
             if (inst->op == ir::opcode::neg)
-                return {icons{.value = -std::get<icons>(lhs_const).value}};
+                return {icons{.value = ir::normalize(0 - std::get<icons>(lhs_const).value, inst->result->ty)}};
 
             if (inst->op == ir::opcode::lnot)
                 return {bcons{.value = !std::get<bcons>(lhs_const).value}};
@@ -157,33 +158,6 @@ namespace dungeon {
             assert(rhs.is_constant());
             auto rhs_const = rhs.as_constant();
 
-            if (inst->op == ir::opcode::add)
-                return {icons{std::get<icons>(lhs_const).value + std::get<icons>(rhs_const).value}};
-            if (inst->op == ir::opcode::sub)
-                return {icons{std::get<icons>(lhs_const).value - std::get<icons>(rhs_const).value}};
-            if (inst->op == ir::opcode::mul)
-                return {icons{std::get<icons>(lhs_const).value * std::get<icons>(rhs_const).value}};
-            if (inst->op == ir::opcode::sdiv) {
-                // TODO: should we crash the compiler if we encounter compile-time division by zero ?
-                if (std::get<icons>(rhs_const).value == 0)
-                    return {overdefined{}};
-                return {icons{std::get<icons>(lhs_const).value / std::get<icons>(rhs_const).value}};
-            }
-
-            if (inst->op == ir::opcode::smod) {
-                // TODO: same question as in the div-case
-                if (std::get<icons>(rhs_const).value == 0)
-                    return {overdefined{}};
-                return {icons{std::get<icons>(lhs_const).value % std::get<icons>(rhs_const).value}};
-            }
-
-            if (inst->op == ir::opcode ::udiv ) {}
-            if (inst->op == ir::opcode ::sdiv ) {}
-
-            if (inst->op == ir::opcode::shl)
-                return {icons{std::get<icons>(lhs_const).value << std::get<icons>(rhs_const).value}};
-            if (inst->op == ir::opcode::shr)
-                return {icons{std::get<icons>(lhs_const).value >> std::get<icons>(rhs_const).value}};
             if (inst->op == ir::opcode::eq) {
                 auto blhs = std::get_if<bcons>(&lhs_const);
                 auto brhs = std::get_if<bcons>(&rhs_const);
@@ -205,22 +179,18 @@ namespace dungeon {
                 assert(ilhs && irhs);
                 return {bcons{.value = ilhs->value == irhs->value}};
             }
-            if (inst->op == ir::opcode::ult) {
-                auto ilhs = std::get_if<icons>(&lhs_const);
-                auto irhs = std::get_if<icons>(&rhs_const);
-                assert(ilhs && irhs);
-                return {bcons{.value = ilhs->value < irhs->value}};
-            }
-            if (inst->op == ir::opcode::ult) {}
-            if (inst->op == ir::opcode::ule) {}
-            if (inst->op == ir::opcode::ugt) {}
-            if (inst->op == ir::opcode::uge) {}
-            if (inst->op == ir::opcode::slt) {}
-            if (inst->op == ir::opcode::sle) {}
-            if (inst->op == ir::opcode::sgt) {}
-            if (inst->op == ir::opcode::sge) {}
 
-            assert(false && "should not reach here");
+            auto ilhs = std::get_if<icons>(&lhs_const);
+            auto irhs = std::get_if<icons>(&rhs_const);
+            assert(ilhs && irhs);
+
+            if (ir::is_comparison(inst->op))
+                return {bcons{.value = ir::eval_cmp(inst->op, ilhs->value, irhs->value)}};
+
+            if (auto result = ir::eval_arith(inst->op, inst->result->ty, ilhs->value, irhs->value))
+                return {icons{.value = *result}};
+
+            return bot();
         }
 
         void mark_executable(edge e) {

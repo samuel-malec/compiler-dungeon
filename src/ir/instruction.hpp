@@ -11,13 +11,6 @@ namespace dungeon {
     struct block_id;
 }
 
-// TODO:
-// how to handle numeric operations ?
-// how to handle overflow -> wrap the result
-// how to do division rounding
-// how to shift by >= width 
-// normalize constants to their type's width and signedness
-// route all folding through one eval_binary( op, type, a, b )
 namespace dungeon::ir {
     enum class opcode {
         iconst, bconst,

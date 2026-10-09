@@ -22,13 +22,5 @@ namespace dungeon::ir {
         value(uint32_t id, const type *ty, std::vector<instruction *> users) : id(id), version{1}, ty(ty),
                                                                                users(std::move(users)) {
         }
-
-        struct const_int {
-            uint64_t value;
-        };
-
-        struct const_bool {
-            bool value;
-        };
     };
 }
