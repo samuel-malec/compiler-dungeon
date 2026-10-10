@@ -122,12 +122,13 @@ namespace dungeon {
                    op == ir::opcode::mul || op == ir::opcode::sdiv ||
                    op == ir::opcode::smod || op == ir::opcode::udiv ||
                    op == ir::opcode::umod || op == ir::opcode::shl ||
-                   op == ir::opcode::shr || op == ir::opcode::neg ||
-                   op == ir::opcode::lnot || op == ir::opcode::ult ||
-                   op == ir::opcode::ule || op == ir::opcode::ugt ||
-                   op == ir::opcode::uge || op == ir::opcode::slt ||
-                   op == ir::opcode::sle || op == ir::opcode::sgt ||
-                   op == ir::opcode::sge || op == ir::opcode::eq;
+                   op == ir::opcode::shr || op == ir::opcode::sar ||
+                   op == ir::opcode::neg || op == ir::opcode::lnot ||
+                   op == ir::opcode::ult || op == ir::opcode::ule ||
+                   op == ir::opcode::ugt || op == ir::opcode::uge ||
+                   op == ir::opcode::slt || op == ir::opcode::sle ||
+                   op == ir::opcode::sgt || op == ir::opcode::sge ||
+                   op == ir::opcode::eq;
         }
 
         static lattice_element folded_value(ir::instruction *inst, lattice &values) {

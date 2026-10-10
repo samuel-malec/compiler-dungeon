@@ -50,6 +50,8 @@ namespace dungeon::ir {
     }
 
     inline std::optional<uint64_t> eval_arith(opcode op, const type *ty, uint64_t a, uint64_t b) {
+        assert((op != opcode::udiv && op != opcode::umod && op != opcode::shr) || is_unsigned_integer_ty(ty));
+        assert((op != opcode::sdiv && op != opcode::smod && op != opcode::sar) || is_signed_integer_ty(ty));
         const auto sa = static_cast<int64_t>(a);
         const auto sb = static_cast<int64_t>(b);
         const size_t bits = ty->bits;
@@ -79,8 +81,10 @@ namespace dungeon::ir {
                 return normalize(a << b, ty);
             case opcode::shr:
                 if (b >= bits) return std::nullopt;
-                return is_signed_integer_ty(ty) ? normalize(static_cast<uint64_t>(sa >> b), ty) : a >> b;
-
+                return a >> b;
+            case opcode::sar:
+                if (b >= bits) return std::nullopt;
+                return static_cast<uint64_t>(sa >> b);
             default:
                 assert(false && "not an arithmetic opcode");
                 return std::nullopt;

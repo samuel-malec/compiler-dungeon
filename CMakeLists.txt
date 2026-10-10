@@ -102,3 +102,12 @@ foreach (input_file IN LISTS pipeline_inputs)
     )
     set_tests_properties(pipeline.${test_name} PROPERTIES LABELS "pipeline")
 endforeach ()
+
+# Exhaustive 8-bit test of the integer semantics shared by constant folding (and, later, an
+# interpreter). Not built for the wasm target.
+if (NOT EMSCRIPTEN)
+    add_executable(int_semantics_test test/unit/int_semantics_test.cpp)
+    add_test(NAME unit.int_semantics COMMAND int_semantics_test)
+    set_tests_properties(unit.int_semantics PROPERTIES LABELS "unit")
+endif ()
+
