@@ -18,19 +18,19 @@
 ```
 [x] CFG
 [x] SSA
-[] Pass Manager
-[] Analysis Manager
+[x] Pass Manager
+[x] Analysis Manager
 ```
 
 ## SSA Optimizations
 ```
-[wip] Constant folding
-[] SCCP
+[x] Constant folding
+[x] SCCP
 [X] DCE
 [] CSE
 [] GVN
 [] Copy propagation
-[wip] CFG simplification
+[x] CFG simplification
 [] Jump threading
 [] LICM
 [] Strength reduction
