@@ -15,7 +15,7 @@ namespace dungeon::ir {
     enum class opcode {
         iconst, bconst,
 
-        add, sub, mul, shl, shr, neg,
+        add, sub, mul, shl, shr, sar, neg,
 
         umod, udiv, smod, sdiv,
 

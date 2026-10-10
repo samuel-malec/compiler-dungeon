@@ -36,7 +36,7 @@ namespace dungeon::ir {
                 case DIV: return is_signed_integer_ty(ty) ? opcode::sdiv : opcode::udiv;
                 case MOD: return is_signed_integer_ty(ty) ? opcode::smod : opcode::umod;
                 case SHL: return opcode::shl;
-                case SHR: return opcode::shr;
+                case SHR: return is_signed_integer_ty(ty) ? opcode::sar : opcode::shr;
                 case MINUS: return opcode::neg;
                 case EQ: return opcode::eq;
                 case LT: return is_signed_integer_ty(ty) ? opcode::slt : opcode::ult;

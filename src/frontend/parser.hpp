@@ -141,6 +141,8 @@ namespace dungeon {
 
         std::optional<expr> parse_additive();
 
+        std::optional<ast::expr> parse_shift();
+
         std::optional<expr> parse_relational();
 
         std::optional<expr> parse_equality();

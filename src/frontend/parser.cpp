@@ -230,14 +230,31 @@ namespace dungeon {
         return e;
     }
 
-    std::optional<ast::expr> parser::parse_relational() {
+    std::optional<ast::expr> parser::parse_shift() {
         auto e = parse_additive();
+        if (!e)
+            return {};
+
+        while (auto t = match_any(cat::punct, "<<", ">>")) {
+            fetch();
+            auto rhs = parse_additive();
+            if (!rhs)
+                diag::error("Expected rhs for shift expression");
+
+            e = std::move(make_binary(std::move(e.value()), std::move(rhs.value()), op_kind_from_str(t->data)));
+        }
+
+        return e;
+    }
+
+    std::optional<ast::expr> parser::parse_relational() {
+        auto e = parse_shift();
         if (!e)
             return {};
 
         while (auto t = match_any(cat::punct, "<", "<=", ">", ">=")) {
             fetch();
-            auto rhs = parse_additive();
+            auto rhs = parse_shift();
             if (!rhs)
                 diag::error("Expected rhs for comparison expression");
 
@@ -269,7 +286,7 @@ namespace dungeon {
         if (!e)
             return {};
 
-        while (auto t = match_any(cat::punct, "=", "+=", "-=", "*=", "/=")) {
+        while (auto t = match_any(cat::punct, "=", "+=", "-=", "*=", "/=", "<<=", ">>=")) {
             fetch();
             auto rhs = parse_assignment();
             if (!rhs)

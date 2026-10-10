@@ -636,6 +636,10 @@ namespace dungeon::print {
                 out << "shr";
                 break;
 
+            case ir::opcode::sar:
+                out << "sar";
+                break;
+
             case ir::opcode::neg:
                 out << "neg";
                 break;
