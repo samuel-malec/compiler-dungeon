@@ -111,3 +111,23 @@ if (NOT EMSCRIPTEN)
     set_tests_properties(unit.int_semantics PROPERTIES LABELS "unit")
 endif ()
 
+# The IR verifier assignment (docs/assignment-ir-verifier.md). `ctest -L verifier` runs it;
+# `ctest -LE assignment` skips it. The tests are red until the verifier is written.
+if (NOT EMSCRIPTEN)
+    add_executable(ir_verifier_test test/unit/ir_verifier_test.cpp)
+    add_test(NAME unit.ir_verifier COMMAND ir_verifier_test)
+    set_tests_properties(unit.ir_verifier PROPERTIES LABELS "verifier;assignment")
+endif ()
+
+# TODO (assignment, Part 6): once `--verify-each` exists, uncomment this to run the verifier after
+# every pass over every fixture. Expect red at first: that is the verifier finding real bugs.
+# file(GLOB_RECURSE verify_inputs CONFIGURE_DEPENDS
+#         "${CMAKE_SOURCE_DIR}/test/cfg/*.ks" "${CMAKE_SOURCE_DIR}/test/ir/*.ks"
+#         "${CMAKE_SOURCE_DIR}/test/dce/*.ks" "${CMAKE_SOURCE_DIR}/test/sccp/*.ks"
+#         "${CMAKE_SOURCE_DIR}/test/pipeline/*.ks")
+# foreach (input_file IN LISTS verify_inputs)
+#     file(RELATIVE_PATH rel "${CMAKE_SOURCE_DIR}/test" "${input_file}")
+#     string(REGEX REPLACE "[/.]" "_" test_name "${rel}")
+#     add_test(NAME verify.${test_name} COMMAND compiler-dungeon ${input_file} --verify-each)
+#     set_tests_properties(verify.${test_name} PROPERTIES LABELS "verifier;assignment")
+# endforeach ()
