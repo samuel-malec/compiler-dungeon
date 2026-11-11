@@ -43,7 +43,6 @@ namespace dungeon::ir {
                 case NOT: return opcode::lnot;
                 default: assert(false && "unexpected op kind in lowering to ir phase");
             }
-            assert(false && "unknown op kind");
         }
 
         label_data gen_label() {
