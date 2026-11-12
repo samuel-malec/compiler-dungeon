@@ -336,73 +336,186 @@ namespace dungeon {
         //   unsigned operand type; sdiv, smod, sar and slt/sle/sgt/sge need a signed one. Report
         //   those as `signedness`, not `type`, and param outside the entry as `param-entry`.
         //
-        // HINT: don't write 25 separate if-blocks. A switch on i->op with small local lambdas
-        //   (is_int(t), same_type(a, b)) keeps this readable. `type` pointers are interned, so
-        //   comparing them with == is correct (types.hpp::same_type does that).
-        // STRETCH: check `call` against the callee's signature using mod_ (rule name: "call").
 
-        void check_binary_num_op(const ir::instruction *ins) {
-            if (ins->operands.size() != 2)
-                fail(verifier_rule::type, "invalid amount of operands at " + name(ins->result));
-
-            if (!is_integer_ty(ins->operands[0]->ty) || !is_integer_ty(ins->operands[1]->ty))
-                fail(verifier_rule::type, "expected operands of integer type " + name(ins->result));
-
-            if (ins->operands[0]->ty != ins->operands[1]->ty)
-                fail(verifier_rule::type, "expected operands of the same type" + name(ins->result));
-
-            if (ins->operands[0]->ty != ins->result->ty)
-                fail(verifier_rule::type, "invalid result type" + name(ins->result));
+        bool need_result(const ir::instruction *ins) {
+            if (ins->result != nullptr)
+                return true;
+            fail(verifier_rule::type, "missing result");
+            return false;
         }
 
-        void check_binary_rel_op(const ir::instruction *ins) {
-            if (ins->operands.size() != 2)
+        bool check_operands(const ir::instruction *ins, size_t expected) {
+            if (ins->operands.size() != expected) {
                 fail(verifier_rule::type, "invalid amount of operands at " + name(ins->result));
+                return false;
+            }
 
-            if (ins->operands[0]->ty != ins->operands[1]->ty)
+            for (size_t i = 0; i < expected; ++i)
+                if (ins->operands[i] == nullptr)
+                    return false;
+
+            return true;
+        }
+
+        bool check_binary_num_op(const ir::instruction *ins) {
+            if (!check_operands(ins, 2))
+                return false;
+
+            if (!need_result(ins))
+                return false;
+
+            if (!is_integer_ty(ins->operands[0]->ty) || !is_integer_ty(ins->operands[1]->ty)) {
+                fail(verifier_rule::type, "expected operands of integer type " + name(ins->result));
+                return false;
+            }
+
+            if (ins->operands[0]->ty != ins->operands[1]->ty) {
                 fail(verifier_rule::type, "expected operands of the same type " + name(ins->result));
+                return false;
+            }
 
-            if (!is_boolean_ty(ins->result->ty))
+            if (ins->operands[0]->ty != ins->result->ty) {
+                fail(verifier_rule::type, "invalid result type " + name(ins->result));
+                return false;
+            }
+
+            return true;
+        }
+
+        bool check_binary_rel_op(const ir::instruction *ins) {
+            if (!check_operands(ins, 2)) {
+                return false;
+            }
+
+            if (!need_result(ins))
+                return false;
+
+            if (ins->operands[0]->ty != ins->operands[1]->ty) {
+                fail(verifier_rule::type, "expected operands of the same type " + name(ins->result));
+                return false;
+            }
+
+            if (!is_boolean_ty(ins->result->ty)) {
                 fail(verifier_rule::type, "expected boolean type of result " + name(ins->result));
+                return false;
+            }
+            return true;
         }
 
         void check_unary_log_op(const ir::instruction *ins) {
-            if (ins->operands.size() != 1)
-                fail(verifier_rule::type, "invalid amount of operands at " + name(ins->result));
+            if (!check_operands(ins, 1))
+                return;
+
+            if (!need_result(ins))
+                return;
 
             if (!is_boolean_ty(ins->operands[0]->ty))
-                fail(verifier_rule::type, "expected operands of the same type " + name(ins->result));
+                fail(verifier_rule::type, "expected a boolean operand " + name(ins->result));
 
             if (!is_boolean_ty(ins->result->ty))
                 fail(verifier_rule::type, "expected boolean type of result " + name(ins->result));
         }
 
         void check_br(const ir::instruction *ins, bool cond) {
-            if ((!cond && ins->operands.size() != 0) || (cond && ins->operands.size() != 1))
-                fail(verifier_rule::type, "invalid amount of operands at " + name(ins->result));
+            if (!check_operands(ins, cond ? 1 : 0))
+                return;
 
             if (cond && !is_boolean_ty(ins->operands[0]->ty))
-                fail(verifier_rule::type, "expected boolean type of operand" + name(ins->result));
+                fail(verifier_rule::type, "expected boolean type of operand " + name(ins->result));
 
             if (ins->result != nullptr)
-                fail(verifier_rule::type, "unexpected result of an operation" + name(ins->result));
+                fail(verifier_rule::type, "unexpected result of an operation " + name(ins->result));
+        }
+
+        void check_ret(const ir::instruction *ins) {
+            if (ins->result) {
+                fail(verifier_rule::type, "invalid return type " + name(ins->result));
+                return;
+            }
+
+            if (is_unit_ty(fn_.return_type)) {
+                if (!ins->operands.empty())
+                    fail(verifier_rule::type, "unexpected return in a unit function " + name(ins->result));
+                return;
+            }
+
+            if (!check_operands(ins, 1))
+                return;
+
+            if (!same_type(ins->operands[0]->ty, fn_.return_type))
+                fail(verifier_rule::type, "unexpected return type " + name(ins->result));
+        }
+
+        void check_unary_num_op(const ir::instruction *ins) {
+            if (!check_operands(ins, 1))
+                return;
+
+            if (!need_result(ins))
+                return;
+
+            if (!is_integer_ty(ins->operands[0]->ty))
+                fail(verifier_rule::type, "expected operand of integer type " + name(ins->result));
+
+            if (ins->operands[0]->ty != ins->result->ty)
+                fail(verifier_rule::type, "invalid result type " + name(ins->result));
+        }
+
+        void check_binary_unsigned_num_op(const ir::instruction *ins) {
+            if (!check_binary_num_op(ins))
+                return;
+
+            if (!is_unsigned_integer_ty(ins->operands[0]->ty) || !is_unsigned_integer_ty(ins->operands[1]->ty))
+                fail(verifier_rule::signedness, "expected unsigned operands " + name(ins->result));
+        }
+
+        void check_binary_signed_num_op(const ir::instruction *ins) {
+            if (!check_binary_num_op(ins))
+                return;
+
+            if (!is_signed_integer_ty(ins->operands[0]->ty) || !is_signed_integer_ty(ins->operands[1]->ty))
+                fail(verifier_rule::signedness, "expected signed operands " + name(ins->result));
+        }
+
+
+        void check_binary_signed_rel_op(const ir::instruction *ins) {
+            if (!check_binary_rel_op(ins))
+                return;
+
+            if (!is_signed_integer_ty(ins->operands[0]->ty) || !is_signed_integer_ty(ins->operands[1]->ty))
+                fail(verifier_rule::signedness, "expected signed operands " + name(ins->result));
+        }
+
+        void check_binary_unsigned_rel_op(const ir::instruction *ins) {
+            if (!check_binary_rel_op(ins))
+                return;
+
+            if (!is_unsigned_integer_ty(ins->operands[0]->ty) || !is_unsigned_integer_ty(ins->operands[1]->ty))
+                fail(verifier_rule::signedness, "expected unsigned operands " + name(ins->result));
+        }
+
+
+        static bool is_slot(const ir::value *v) {
+            if (v == nullptr || v->defining_instruction == nullptr)
+                return false;
+            const auto op = v->defining_instruction->op;
+            return op == ir::opcode::alloca || op == ir::opcode::param;
         }
 
         void check_types() {
-            // TODO: should we assert that slt, smod, sdiv and umod udiv ult use unsigned/signed types strictly ?
-
-            for (const auto ins: owned_) {
+            for (const auto ins: placed_) {
                 switch (ins->op) {
                     case ir::opcode::iconst: {
-                        if (!ins->operands.empty())
-                            fail(verifier_rule::type, "invalid amount of operands at " + name(ins->result));
+                        if (!check_operands(ins, 0) || !need_result(ins))
+                            break;
+
                         if (!is_integer_ty(ins->result->ty))
                             fail(verifier_rule::type, "expected integer return type for iconst " + name(ins->result));
                         break;
                     }
                     case ir::opcode::bconst: {
-                        if (!ins->operands.empty())
-                            fail(verifier_rule::type, "invalid amount of operands at " + name(ins->result));
+                        if (!check_operands(ins, 0) || !need_result(ins))
+                            break;
+
                         if (!is_boolean_ty(ins->result->ty))
                             fail(verifier_rule::type, "expected boolean type for bconst " + name(ins->result));
                         break;
@@ -411,48 +524,134 @@ namespace dungeon {
                     case ir::opcode::sub:
                     case ir::opcode::mul:
                     case ir::opcode::shl:
-                    case ir::opcode::shr:
-                    case ir::opcode::sar:
-                    case ir::opcode::neg:
-                    case ir::opcode::umod:
-                    case ir::opcode::udiv:
-                    case ir::opcode::smod:
-                    case ir::opcode::sdiv:
                         check_binary_num_op(ins);
                         break;
+
+                    case ir::opcode::shr:
+                        check_binary_unsigned_num_op(ins);
+                        break;
+
+                    case ir::opcode::sar:
+                        check_binary_signed_num_op(ins);
+                        break;
+
+                    case ir::opcode::neg:
+                        check_unary_num_op(ins);
+                        break;
+
+                    case ir::opcode::umod:
+                    case ir::opcode::udiv:
+                        check_binary_unsigned_num_op(ins);
+                        break;
+
+                    case ir::opcode::smod:
+                    case ir::opcode::sdiv:
+                        check_binary_signed_num_op(ins);
+                        break;
+
                     case ir::opcode::slt:
                     case ir::opcode::sgt:
                     case ir::opcode::sle:
                     case ir::opcode::sge:
+                        check_binary_signed_rel_op(ins);
+                        break;
+
                     case ir::opcode::ult:
                     case ir::opcode::ugt:
                     case ir::opcode::ule:
                     case ir::opcode::uge:
+                        check_binary_unsigned_rel_op(ins);
+                        break;
+
                     case ir::opcode::eq:
                         check_binary_rel_op(ins);
                         break;
+
                     case ir::opcode::lnot:
                         check_unary_log_op(ins);
                         break;
+
                     case ir::opcode::br:
                         check_br(ins, false);
                         break;
+
                     case ir::opcode::cond_br:
                         check_br(ins, true);
                         break;
-                    case ir::opcode::alloca:
+
+                    case ir::opcode::alloca: {
+                        if (!check_operands(ins, 0))
+                            break;
+
+                        if (ins->result == nullptr)
+                            fail(verifier_rule::type, "missing result of an instruction " + name(ins->result));
+
                         break;
-                    case ir::opcode::load:
+                    }
+                    case ir::opcode::load: {
+                        if (!check_operands(ins, 1) || !need_result(ins))
+                            break;
+
+                        if (!same_type(ins->result->ty, ins->operands[0]->ty))
+                            fail(verifier_rule::type,
+                                 "expected result to have the same type as operand " + name(ins->result));
+
+                        if (!is_slot(ins->operands[0]))
+                            fail(verifier_rule::type, "load operand must be a slot " + name(ins->result));
                         break;
-                    case ir::opcode::store:
+                    }
+                    case ir::opcode::store: {
+                        if (!check_operands(ins, 2))
+                            break;
+
+                        if (ins->result != nullptr)
+                            fail(verifier_rule::type, "instruction expected to have no return " + name(ins->result));
+
+                        if (!same_type(ins->operands[0]->ty, ins->operands[1]->ty))
+                            fail(verifier_rule::type, "expected operands to have the same type " + name(ins->result));
+
+                        if (!is_slot(ins->operands[0]))
+                            fail(verifier_rule::type, "first store operand must be a slot " + name(ins->result));
+
                         break;
+                    }
                     case ir::opcode::call:
                         break;
-                    case ir::opcode::ret:
+                    case ir::opcode::ret: {
+                        check_ret(ins);
                         break;
-                    case ir::opcode::param:
+                    }
+                    case ir::opcode::param: {
+                        if (!need_result(ins))
+                            break;
+
+                        auto pd = std::get_if<ir::param_data>(&ins->data);
+                        if (!pd) {
+                            fail(verifier_rule::type,
+                                 "expected instruction to have parameter data " + name(ins->result));
+                            break;
+                        }
+
+                        if (pd->index >= fn_.param_types.size() || !same_type(
+                                fn_.param_types[pd->index], ins->result->ty)) {
+                            fail(verifier_rule::type,
+                                 "mismatching function signature param type and actual type provided in instruction " +
+                                 name(ins->result));
+                            break;
+                        }
+
+                        if (ins->parent != fn_.entry)
+                            fail(verifier_rule::param_entry,
+                                 "parameter must be in the entry block " + name(ins->result));
                         break;
+                    }
                     case ir::opcode::phi:
+                        if (!need_result(ins))
+                            break;
+                        for (const auto oper: ins->operands)
+                            if (oper != nullptr && !same_type(ins->result->ty, oper->ty))
+                                fail(verifier_rule::type,
+                                     "expected operands to have the same type " + name(ins->result));
                         break;
                     case ir::opcode::label:
                         break;

@@ -243,6 +243,26 @@ std::unique_ptr<scenario> make_self_loop() {
     return s;
 }
 
+
+// valid shifts (shl is fine on any integer type) and the two signedness violations
+std::unique_ptr<scenario> make_shifts(bool is_signed, ir::opcode op) {
+    auto s = std::make_unique<scenario>();
+    const type *ty = is_signed ? s->types.get_int(32) : s->types.get_uint(32);
+    s->fn.return_type = ty; s->fn.param_types = {ty};
+    auto *e = s->block("entry");
+    auto *a = s->value("a", ty), *r = s->value("r", ty);
+    s->emit("param", e, ir::opcode::param, a, {}, ir::param_data{0});
+    s->emit("sh", e, op, r, {a, a});
+    s->emit("ret", e, ir::opcode::ret, nullptr, {r});
+    return s;
+}
+std::unique_ptr<scenario> sh_shl_s() { return make_shifts(true, ir::opcode::shl); }
+std::unique_ptr<scenario> sh_shl_u() { return make_shifts(false, ir::opcode::shl); }
+std::unique_ptr<scenario> sh_sar_s() { return make_shifts(true, ir::opcode::sar); }
+std::unique_ptr<scenario> sh_shr_u() { return make_shifts(false, ir::opcode::shr); }
+std::unique_ptr<scenario> sh_shr_s_bad() { return make_shifts(true, ir::opcode::shr); }
+std::unique_ptr<scenario> sh_sar_u_bad() { return make_shifts(false, ir::opcode::sar); }
+
 // ======================================================================================
 // Mutations
 // ======================================================================================
@@ -255,6 +275,18 @@ struct mutation {
 };
 
 const mutation mutations[] = {
+    {"shr_on_signed_type", verifier_rule::signedness, sh_shr_s_bad, [](scenario&){return true;}},
+    {"sar_on_unsigned_type", verifier_rule::signedness, sh_sar_u_bad, [](scenario&){return true;}},
+    {"add_without_result", nullptr, make_loop, [](scenario&s){ s.I("add_i")->result=nullptr; return true;}},
+    {"load_without_result", nullptr, make_memory, [](scenario&s){ s.I("load")->result=nullptr; return true;}},
+    {"iconst_without_result", nullptr, make_diamond, [](scenario&s){ s.I("zero")->result=nullptr; return true;}},
+    {"phi_without_result", nullptr, make_diamond, [](scenario&s){ s.I("phi")->result=nullptr; return true;}},
+    {"phi_null_operand", nullptr, make_diamond, [](scenario&s){ s.I("phi")->operands[0]=nullptr; return true;}},
+    {"param_without_result", nullptr, make_diamond, [](scenario&s){ s.I("param")->result=nullptr; return true;}},
+    {"store_to_a_non_slot", verifier_rule::type, make_memory, [](scenario&s){ replace_operand(s.I("store"),0,s.V("seven")); return true;}},
+    {"store_value_type_mismatch", verifier_rule::type, make_memory, [](scenario&s){ s.V("seven")->ty = s.types.get_bool(); return true;}},
+    {"cond_br_without_operand", nullptr, make_diamond, [](scenario&s){ s.I("cond_br")->operands.clear(); return true;}},
+
     // ---------------------------------------------------------------- worked examples (given)
     {"missing_terminator", verifier_rule::terminator, make_diamond,
      [](scenario &s) {
@@ -540,7 +572,7 @@ int main() {
 
     // 1. valid functions must be accepted
     const struct { const char *name; std::unique_ptr<scenario> (*make)(); } baselines[] = {
-        {"diamond", make_diamond}, {"loop", make_loop}, {"memory", make_memory}, {"self_loop", make_self_loop},
+        {"shl_signed", sh_shl_s},{"shl_unsigned", sh_shl_u},{"sar_signed", sh_sar_s},{"shr_unsigned", sh_shr_u},{"diamond", make_diamond}, {"loop", make_loop}, {"memory", make_memory}, {"self_loop", make_self_loop},
     };
     for (const auto &b: baselines) {
         auto s = b.make();
