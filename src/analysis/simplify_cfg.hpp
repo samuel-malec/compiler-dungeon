@@ -41,6 +41,11 @@ namespace dungeon {
                 }
             }
 
+            for (auto &block: fn.blocks)
+                if (!reachable.contains(block.get()))
+                    for (auto inst: block->instructions)
+                        inst->erase_operands();
+
             if (std::erase_if(fn.blocks, [&](const std::unique_ptr<basic_block> &b) {
                 return !reachable.contains(b.get());
             }))

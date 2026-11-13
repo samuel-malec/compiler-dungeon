@@ -119,15 +119,15 @@ if (NOT EMSCRIPTEN)
     set_tests_properties(unit.ir_verifier PROPERTIES LABELS "verifier;assignment")
 endif ()
 
-# TODO (assignment, Part 6): once `--verify-each` exists, uncomment this to run the verifier after
-# every pass over every fixture. Expect red at first: that is the verifier finding real bugs.
-# file(GLOB_RECURSE verify_inputs CONFIGURE_DEPENDS
-#         "${CMAKE_SOURCE_DIR}/test/cfg/*.ks" "${CMAKE_SOURCE_DIR}/test/ir/*.ks"
-#         "${CMAKE_SOURCE_DIR}/test/dce/*.ks" "${CMAKE_SOURCE_DIR}/test/sccp/*.ks"
-#         "${CMAKE_SOURCE_DIR}/test/pipeline/*.ks")
-# foreach (input_file IN LISTS verify_inputs)
-#     file(RELATIVE_PATH rel "${CMAKE_SOURCE_DIR}/test" "${input_file}")
-#     string(REGEX REPLACE "[/.]" "_" test_name "${rel}")
-#     add_test(NAME verify.${test_name} COMMAND compiler-dungeon ${input_file} --verify-each)
-#     set_tests_properties(verify.${test_name} PROPERTIES LABELS "verifier;assignment")
-# endforeach ()
+# Runs the IR verifier after cfg_builder and after every pass, over every fixture that reaches the
+# analysis pipeline. A failure names the pass that broke the IR.
+file(GLOB_RECURSE verify_inputs CONFIGURE_DEPENDS
+        "${CMAKE_SOURCE_DIR}/test/cfg/*.ks" "${CMAKE_SOURCE_DIR}/test/ir/*.ks"
+        "${CMAKE_SOURCE_DIR}/test/dce/*.ks" "${CMAKE_SOURCE_DIR}/test/sccp/*.ks"
+        "${CMAKE_SOURCE_DIR}/test/pipeline/*.ks")
+foreach (input_file IN LISTS verify_inputs)
+    file(RELATIVE_PATH rel "${CMAKE_SOURCE_DIR}/test" "${input_file}")
+    string(REGEX REPLACE "[/.]" "_" test_name "${rel}")
+    add_test(NAME verify.${test_name} COMMAND compiler-dungeon ${input_file} --verify-each)
+    set_tests_properties(verify.${test_name} PROPERTIES LABELS "verifier")
+endforeach ()

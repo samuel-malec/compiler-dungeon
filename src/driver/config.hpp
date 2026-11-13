@@ -47,6 +47,7 @@ namespace dungeon {
         bool emit_ir;
         bool emit_ssa;
         pipeline_stage stage = pipeline_stage::full;
+        bool verify_each = false; // run the IR verifier after cfg_builder and after every pass
     };
 
     inline void help() {
@@ -57,7 +58,8 @@ namespace dungeon {
                 << "--emit-ast\n"
                 << "--emit-hir\n"
                 << "--emit-ir\n"
-                << "--emit-ssa\n";
+                << "--emit-ssa\n"
+                << "--verify-each   run the IR verifier after every pass\n";
     }
 
     inline config parse_config(int argc, char *const*argv) {
@@ -76,6 +78,7 @@ namespace dungeon {
         bool _emit_hir = false;
         bool _emit_ir = false;
         bool _emit_ssa = false;
+        bool _verify_each = false;
         auto stage = pipeline_stage::full;
 
         for (int i = 1; i < argc; ++i) {
@@ -102,6 +105,8 @@ namespace dungeon {
                 _emit_ir = true;
             } else if (strcmp(argv[i], "--emit-ssa") == 0) {
                 _emit_ssa = true;
+            } else if (strcmp(argv[i], "--verify-each") == 0) {
+                _verify_each = true;
             } else {
                 throw std::runtime_error(std::string("invalid flag: ") + argv[i]);
             }
@@ -116,6 +121,7 @@ namespace dungeon {
             .emit_ir = _emit_ir,
             .emit_ssa = _emit_ssa,
             .stage = stage,
+            .verify_each = _verify_each,
         };
     }
 }

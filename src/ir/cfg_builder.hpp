@@ -14,6 +14,26 @@ namespace dungeon::ir {
                 to->pred.push_back(from);
         }
 
+        // Every block must end in a terminator: turn "falls through into the next block" into an
+        // explicit `br` to that block's label.
+        static void append_fallthrough_branches(function &fn, const std::unordered_map<uint32_t, basic_block *> &labels) {
+            std::unordered_map<const basic_block *, uint32_t> label_of;
+            for (const auto &[id, block]: labels)
+                label_of.emplace(block, id);
+
+            for (size_t i = 0; i + 1 < fn.blocks.size(); ++i) {
+                basic_block *block = fn.blocks[i].get();
+                if (block->has_terminator())
+                    continue;
+                auto br = std::make_unique<instruction>();
+                br->op = opcode::br;
+                br->data = br_data{.branch_id = label_of.at(fn.blocks[i + 1].get())};
+                br->parent = block;
+                block->instructions.push_back(br.get());
+                fn.instructions.push_back(std::move(br));
+            }
+        }
+
         void build(module &mod) {
             for (auto &fn: mod.funcs)
                 build(fn);
@@ -74,6 +94,7 @@ namespace dungeon::ir {
             }
 
             fn.entry = fn.blocks.front().get();
+            append_fallthrough_branches(fn, labels);
 
             for (auto &block: fn.blocks) {
                 for (auto ins: block->instructions) {

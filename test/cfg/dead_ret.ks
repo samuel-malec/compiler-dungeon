@@ -1,7 +1,6 @@
-int main()
-{
-    int a = 10;
+fn main() -> i32 {
+    let a = 10;
     return a;
-    int b = 15;
+    let b = 15;
     return b;
 }

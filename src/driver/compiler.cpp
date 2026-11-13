@@ -1,6 +1,7 @@
 #include "compiler.hpp"
 
 #include "progress_reporter.hpp"
+#include "../analysis/ir_verifier.hpp"
 #include "../analysis/pass_manager.hpp"
 #include "../analysis/pipeline.hpp"
 #include "../common/file.hpp"
@@ -77,13 +78,16 @@ namespace dungeon {
             reporter.time("building cfg");
             ir::cfg_builder builder{};
             builder.build(ir_module);
+            if (conf.verify_each)
+                for (auto &fn: ir_module.funcs)
+                    ir_verifier::verify_or_throw(fn, "cfg_builder");
         }
 
         {
             reporter.time("analysis");
             analysis::pass_manager pm = get_default_pipeline();
             for (auto &fn: ir_module.funcs)
-                pm.run(fn);
+                pm.run(fn, conf.verify_each);
         }
 
         if (conf.emit_ssa || conf.stage == pipeline_stage::ssa) {

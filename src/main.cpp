@@ -10,8 +10,7 @@ int main( int argc, char* const* argv )
     try
     {
         auto conf = dungeon::parse_config( argc, argv );
-        dungeon::compiler compiler{};
-        compiler.run( conf );
+        dungeon::compiler::run( conf );
     }
 
     catch( const std::exception& e )

@@ -306,37 +306,6 @@ namespace dungeon {
             }
         }
 
-        // =====================================================================================
-        // PART 4 - types
-        // =====================================================================================
-
-        // RULES type, signedness, param-entry
-        //   Look at what the lowering produces (print some IR) and write down the typing rule of
-        //   every opcode as you go. Suggested rules (adjust them if the IR says otherwise):
-        //     iconst            no operands; result is an integer type
-        //     bconst            no operands; result is bool
-        //     add sub mul       2 operands and the result all have ONE integer type
-        //     shl shr sar       same (the shift amount has the operand's type)
-        //     udiv umod sdiv smod   same
-        //     neg               1 operand, same integer type as the result
-        //     lnot              bool -> bool
-        //     eq                2 operands of the same type; result bool
-        //     slt sle sgt sge, ult ule ugt uge
-        //                       2 operands of the same INTEGER type; result bool
-        //     cond_br           exactly one operand, of type bool
-        //     alloca            a result, no operands
-        //     load              1 operand: a slot (an alloca or a param); result type == slot type
-        //     store             2 operands {slot, value}, NO result; value type == slot type
-        //     ret               no result if fn.return_type is unit: no operand, else 1 operand of
-        //                       type fn.return_type
-        //     param             result type == fn.param_types[index], and it lives in the entry block
-        //     phi               every operand has the phi's result type
-        //   And the one rule that is easy to forget -- the opcode and the type must agree about
-        //   signedness (see ir/int_semantics.hpp): udiv, umod, shr and ult/ule/ugt/uge need an
-        //   unsigned operand type; sdiv, smod, sar and slt/sle/sgt/sge need a signed one. Report
-        //   those as `signedness`, not `type`, and param outside the entry as `param-entry`.
-        //
-
         bool need_result(const ir::instruction *ins) {
             if (ins->result != nullptr)
                 return true;
@@ -659,81 +628,170 @@ namespace dungeon {
             }
         }
 
-        // =====================================================================================
-        // PART 5 - dominance and phis
-        // =====================================================================================
-        //
-        // The rule that makes SSA meaningful: every use of a value must be DOMINATED by its
-        // definition. Block A dominates block B if every path from the entry to B goes through
-        // A. If a use isn't dominated, there is a path on which the value was never computed.
-        //
-        // You can't trust basic_block::idom / df here: they are computed by mem2reg and go stale
-        // when later passes change the CFG. Compute dominators yourself, from scratch, on every
-        // call -- that is what makes the verifier independent of the passes it checks.
+        std::vector<const basic_block *> rpo;
+        std::map<const basic_block *, int> block_rpo;
+        std::map<const basic_block *, const basic_block *> doms;
 
-        // Dominator data. Add whatever members you need (I used a reverse-postorder vector, a
-        // block -> RPO-index map and an idom array indexed by RPO number).
-        // TODO: implement this (the comment above says what to check).
+        void dfs(const basic_block *parent,
+                 std::unordered_set<const basic_block *> &visited) {
+            visited.insert(parent);
+            for (const auto succ: parent->succ) {
+                if (succ == nullptr || !blocks_.contains(succ) || visited.contains(succ))
+                    continue;
+                dfs(succ, visited);
+            }
 
-        // Compute the dominator tree of the blocks reachable from fn_.entry using the iterative
-        // algorithm of Cooper, Harvey and Kennedy ("A Simple, Fast Dominance Algorithm"):
-        //   1. number the reachable blocks in reverse postorder (DFS from the entry);
-        //   2. idom[entry] = entry; repeat until nothing changes: for each other block b in RPO,
-        //      new_idom = intersection (walking up the idom chains, by RPO number) over its
-        //      already-processed predecessors.
-        // Unreachable blocks are not in the tree -- they have no dominators and are skipped by the
-        // checks below (code that can never run has no execution path to violate).
-        //
-        // HINT: write the DFS iteratively or recursively -- either way, only follow succ pointers
-        //   you have already validated against blocks_.
+            rpo.push_back(parent);
+        }
+
+        void compute_rpo() {
+            std::unordered_set<const basic_block *> visited;
+            dfs(fn_.entry, visited);
+
+            std::ranges::reverse(rpo);
+            for (int i = 0; i < static_cast<int>(rpo.size()); ++i)
+                block_rpo[rpo[i]] = i;
+        }
+
+        const basic_block *intersect(const basic_block *a, const basic_block *b) {
+            const basic_block *finger1 = a;
+            const basic_block *finger2 = b;
+            while (block_rpo[finger1] != block_rpo[finger2]) {
+                while (block_rpo[finger1] > block_rpo[finger2])
+                    finger1 = doms[finger1];
+                while (block_rpo[finger2] > block_rpo[finger1])
+                    finger2 = doms[finger2];
+            }
+            return finger1;
+        }
+
         void compute_dominators() {
-            // TODO: implement this (the comment above says what to check).
+            compute_rpo();
+
+            for (auto block: blocks_)
+                doms[block] = nullptr;
+
+            doms[fn_.entry] = fn_.entry;
+            bool changed = true;
+
+            while (changed) {
+                changed = false;
+                for (auto block: rpo) {
+                    if (block == fn_.entry)
+                        continue;
+
+                    const basic_block *new_idom = nullptr;
+                    for (auto pred: block->pred) {
+                        if (doms[pred] == nullptr)
+                            continue;
+                        new_idom = new_idom ? intersect(new_idom, pred) : pred;
+                    }
+
+                    if (new_idom && doms[block] != new_idom) {
+                        doms[block] = new_idom;
+                        changed = true;
+                    }
+                }
+            }
         }
 
-        // Is `b` reachable from the entry?
+        // block_rpo only contains what the DFS from the entry reached
         bool reachable(const basic_block *b) const {
-            // TODO: implement this (the comment above says what to check).
-            return false;
+            return block_rpo.contains(b);
         }
 
-        // Does `a` dominate `b`? (Every block dominates itself.) Both must be reachable.
-        // Walk up the idom chain from b until you meet a or the entry.
+        // Every block dominates itself; the entry dominates every reachable block.
         bool dominates(const basic_block *a, const basic_block *b) const {
-            // TODO: implement this (the comment above says what to check).
-            return false;
+            if (!reachable(a) || !reachable(b))
+                return false;
+            for (const basic_block *finger = b;; finger = doms.at(finger)) {
+                if (finger == a)
+                    return true;
+                if (finger == fn_.entry)
+                    return false;
+            }
         }
 
-        // RULES phi-first, phi-preds, phi-operands
-        //   A phi picks a value depending on which predecessor control came from. This IR stores a
-        //   phi twice: `operands` (what use-lists and replace_all_uses_with see) and
-        //   `phi_data::incoming` (block -> value, what SCCP and simplify_cfg look at). Both views
-        //   must describe the same thing.
-        //   * phi-first:    in a block, all phis come before every non-phi instruction;
-        //   * phi-preds:    the SET of blocks in `incoming` equals the SET of the block's
-        //                   predecessors exactly -- a missing entry means a path with no value, an
-        //                   extra one is an edge that doesn't exist;
-        //   * phi-operands: the values in `incoming` equal `operands` (compare as multisets).
-        //   (The phi's type was already checked in Part 4. A phi with no phi_data is reported as
-        //   `phi-operands`.)
         void check_phis() {
-            // TODO: implement this (the comment above says what to check).
+            for (const auto block: blocks_) {
+                const std::unordered_set<const basic_block *> preds(block->pred.begin(), block->pred.end());
+
+                bool seen_non_phi = false;
+                for (const auto ins: block->instructions) {
+                    if (ins == nullptr)
+                        continue;
+
+                    if (ins->op != ir::opcode::phi) {
+                        seen_non_phi = true;
+                        continue;
+                    }
+
+                    if (seen_non_phi)
+                        fail(verifier_rule::phi_first, "phi after a non-phi instruction in " + name(block));
+
+                    const auto pd = std::get_if<ir::phi_data>(&ins->data);
+                    if (pd == nullptr) {
+                        fail(verifier_rule::phi_operands, "phi without phi_data " + name(ins->result));
+                        continue;
+                    }
+
+                    std::unordered_set<const basic_block *> phi_preds;
+                    std::unordered_multiset<const ir::value *> inc_vals;
+                    for (const auto &[bb, val]: pd->incoming) {
+                        phi_preds.insert(bb);
+                        inc_vals.insert(val);
+                    }
+
+                    if (preds != phi_preds)
+                        fail(verifier_rule::phi_preds,
+                             "phi incoming blocks differ from the predecessors of " + name(block) + " at " +
+                             name(ins->result));
+
+                    const std::unordered_multiset<const ir::value *> operand_vals(ins->operands.begin(),
+                                                                                  ins->operands.end());
+                    if (operand_vals != inc_vals)
+                        fail(verifier_rule::phi_operands,
+                             "phi operands differ from phi_data::incoming at " + name(ins->result));
+                }
+            }
         }
 
-        // RULE dominance
-        //   For every instruction I in a REACHABLE block B, and every operand v with definition D:
-        //     * ordinary use:   D must come before I -- earlier in the same block, or in a block
-        //                       that dominates B.
-        //     * phi use (v flows in from predecessor P): the use happens at the END of P, so D must
-        //                       dominate P. (It does NOT have to dominate the phi's own block --
-        //                       that's what makes loops work: the back-edge value is defined in the
-        //                       loop body, which does not dominate the loop header.)
-        //   Skip operands whose definition is missing or unreachable; Part 3 already reported them.
-        //
-        // HINT: position_ gives the index of an instruction within its block.
-        // PITFALL: a phi at the top of a loop header uses a value defined LATER in the loop. If your
-        //   check complains about a correct loop, you're treating the phi use as an ordinary use.
+        bool def_reaches_use(const ir::value *v, const basic_block *use_block, const ir::instruction *user) const {
+            const ir::instruction *def = v->defining_instruction;
+            if (def == nullptr || !placed_.contains(def) || !reachable(def->parent))
+                return true;
+            if (def->parent == use_block && user != nullptr)
+                return position_.at(def) < position_.at(user);
+            return dominates(def->parent, use_block);
+        }
+
         void check_dominance() {
-            // TODO: implement this (the comment above says what to check).
+            for (const auto block: rpo) { // reachable blocks only, in a deterministic order
+                for (const auto ins: block->instructions) {
+                    if (ins == nullptr)
+                        continue;
+
+                    if (ins->op == ir::opcode::phi) {
+                        // the use happens at the end of the incoming predecessor
+                        const auto pd = std::get_if<ir::phi_data>(&ins->data);
+                        if (pd == nullptr)
+                            continue; // reported by check_phis
+                        for (const auto &[pred, val]: pd->incoming)
+                            if (pred != nullptr && val != nullptr && reachable(pred) &&
+                                !def_reaches_use(val, pred, nullptr))
+                                fail(verifier_rule::dominance,
+                                     "phi " + name(ins->result) + " in " + name(block) + ": " + name(val) +
+                                     " does not dominate the end of " + name(pred));
+                        continue;
+                    }
+
+                    for (const auto operand: ins->operands)
+                        if (operand != nullptr && !def_reaches_use(operand, block, ins))
+                            fail(verifier_rule::dominance,
+                                 "use of " + name(operand) + " in " + name(block) +
+                                 " is not dominated by its definition");
+                }
+            }
         }
     };
 }

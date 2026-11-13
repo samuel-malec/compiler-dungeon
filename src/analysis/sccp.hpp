@@ -289,6 +289,24 @@ namespace dungeon {
                         auto false_branch = block->succ[1];
                         bool taken = std::get<bcons>(elem.as_constant()).value;
 
+                        basic_block *untaken = taken ? false_branch : true_branch;
+                        if (untaken != (taken ? true_branch : false_branch)) {
+                            std::erase(untaken->pred, block.get());
+                            for (auto phi: untaken->instructions) {
+                                if (phi->op != ir::opcode::phi)
+                                    continue;
+                                auto &incoming = std::get<ir::phi_data>(phi->data).incoming;
+                                if (auto it = incoming.find(block.get()); it != incoming.end()) {
+                                    phi->erase_use(it->second);
+                                    incoming.erase(it);
+                                    phi->operands.clear();
+                                    for (auto &[b, v]: incoming)
+                                        phi->operands.push_back(v);
+                                    for (auto op: phi->operands)
+                                        op->users.push_back(phi);
+                                }
+                            }
+                        }
                         block->succ.clear();
                         inst->erase_operands();
                         inst->op = ir::opcode::br;
