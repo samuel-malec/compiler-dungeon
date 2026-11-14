@@ -2,48 +2,32 @@
 This project is aimed at learning and utilizing various compiler techniques to create an optimizing compiler for further research and experimental purposes.
 My current personal goals for this project are outlined in the [goals](docs/goals.md) document.
 
-## Kerosene Language
-Kerosene is a custom programming language which we are compiling in this project.
-The syntax of Kerosene is inspired by Rust, and its grammar can be viewed [here](docs/language.md).
+## Usage
+Compiler dungeon has a CLI interface, with all options listable using `./compiler-dungeon -h`.
+To compile a kerosene file, simply type `./compiler-dungeon file.ks`, which will produce a `file.out` binary file. 
+The `-o` flag can be used to changed the name of the resulting binary.
 
-## Compiler Overview
-As any compiler, this project is divided into individual passes with clearly outlined functionality.
-I am hoping to write more detailed explanations of the different representations, although the source code should be pretty
-self-explanatory
-```text
-  Kerosene
-     │
-     ▼
-    AST
-     │
-     ▼
-    HIR
-     │
-     ▼
-     IR
-     │
-     ▼
-   SSA-CFG
-     │
-     ▼
- Optimizations 
-     │
-     ▼
-# TODO lower to actual target 
-```
+## Status
+- Support for basic expressions and control flow statements
+- Semantic analysis and bidirectional type checking
+- Conversion to SSA IR
+- Analysis passes on the SSA IR such as: SCCP, DCE, Constant folding/propagation SimplifyCFG,...
+
+Ongoing:
+  Writing the ricv64 backend
+
 
 ## Repository Structure
 ```
 src/
 ├── analysis/    # Analysis passes which run on the IR
-├── codegen/     # TODO, this is where lowering to target languages happens (riscv5, arm, x64, wasm...)
-├── common/      # Shared utilities and infrastructure
-├── driver/      # Compilation pipeline
-├── frontend/    # Lexer, Parser, Ast structures
+├── codegen/     # Generating riscv64
+├── common/      # Shared utilities
+├── driver/      # Compilation pipeline driver
+├── frontend/    # Lexer, Parser, AST structures
 ├── hir/         # High IR - a typped, cannonicalized-like ast
-├── interpreter/ # TODO: IR interpreter
-├── ir/          # Intermediate Representation structures 
-├── sema/        # Semantical analysis -> scope analysis, bidirectional typechecking
+├── ir/          # Intermediate representation structures 
+├── sema/        # Semantical analysis
 ├── wasm/        # WASM bindings for web visualizer
 ```
 
