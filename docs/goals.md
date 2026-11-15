@@ -1,36 +1,28 @@
+This document represents an overarching vision of the desired functionality I would like to implement in this project.
+
 ## Frontend
+
 ```
-[x] Recursive descent parser
-[~] Pratt parser for expressions
-[x] Bidirectional Type checker (e.g type inference + checking)
+[] Pratt parser for expressions
 [] Pattern matching
 [] Exhaustiveness checking
 [] Generics
 [] Algebraic data types
 [] Affine/linear types
 ```
+
 ## Diagnostics
+
 ```
 [wip] Add a mechanism that allows creating nicer diagnostics like warnings/errors 
 ```
 
-## Middle-end
-```
-[x] CFG
-[x] SSA
-[x] Pass Manager
-[x] Analysis Manager
-```
-
 ## SSA Optimizations
+
 ```
-[x] Constant folding
-[x] SCCP
-[X] DCE
 [] CSE
 [] GVN
 [] Copy propagation
-[x] CFG simplification
 [] Jump threading
 [] LICM
 [] Strength reduction
@@ -38,6 +30,7 @@
 ```
 
 ## Backend
+
 ```
 [] Machine IR
 [] Instruction selection
@@ -50,17 +43,17 @@
 [] RISC-V code generation
 [] ELF generation
 ```
-## Runtime
+
+## Support for more complex data structures
+
 ```
-[] Tiny runtime
 [] strings
-[] arrays
-[] file I/O
-[] allocator
-[] eventually GC / ownership runtime if desired
+[] dynamic vectors 
+[] I/O
 ```
 
 ## Experimental
+
 ```
 [] Benchmark suite
 [] Pass ordering experiments
@@ -68,7 +61,6 @@
 [] Compile-time measurements
 [] Code-size measurements
 [] Runtime measurements
-[x] IR visualization
 [] Differential testing
 [] Random/fuzz testing
 ```
