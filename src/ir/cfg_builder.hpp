@@ -6,101 +6,106 @@
 #include <unordered_map>
 
 namespace dungeon::ir {
-    struct cfg_builder {
-        void connect(basic_block *from, basic_block *to) {
-            if (std::find(from->succ.begin(), from->succ.end(), to) == from->succ.end())
-                from->succ.push_back(to);
-            if (std::find(to->pred.begin(), to->pred.end(), from) == to->pred.end())
-                to->pred.push_back(from);
-        }
+struct cfg_builder {
+  static void connect(basic_block* from, basic_block* to) {
+    if (std::ranges::find(from->succ, to) == from->succ.end())
+      from->succ.push_back(to);
+    if (std::ranges::find(to->pred, from) == to->pred.end())
+      to->pred.push_back(from);
+  }
 
-        // Every block must end in a terminator: turn "falls through into the next block" into an
-        // explicit `br` to that block's label.
-        static void append_fallthrough_branches(function &fn, const std::unordered_map<uint32_t, basic_block *> &labels) {
-            std::unordered_map<const basic_block *, uint32_t> label_of;
-            for (const auto &[id, block]: labels)
-                label_of.emplace(block, id);
+  static void append_fallthrough_branches(function& fn,
+                                          const std::unordered_map<uint32_t, basic_block*>&
+                                          labels) {
+    std::unordered_map<const basic_block*, uint32_t> label_of;
+    for (const auto& [id, block] : labels)
+      label_of.emplace(block, id);
 
-            for (size_t i = 0; i + 1 < fn.blocks.size(); ++i) {
-                basic_block *block = fn.blocks[i].get();
-                if (block->has_terminator())
-                    continue;
-                auto br = std::make_unique<instruction>();
-                br->op = opcode::br;
-                br->data = br_data{.branch_id = label_of.at(fn.blocks[i + 1].get())};
-                br->parent = block;
-                block->instructions.push_back(br.get());
-                fn.instructions.push_back(std::move(br));
-            }
-        }
+    for (size_t i = 0; i + 1 < fn.blocks.size(); ++i) {
+      basic_block* block = fn.blocks[i].get();
+      if (block->has_terminator())
+        continue;
+      auto br = std::make_unique<instruction>();
+      br->op = opcode::br;
+      br->data = br_data{.branch_id = label_of.at(fn.blocks[i + 1].get())};
+      br->parent = block;
+      block->instructions.push_back(br.get());
+      fn.instructions.push_back(std::move(br));
+    }
+  }
 
-        void build(module &mod) {
-            for (auto &fn: mod.funcs)
-                build(fn);
-        }
+  void build(module& mod) {
+    for (auto& fn : mod.funcs)
+      build(fn);
+  }
 
-        void build(function &fn) {
-            if (fn.instructions.empty())
-                return;
+  void build(function& fn) {
+    if (fn.instructions.empty())
+      return;
 
-            std::vector<size_t> leaders{0};
-            std::unordered_map<uint32_t, size_t> label_positions;
-            for (size_t i = 0; i < fn.instructions.size(); ++i) {
-                const instruction *ins = fn.instructions[i].get();
-                if (ins->op == opcode::label)
-                    label_positions.emplace(std::get<label_data>(ins->data).id, i);
-                if (ins->is_terminator() && i + 1 < fn.instructions.size())
-                    leaders.push_back(i + 1);
-            }
-            for (const auto &[_, position]: label_positions)
-                leaders.push_back(position);
+    if (fn.instructions.front()->op == opcode::label) {
+      auto br = std::make_unique<instruction>();
+      br->op = opcode::br;
+      br->data = br_data{.branch_id = std::get<label_data>(fn.instructions.front()->data).id};
+      fn.instructions.insert(fn.instructions.begin(), std::move(br));
+    }
 
-            std::sort(leaders.begin(), leaders.end());
-            leaders.erase(std::unique(leaders.begin(), leaders.end()), leaders.end());
+    std::vector<size_t> leaders{0};
+    std::unordered_map<uint32_t, size_t> label_positions;
+    for (size_t i = 0; i < fn.instructions.size(); ++i) {
+      const instruction* ins = fn.instructions[i].get();
+      if (ins->op == opcode::label)
+        label_positions.emplace(std::get<label_data>(ins->data).id, i);
+      if (ins->is_terminator() && i + 1 < fn.instructions.size())
+        leaders.push_back(i + 1);
+    }
+    for (const auto& [_, position] : label_positions)
+      leaders.push_back(position);
 
-            std::unordered_map<uint32_t, basic_block *> labels;
-            for (size_t i = 0; i < leaders.size(); ++i) {
-                const size_t begin = leaders[i];
-                const size_t end = i + 1 < leaders.size() ? leaders[i + 1] : fn.instructions.size();
-                auto block = std::make_unique<basic_block>();
-                block->id = block_id{static_cast<uint32_t>(fn.blocks.size())};
-                for (size_t j = begin; j < end; ++j) {
-                    const instruction *ins = fn.instructions[j].get();
-                    if (ins->op == opcode::label)
-                        labels.emplace(std::get<label_data>(ins->data).id, block.get());
-                    else
-                        block->instructions.push_back(const_cast<instruction *>(ins));
-                }
-                fn.blocks.push_back(std::move(block));
-            }
+    std::ranges::sort(leaders);
+    leaders.erase(std::ranges::unique(leaders).begin(), leaders.end());
 
-            for (size_t i = 0; i < fn.blocks.size(); ++i) {
-                basic_block *block = fn.blocks[i].get();
-                if (block->instructions.empty()) {
-                    if (i + 1 < fn.blocks.size())
-                        connect(block, fn.blocks[i + 1].get());
-                    continue;
-                }
-                const instruction *last = block->instructions.back();
-                if (last->op == opcode::br) {
-                    connect(block, labels.at(std::get<br_data>(last->data).branch_id));
-                } else if (last->op == opcode::cond_br) {
-                    const auto &data = std::get<cond_br_data>(last->data);
-                    connect(block, labels.at(data.true_branch));
-                    connect(block, labels.at(data.false_branch));
-                } else if (last->op != opcode::ret && i + 1 < fn.blocks.size()) {
-                    connect(block, fn.blocks[i + 1].get());
-                }
-            }
+    std::unordered_map<uint32_t, basic_block*> labels;
+    for (size_t i = 0; i < leaders.size(); ++i) {
+      const size_t begin = leaders[i];
+      const size_t end = i + 1 < leaders.size() ? leaders[i + 1] : fn.instructions.size();
+      auto block = std::make_unique<basic_block>();
+      block->id = block_id{static_cast<uint32_t>(fn.blocks.size())};
+      for (size_t j = begin; j < end; ++j) {
+        const instruction* ins = fn.instructions[j].get();
+        if (ins->op == opcode::label)
+          labels.emplace(std::get<label_data>(ins->data).id, block.get());
+        else
+          block->instructions.push_back(const_cast<instruction*>(ins));
+      }
+      fn.blocks.push_back(std::move(block));
+    }
 
-            fn.entry = fn.blocks.front().get();
-            append_fallthrough_branches(fn, labels);
+    for (size_t i = 0; i < fn.blocks.size(); ++i) {
+      basic_block* block = fn.blocks[i].get();
+      if (block->instructions.empty()) {
+        if (i + 1 < fn.blocks.size())
+          connect(block, fn.blocks[i + 1].get());
+        continue;
+      }
+      if (const instruction* last = block->instructions.back(); last->op == opcode::br) {
+        connect(block, labels.at(std::get<br_data>(last->data).branch_id));
+      } else if (last->op == opcode::cond_br) {
+        const auto& data = std::get<cond_br_data>(last->data);
+        connect(block, labels.at(data.true_branch));
+        connect(block, labels.at(data.false_branch));
+      } else if (last->op != opcode::ret && i + 1 < fn.blocks.size()) {
+        connect(block, fn.blocks[i + 1].get());
+      }
+    }
 
-            for (auto &block: fn.blocks) {
-                for (auto ins: block->instructions) {
-                    ins->parent = block.get();
-                }
-            }
-        }
-    };
+    fn.entry = fn.blocks.front().get();
+    append_fallthrough_branches(fn, labels);
+    for (auto& block : fn.blocks) {
+      for (auto ins : block->instructions) {
+        ins->parent = block.get();
+      }
+    }
+  }
+};
 }

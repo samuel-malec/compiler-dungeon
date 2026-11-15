@@ -267,8 +267,10 @@ private:
 
       auto it = pd->incoming.find(const_cast<basic_block*>(prev));
       if (it == pd->incoming.end())
-        broken("phi %" + std::to_string(cur->instructions[idx]->result->id) + " has no incoming value from " +
-               (prev ? "bb" + std::to_string(prev->id.id) : std::string("the function entry")));
+        broken(
+            "phi %" + std::to_string(cur->instructions[idx]->result->id) +
+            " has no incoming value from " +
+            (prev ? "bb" + std::to_string(prev->id.id) : std::string("the function entry")));
       phi_results.push_back(read(regs, it->second));
       ++idx;
     }
@@ -363,7 +365,8 @@ private:
       }
     } catch (fault& f) {
       if (f.kind == outcome::error)
-        f.message += " [fn #" + std::to_string(fn_index) + ", bb" + std::to_string(curr->id.id) + "]";
+        f.message += " [fn #" + std::to_string(fn_index) + ", bb" + std::to_string(curr->id.id) +
+            "]";
       throw;
     }
   }

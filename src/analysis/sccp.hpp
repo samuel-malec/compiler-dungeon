@@ -5,349 +5,353 @@
 #include "../ir/int_semantics.hpp"
 
 namespace dungeon {
-    struct sccp : pass {
-        struct overdefined {
-        };
+struct sccp : pass {
+  struct overdefined {
+  };
 
-        struct unknown {
-        };
+  struct unknown {
+  };
 
-        struct icons {
-            uint64_t value;
-        };
+  struct icons {
+    uint64_t value;
+  };
 
-        struct bcons {
-            bool value;
-        };
+  struct bcons {
+    bool value;
+  };
 
-        using constant = std::variant<icons, bcons>;
+  using constant = std::variant<icons, bcons>;
 
-        struct lattice_element {
-            using data_t = std::variant<unknown, overdefined, constant>;
-            data_t data;
+  struct lattice_element {
+    using data_t = std::variant<unknown, overdefined, constant>;
+    data_t data;
 
-            constant as_constant() const {
-                auto t = std::get_if<constant>(&data);
-                assert(t);
-                return *t;
-            }
+    constant as_constant() const {
+      auto t = std::get_if<constant>(&data);
+      assert(t);
+      return *t;
+    }
 
-            bool is_top() const {
-                return std::holds_alternative<unknown>(data);
-            }
+    bool is_top() const {
+      return std::holds_alternative<unknown>(data);
+    }
 
-            bool is_bot() const {
-                return std::holds_alternative<overdefined>(data);
-            }
+    bool is_bot() const {
+      return std::holds_alternative<overdefined>(data);
+    }
 
-            bool is_constant() const {
-                return std::holds_alternative<constant>(data);
-            }
+    bool is_constant() const {
+      return std::holds_alternative<constant>(data);
+    }
 
-            void meet_with(const lattice_element &o) {
-                if (is_bot() || o.is_top())
-                    return;
-                if (o.is_bot()) {
-                    data = bot().data;
-                    return;
-                }
-                if (is_top()) {
-                    data = o.data;
-                    return;
-                }
+    void meet_with(const lattice_element& o) {
+      if (is_bot() || o.is_top())
+        return;
+      if (o.is_bot()) {
+        data = bot().data;
+        return;
+      }
+      if (is_top()) {
+        data = o.data;
+        return;
+      }
 
-                assert(is_constant() && o.is_constant());
-                constant lcons = as_constant();
-                constant rcons = o.as_constant();
-                if (lcons.index() != rcons.index()) {
-                    data = bot().data;
-                    return;
-                }
+      assert(is_constant() && o.is_constant());
+      constant lcons = as_constant();
+      constant rcons = o.as_constant();
+      if (lcons.index() != rcons.index()) {
+        data = bot().data;
+        return;
+      }
 
-                auto blhs = std::get_if<bcons>(&lcons);
-                if (blhs) {
-                    auto brhs = std::get_if<bcons>(&rcons);
-                    if (blhs->value == brhs->value)
-                        return;
-                    data = bot().data;
-                    return;
-                }
+      auto blhs = std::get_if<bcons>(&lcons);
+      if (blhs) {
+        auto brhs = std::get_if<bcons>(&rcons);
+        if (blhs->value == brhs->value)
+          return;
+        data = bot().data;
+        return;
+      }
 
-                auto ilhs = std::get_if<icons>(&lcons);
-                auto irhs = std::get_if<icons>(&rcons);
-                if (ilhs->value == irhs->value)
-                    return;
-                data = bot().data;
-            }
+      auto ilhs = std::get_if<icons>(&lcons);
+      auto irhs = std::get_if<icons>(&rcons);
+      if (ilhs->value == irhs->value)
+        return;
+      data = bot().data;
+    }
 
-            bool operator==(const lattice_element &o) const {
-                if (is_bot() && o.is_bot())
-                    return true;
-                if (is_top() && o.is_top())
-                    return true;
-                if (is_constant() && o.is_constant()) {
-                    constant lcons = as_constant();
-                    constant rcons = o.as_constant();
-                    if (lcons.index() != rcons.index())
-                        return false;
+    bool operator==(const lattice_element& o) const {
+      if (is_bot() && o.is_bot())
+        return true;
+      if (is_top() && o.is_top())
+        return true;
+      if (is_constant() && o.is_constant()) {
+        constant lcons = as_constant();
+        constant rcons = o.as_constant();
+        if (lcons.index() != rcons.index())
+          return false;
 
-                    auto blhs = std::get_if<bcons>(&lcons);
-                    if (blhs) {
-                        auto brhs = std::get_if<bcons>(&rcons);
-                        return blhs->value == brhs->value;
-                    }
-
-                    auto ilhs = std::get_if<icons>(&lcons);
-                    auto irhs = std::get_if<icons>(&rcons);
-                    return ilhs->value == irhs->value;
-                }
-
-                return false;
-            }
-        };
-
-        static lattice_element bot() {
-            return {.data = overdefined{}};
+        auto blhs = std::get_if<bcons>(&lcons);
+        if (blhs) {
+          auto brhs = std::get_if<bcons>(&rcons);
+          return blhs->value == brhs->value;
         }
 
-        static lattice_element top() {
-            return {.data = unknown{}};
+        auto ilhs = std::get_if<icons>(&lcons);
+        auto irhs = std::get_if<icons>(&rcons);
+        return ilhs->value == irhs->value;
+      }
+
+      return false;
+    }
+  };
+
+  static lattice_element bot() {
+    return {.data = overdefined{}};
+  }
+
+  static lattice_element top() {
+    return {.data = unknown{}};
+  }
+
+  using lattice = std::map<const ir::value*, lattice_element>;
+
+  static bool is_foldable(ir::opcode op) {
+    return op == ir::opcode::iconst || op == ir::opcode::bconst ||
+           op == ir::opcode::add || op == ir::opcode::sub ||
+           op == ir::opcode::mul || op == ir::opcode::sdiv ||
+           op == ir::opcode::smod || op == ir::opcode::udiv ||
+           op == ir::opcode::umod || op == ir::opcode::shl ||
+           op == ir::opcode::shr || op == ir::opcode::sar ||
+           op == ir::opcode::neg || op == ir::opcode::lnot ||
+           op == ir::opcode::ult || op == ir::opcode::ule ||
+           op == ir::opcode::ugt || op == ir::opcode::uge ||
+           op == ir::opcode::slt || op == ir::opcode::sle ||
+           op == ir::opcode::sgt || op == ir::opcode::sge ||
+           op == ir::opcode::eq;
+  }
+
+  static lattice_element folded_value(ir::instruction* inst, lattice& values) {
+    if (inst->op == ir::opcode::iconst)
+      return {
+          icons{
+              .value = ir::normalize(std::get<ir::iconst_data>(inst->data).value,
+                                     inst->result->ty)}};
+
+    if (inst->op == ir::opcode::bconst)
+      return {bcons{.value = std::get<ir::bconst_data>(inst->data).value}};
+
+    auto lhs = values[inst->operands[0]];
+    if (!lhs.is_constant())
+      return lhs;
+
+    auto lhs_const = lhs.as_constant();
+    if (inst->op == ir::opcode::neg)
+      return {
+          icons{.value = ir::normalize(0 - std::get<icons>(lhs_const).value, inst->result->ty)}};
+
+    if (inst->op == ir::opcode::lnot)
+      return {bcons{.value = !std::get<bcons>(lhs_const).value}};
+
+    auto rhs = values[inst->operands[1]];
+    if (rhs.is_top())
+      return top();
+
+    if (rhs.is_bot())
+      return bot();
+
+    assert(rhs.is_constant());
+    auto rhs_const = rhs.as_constant();
+
+    if (inst->op == ir::opcode::eq) {
+      auto blhs = std::get_if<bcons>(&lhs_const);
+      auto brhs = std::get_if<bcons>(&rhs_const);
+      if ((blhs && !brhs) || (!blhs && brhs)) {
+        // this should never happen in our type system, we will think if we want to change this later
+        assert(false && "should not reach here");
+        return bot();
+      }
+      if (blhs && brhs)
+        return {bcons{.value = blhs->value == brhs->value}};
+
+      auto ilhs = std::get_if<icons>(&lhs_const);
+      auto irhs = std::get_if<icons>(&rhs_const);
+      if ((ilhs && !irhs) || (!ilhs && irhs)) {
+        assert(false && "should not reach here");
+        return bot();
+      }
+
+      assert(ilhs && irhs);
+      return {bcons{.value = ilhs->value == irhs->value}};
+    }
+
+    auto ilhs = std::get_if<icons>(&lhs_const);
+    auto irhs = std::get_if<icons>(&rhs_const);
+    assert(ilhs && irhs);
+
+    if (ir::is_comparison(inst->op))
+      return {bcons{.value = ir::eval_cmp(inst->op, ilhs->value, irhs->value)}};
+
+    if (auto result = ir::eval_arith(inst->op, inst->result->ty, ilhs->value, irhs->value))
+      return {icons{.value = *result}};
+
+    return bot();
+  }
+
+  void mark_executable(edge e) {
+    if (executable_blocks.insert(e.to).second)
+      flow_worklist.push(e.to);
+    if (executable_edges.insert(e).second) {
+      for (auto ins : e.to->instructions) {
+        if (ins->op == ir::opcode::phi) {
+          ssa_worklist.push(ins);
         }
+      }
+    }
+  }
 
-        using lattice = std::map<const ir::value *, lattice_element>;
+  void visit(ir::instruction* ins) {
+    auto old = values[ins->result];
+    if (ins->op == ir::opcode::br) {
+      edge e{.from = ins->parent, .to = ins->parent->succ.front()};
+      mark_executable(e);
+      return;
+    }
 
-        static bool is_foldable(ir::opcode op) {
-            return op == ir::opcode::iconst || op == ir::opcode::bconst ||
-                   op == ir::opcode::add || op == ir::opcode::sub ||
-                   op == ir::opcode::mul || op == ir::opcode::sdiv ||
-                   op == ir::opcode::smod || op == ir::opcode::udiv ||
-                   op == ir::opcode::umod || op == ir::opcode::shl ||
-                   op == ir::opcode::shr || op == ir::opcode::sar ||
-                   op == ir::opcode::neg || op == ir::opcode::lnot ||
-                   op == ir::opcode::ult || op == ir::opcode::ule ||
-                   op == ir::opcode::ugt || op == ir::opcode::uge ||
-                   op == ir::opcode::slt || op == ir::opcode::sle ||
-                   op == ir::opcode::sgt || op == ir::opcode::sge ||
-                   op == ir::opcode::eq;
-        }
+    if (ins->op == ir::opcode::cond_br) {
+      edge true_edge{.from = ins->parent, .to = ins->parent->succ.front()};
+      edge false_edge{.from = ins->parent, .to = ins->parent->succ.back()};
 
-        static lattice_element folded_value(ir::instruction *inst, lattice &values) {
-            if (inst->op == ir::opcode::iconst)
-                return {icons{.value = ir::normalize(std::get<ir::iconst_data>(inst->data).value, inst->result->ty)}};
+      lattice_element cond = values[ins->operands.front()];
+      if (!cond.is_constant()) {
+        mark_executable(true_edge);
+        mark_executable(false_edge);
+      } else if (std::get<bcons>(cond.as_constant()).value) {
+        mark_executable(true_edge);
+      } else {
+        mark_executable(false_edge);
+      }
+      return;
+    }
 
-            if (inst->op == ir::opcode::bconst)
-                return {bcons{.value = std::get<ir::bconst_data>(inst->data).value}};
+    if (ins->op == ir::opcode::phi) {
+      auto pd = std::get<ir::phi_data>(ins->data);
+      for (auto& [block, val] : pd.incoming) {
+        edge e{.from = block, .to = ins->parent};
+        if (executable_edges.contains(e))
+          values[ins->result].meet_with(values[val]);
+      }
+    } else if (is_foldable(ins->op))
+      values[ins->result].meet_with(folded_value(ins, values));
 
-            auto lhs = values[inst->operands[0]];
-            if (!lhs.is_constant())
-                return lhs;
+    else if (ins->result)
+      values[ins->result].meet_with(bot());
 
-            auto lhs_const = lhs.as_constant();
-            if (inst->op == ir::opcode::neg)
-                return {icons{.value = ir::normalize(0 - std::get<icons>(lhs_const).value, inst->result->ty)}};
+    if (old == values[ins->result])
+      return;
 
-            if (inst->op == ir::opcode::lnot)
-                return {bcons{.value = !std::get<bcons>(lhs_const).value}};
+    for (auto use : ins->result->users)
+      ssa_worklist.push(use);
+  }
 
-            auto rhs = values[inst->operands[1]];
-            if (rhs.is_top())
-                return top();
+  void initialize(ir::function& fn) {
+    flow_worklist.push(fn.entry);
+    executable_blocks.insert(fn.entry);
 
-            if (rhs.is_bot())
-                return bot();
+    while (!flow_worklist.empty() || !ssa_worklist.empty()) {
+      if (!flow_worklist.empty()) {
+        basic_block* current = flow_worklist.front();
+        flow_worklist.pop();
+        for (auto& ins : current->instructions)
+          visit(ins);
 
-            assert(rhs.is_constant());
-            auto rhs_const = rhs.as_constant();
+        if (!current->has_terminator() && !current->succ.empty())
+          mark_executable(edge{.from = current, .to = current->succ.front()});
+      }
+      if (!ssa_worklist.empty()) {
+        ir::instruction* ins = ssa_worklist.front();
+        ssa_worklist.pop();
+        visit(ins);
+      }
+    }
+  }
 
-            if (inst->op == ir::opcode::eq) {
-                auto blhs = std::get_if<bcons>(&lhs_const);
-                auto brhs = std::get_if<bcons>(&rhs_const);
-                if ((blhs && !brhs) || (!blhs && brhs)) {
-                    // this should never happen in our type system, we will think if we want to change this later
-                    assert(false && "should not reach here");
-                    return bot();
-                }
-                if (blhs && brhs)
-                    return {bcons{.value = blhs->value == brhs->value}};
+  void transform(ir::function& fn) {
+    for (auto& block : fn.blocks) {
+      for (auto inst : block->instructions) {
+        // Convert cond_br with constant condition to br
+        if (inst->op == ir::opcode::cond_br) {
+          auto cond = inst->operands[0];
+          auto elem = values[cond];
+          if (!elem.is_constant())
+            continue;
 
-                auto ilhs = std::get_if<icons>(&lhs_const);
-                auto irhs = std::get_if<icons>(&rhs_const);
-                if ((ilhs && !irhs) || (!ilhs && irhs)) {
-                    assert(false && "should not reach here");
-                    return bot();
-                }
+          auto cbr = std::get<ir::cond_br_data>(inst->data);
+          auto true_id = cbr.true_branch;
+          auto false_id = cbr.false_branch;
+          auto true_branch = block->succ[0];
+          auto false_branch = block->succ[1];
+          bool taken = std::get<bcons>(elem.as_constant()).value;
 
-                assert(ilhs && irhs);
-                return {bcons{.value = ilhs->value == irhs->value}};
+          basic_block* untaken = taken ? false_branch : true_branch;
+          if (untaken != (taken ? true_branch : false_branch)) {
+            std::erase(untaken->pred, block.get());
+            for (auto phi : untaken->instructions) {
+              if (phi->op != ir::opcode::phi)
+                continue;
+              auto& incoming = std::get<ir::phi_data>(phi->data).incoming;
+              if (auto it = incoming.find(block.get()); it != incoming.end()) {
+                phi->erase_use(it->second);
+                incoming.erase(it);
+                phi->operands.clear();
+                for (auto& [b, v] : incoming)
+                  phi->operands.push_back(v);
+                for (auto op : phi->operands)
+                  op->users.push_back(phi);
+              }
             }
-
-            auto ilhs = std::get_if<icons>(&lhs_const);
-            auto irhs = std::get_if<icons>(&rhs_const);
-            assert(ilhs && irhs);
-
-            if (ir::is_comparison(inst->op))
-                return {bcons{.value = ir::eval_cmp(inst->op, ilhs->value, irhs->value)}};
-
-            if (auto result = ir::eval_arith(inst->op, inst->result->ty, ilhs->value, irhs->value))
-                return {icons{.value = *result}};
-
-            return bot();
+          }
+          block->succ.clear();
+          inst->erase_operands();
+          inst->op = ir::opcode::br;
+          inst->data = ir::br_data{.branch_id = taken ? true_id : false_id};
+          block->succ.push_back(taken ? true_branch : false_branch);
+          continue;
         }
 
-        void mark_executable(edge e) {
-            if (executable_blocks.insert(e.to).second)
-                flow_worklist.push(e.to);
-            if (executable_edges.insert(e).second) {
-                for (auto ins: e.to->instructions) {
-                    if (ins->op == ir::opcode::phi) {
-                        ssa_worklist.push(ins);
-                    }
-                }
-            }
+        // Propagate constants
+        auto elem = values[inst->result];
+        if (!elem.is_constant())
+          continue;
+
+        inst->erase_operands();
+        auto cons = elem.as_constant();
+
+        if (auto ic = std::get_if<icons>(&cons)) {
+          inst->op = ir::opcode::iconst;
+          inst->data = ir::iconst_data{.value = ic->value};
         }
-
-        void visit(ir::instruction *ins) {
-            auto old = values[ins->result];
-            if (ins->op == ir::opcode::br) {
-                edge e{.from = ins->parent, .to = ins->parent->succ.front()};
-                mark_executable(e);
-                return;
-            }
-
-            if (ins->op == ir::opcode::cond_br) {
-                edge true_edge{.from = ins->parent, .to = ins->parent->succ.front()};
-                edge false_edge{.from = ins->parent, .to = ins->parent->succ.back()};
-
-                lattice_element cond = values[ins->operands.front()];
-                if (!cond.is_constant()) {
-                    mark_executable(true_edge);
-                    mark_executable(false_edge);
-                } else if (std::get<bcons>(cond.as_constant()).value) {
-                    mark_executable(true_edge);
-                } else {
-                    mark_executable(false_edge);
-                }
-                return;
-            }
-
-            if (ins->op == ir::opcode::phi) {
-                auto pd = std::get<ir::phi_data>(ins->data);
-                for (auto &[block, val]: pd.incoming) {
-                    edge e{.from = block, .to = ins->parent};
-                    if (executable_edges.contains(e))
-                        values[ins->result].meet_with(values[val]);
-                }
-            } else if (is_foldable(ins->op))
-                values[ins->result].meet_with(folded_value(ins, values));
-
-            else if (ins->result)
-                values[ins->result].meet_with(bot());
-
-            if (old == values[ins->result])
-                return;
-
-            for (auto use: ins->result->users)
-                ssa_worklist.push(use);
+        if (auto bc = std::get_if<bcons>(&cons)) {
+          inst->op = ir::opcode::bconst;
+          inst->data = ir::bconst_data{.value = bc->value};
         }
+      }
+    }
+  }
 
-        void initialize(ir::function &fn) {
-            flow_worklist.push(fn.entry);
-            executable_blocks.insert(fn.entry);
+  void run(ir::function& fn) override {
+    initialize(fn);
+    transform(fn);
+  }
 
-            while (!flow_worklist.empty() || !ssa_worklist.empty()) {
-                if (!flow_worklist.empty()) {
-                    basic_block *current = flow_worklist.front();
-                    flow_worklist.pop();
-                    for (auto &ins: current->instructions)
-                        visit(ins);
+  std::string description() override {
+    return "Sparse Conditional Constant Propagation";
+  }
 
-                    if (!current->has_terminator() && !current->succ.empty())
-                        mark_executable(edge{.from = current, .to = current->succ.front()});
-                }
-                if (!ssa_worklist.empty()) {
-                    ir::instruction *ins = ssa_worklist.front();
-                    ssa_worklist.pop();
-                    visit(ins);
-                }
-            }
-        }
-
-        void transform(ir::function &fn) {
-            for (auto &block: fn.blocks) {
-                for (auto inst: block->instructions) {
-                    // Convert cond_br with constant condition to br
-                    if (inst->op == ir::opcode::cond_br) {
-                        auto cond = inst->operands[0];
-                        auto elem = values[cond];
-                        if (!elem.is_constant())
-                            continue;
-
-                        auto cbr = std::get<ir::cond_br_data>(inst->data);
-                        auto true_id = cbr.true_branch;
-                        auto false_id = cbr.false_branch;
-                        auto true_branch = block->succ[0];
-                        auto false_branch = block->succ[1];
-                        bool taken = std::get<bcons>(elem.as_constant()).value;
-
-                        basic_block *untaken = taken ? false_branch : true_branch;
-                        if (untaken != (taken ? true_branch : false_branch)) {
-                            std::erase(untaken->pred, block.get());
-                            for (auto phi: untaken->instructions) {
-                                if (phi->op != ir::opcode::phi)
-                                    continue;
-                                auto &incoming = std::get<ir::phi_data>(phi->data).incoming;
-                                if (auto it = incoming.find(block.get()); it != incoming.end()) {
-                                    phi->erase_use(it->second);
-                                    incoming.erase(it);
-                                    phi->operands.clear();
-                                    for (auto &[b, v]: incoming)
-                                        phi->operands.push_back(v);
-                                    for (auto op: phi->operands)
-                                        op->users.push_back(phi);
-                                }
-                            }
-                        }
-                        block->succ.clear();
-                        inst->erase_operands();
-                        inst->op = ir::opcode::br;
-                        inst->data = ir::br_data{.branch_id = taken ? true_id : false_id};
-                        block->succ.push_back(taken ? true_branch : false_branch);
-                        continue;
-                    }
-
-                    // Propagate constants
-                    auto elem = values[inst->result];
-                    if (!elem.is_constant())
-                        continue;
-
-                    inst->erase_operands();
-                    auto cons = elem.as_constant();
-
-                    if (auto ic = std::get_if<icons>(&cons)) {
-                        inst->op = ir::opcode::iconst;
-                        inst->data = ir::iconst_data{.value = ic->value};
-                    }
-                    if (auto bc = std::get_if<bcons>(&cons)) {
-                        inst->op = ir::opcode::bconst;
-                        inst->data = ir::bconst_data{.value = bc->value};
-                    }
-                }
-            }
-        }
-
-        void run(ir::function &fn) override {
-            initialize(fn);
-            transform(fn);
-        }
-
-        std::string description() override {
-            return "Sparse Conditional Constant Propagation";
-        }
-
-        lattice values{};
-        std::queue<basic_block *> flow_worklist{};
-        std::unordered_set<basic_block *> executable_blocks{};
-        std::set<edge> executable_edges{};
-        std::queue<ir::instruction *> ssa_worklist{};
-    };
+  lattice values{};
+  std::queue<basic_block*> flow_worklist{};
+  std::unordered_set<basic_block*> executable_blocks{};
+  std::set<edge> executable_edges{};
+  std::queue<ir::instruction*> ssa_worklist{};
+};
 }
