@@ -131,3 +131,22 @@ foreach (input_file IN LISTS verify_inputs)
     add_test(NAME verify.${test_name} COMMAND compiler-dungeon ${input_file} --verify-each)
     set_tests_properties(verify.${test_name} PROPERTIES LABELS "verifier")
 endforeach ()
+
+# The IR interpreter assignment (docs/assignment-ir-interpreter.md).  `ctest -L interpreter` runs it;
+# `ctest -LE assignment` skips it.  The tests are red until the interpreter and `--interpret` exist.
+#   interp.<name>        `--interpret` must print exactly the `// expect:` line of the fixture
+#   interp_each.<name>   `--interpret-each` must not find a pass that changes the result
+file(GLOB interp_inputs CONFIGURE_DEPENDS "${CMAKE_SOURCE_DIR}/test/interp/*.ks")
+foreach (input_file IN LISTS interp_inputs)
+    get_filename_component(test_name "${input_file}" NAME_WE)
+    add_test(
+            NAME interp.${test_name}
+            COMMAND ${CMAKE_COMMAND}
+            -Dcompiler=$<TARGET_FILE:compiler-dungeon>
+            -Dinput=${input_file}
+            -P ${CMAKE_SOURCE_DIR}/cmake/RunInterpretTest.cmake
+    )
+    set_tests_properties(interp.${test_name} PROPERTIES LABELS "interpreter;assignment")
+    add_test(NAME interp_each.${test_name} COMMAND compiler-dungeon ${input_file} --interpret-each)
+    set_tests_properties(interp_each.${test_name} PROPERTIES LABELS "interpreter;assignment")
+endforeach ()

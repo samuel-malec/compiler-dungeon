@@ -21,7 +21,7 @@
 *~
 *.dot
 *.svg
-.notes
+.notes/
 
 build-debug/
 build-asan/
