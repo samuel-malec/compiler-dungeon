@@ -1,18 +1,11 @@
 #pragma once
 
-#include <string>
-#include <cstring>
-#include <iostream>
-#include <stdexcept> 
-
 #include "config.hpp"
 
-namespace dungeon
-{
+namespace dungeon {
 
-struct compiler
-{
-    static void run( config& conf );
+struct compiler {
+  static void run(config& conf);
 };
 
 }

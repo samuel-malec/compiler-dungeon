@@ -38,11 +38,11 @@ namespace dungeon {
         }
 
         ~progress_reporter() {
-            std::cout << "\033[1;32mCompilation report:\033[m\n";
+            std::cerr << "\033[1;32mCompilation report:\033[m\n";
             for (auto &e: entries) {
-                pad(std::cout, e.depth);
-                std::cout << '[' << e.name << "] ";
-                std::cout << "took " << e.duration.count() << " ms" << '\n';
+                pad(std::cerr, e.depth);
+                std::cerr << '[' << e.name << "] ";
+                std::cerr << "took " << e.duration.count() << " ms" << '\n';
             }
         }
 
