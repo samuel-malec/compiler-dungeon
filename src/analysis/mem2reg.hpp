@@ -154,9 +154,6 @@ namespace dungeon {
             }
         }
 
-        // dominator-tree preorder walk: renames loads to the reaching store
-        // (or phi), drops promoted alloca/store/load instructions, and wires
-        // up phi incoming edges for each successor
         void rename(basic_block *block, stack &s, const var_map &vars) {
             std::map<value_id, int> pushed;
 
@@ -206,6 +203,35 @@ namespace dungeon {
                     s[vid].pop_back();
         }
 
+        // insert_phi builds minimal SSA: it also places phis for variables that are never read
+        // after the merge point. Keep only the phis that something really uses (directly, or
+        // through another kept phi) and throw the rest away.
+        static void remove_dead_phis(ir::function &fn) {
+            std::map<ir::value *, phi_node *> phi_of;
+            std::vector<phi_node *> todo;
+            std::set<const phi_node *> live;
+
+            for (auto &bb: fn.blocks)
+                for (phi_node &phi: bb->phis) {
+                    phi_of[phi.res] = &phi;
+                    if (!phi.res->users.empty()) {
+                        live.insert(&phi);
+                        todo.push_back(&phi);
+                    }
+                }
+
+            while (!todo.empty()) {
+                phi_node *phi = todo.back();
+                todo.pop_back();
+                for (ir::value *v: phi->incoming | std::views::values)
+                    if (auto it = phi_of.find(v); it != phi_of.end() && live.insert(it->second).second)
+                        todo.push_back(it->second);
+            }
+
+            for (auto &bb: fn.blocks)
+                std::erase_if(bb->phis, [&](const phi_node &phi) { return !live.contains(&phi); });
+        }
+
         void add_phi_instrs(ir::function &fn) {
             for (auto &block: fn.blocks) {
                 std::vector<ir::instruction *> new_instrs;
@@ -245,6 +271,7 @@ namespace dungeon {
 
             stack s{};
             rename(fn.entry, s, vars);
+            remove_dead_phis(fn);
             add_phi_instrs(fn);
         }
     };

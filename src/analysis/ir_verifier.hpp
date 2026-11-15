@@ -14,784 +14,814 @@
 #include "../ir/module.hpp"
 
 namespace dungeon {
-    namespace verifier_rule {
-        inline constexpr const char *entry = "entry"; // fn.entry exists and is one of fn.blocks
-        inline constexpr const char *unique_block_id = "unique-block-id";
-        inline constexpr const char *edge_target = "edge-target"; // succ/pred point into this function
-        inline constexpr const char *edge_dup = "edge-dup"; // no block listed twice in succ or in pred
-        inline constexpr const char *edge_symmetry = "edge-symmetry"; // a in b.pred  <=>  b in a.succ
-        inline constexpr const char *entry_no_preds = "entry-no-preds";
+namespace verifier_rule {
+inline constexpr const char* entry = "entry"; // fn.entry exists and is one of fn.blocks
+inline constexpr const char* unique_block_id = "unique-block-id";
+inline constexpr const char* edge_target = "edge-target"; // succ/pred point into this function
+inline constexpr const char* edge_dup = "edge-dup"; // no block listed twice in succ or in pred
+inline constexpr const char* edge_symmetry = "edge-symmetry"; // a in b.pred  <=>  b in a.succ
+inline constexpr const char* entry_no_preds = "entry-no-preds";
 
-        inline constexpr const char *parent = "parent"; // instruction.parent is the block holding it
-        inline constexpr const char *owned = "owned"; // ... and fn.instructions owns it
-        inline constexpr const char *no_label = "no-label"; // labels are gone after cfg_builder
-        inline constexpr const char *terminator = "terminator"; // one terminator, last
-        inline constexpr const char *succ_count = "succ-count"; // the terminator agrees with succ
+inline constexpr const char* parent = "parent"; // instruction.parent is the block holding it
+inline constexpr const char* owned = "owned"; // ... and fn.instructions owns it
+inline constexpr const char* no_label = "no-label"; // labels are gone after cfg_builder
+inline constexpr const char* terminator = "terminator"; // one terminator, last
+inline constexpr const char* succ_count = "succ-count"; // the terminator agrees with succ
 
-        inline constexpr const char *def_link = "def-link"; // result->defining_instruction is the definer
-        inline constexpr const char *single_def = "single-def"; // SSA: one definition per value
-        inline constexpr const char *operand_null = "operand-null";
-        inline constexpr const char *operand_def = "operand-def"; // an operand is defined by a live instruction
-        inline constexpr const char *use_list = "use-list"; // value.users matches the real uses
+inline constexpr const char* def_link = "def-link"; // result->defining_instruction is the definer
+inline constexpr const char* single_def = "single-def"; // SSA: one definition per value
+inline constexpr const char* operand_null = "operand-null";
+inline constexpr const char* operand_def = "operand-def";
+// an operand is defined by a live instruction
+inline constexpr const char* use_list = "use-list"; // value.users matches the real uses
 
-        inline constexpr const char *type = "type";
-        inline constexpr const char *signedness = "signedness"; // sdiv on signed, udiv on unsigned, ...
-        inline constexpr const char *param_entry = "param-entry";
+inline constexpr const char* type = "type";
+inline constexpr const char* signedness = "signedness"; // sdiv on signed, udiv on unsigned, ...
+inline constexpr const char* param_entry = "param-entry";
 
-        inline constexpr const char *phi_first = "phi-first"; // phis come first in their block
-        inline constexpr const char *phi_preds = "phi-preds"; // incoming blocks == predecessors
-        inline constexpr const char *phi_operands = "phi-operands"; // operands == incoming values
-        inline constexpr const char *dominance = "dominance"; // every def dominates its uses
+inline constexpr const char* phi_first = "phi-first"; // phis come first in their block
+inline constexpr const char* phi_preds = "phi-preds"; // incoming blocks == predecessors
+inline constexpr const char* phi_operands = "phi-operands"; // operands == incoming values
+inline constexpr const char* dominance = "dominance"; // every def dominates its uses
+}
+
+struct verify_error {
+  std::string rule;
+  std::string message;
+};
+
+class ir_verifier {
+public:
+  static std::vector<verify_error> verify(const ir::function& fn, const ir::module* mod = nullptr) {
+    ir_verifier v{fn, mod};
+    v.run();
+    return std::move(v.errors_);
+  }
+
+  static void verify_or_throw(const ir::function& fn,
+                              std::string_view context,
+                              const ir::module* mod = nullptr) {
+    const auto errors = verify(fn, mod);
+    if (errors.empty())
+      return;
+    std::string text = "IR verification failed after " + std::string(context) + ":";
+    for (const auto& e : errors)
+      text += "\n  [" + e.rule + "] " + e.message;
+    throw std::runtime_error(text);
+  }
+
+private:
+  const ir::function& fn_;
+  const ir::module* mod_;
+  std::vector<verify_error> errors_;
+
+  std::unordered_set<const basic_block*> blocks_; // every block of fn_
+  std::unordered_set<const ir::instruction*> owned_; // everything in fn_.instructions
+  std::unordered_set<const ir::instruction*> placed_; // every instruction found inside a block
+  std::unordered_map<const ir::instruction*, size_t> position_; // index within its block
+
+  ir_verifier(const ir::function& fn, const ir::module* mod)
+    : fn_(fn)
+    , mod_(mod) {
+  }
+
+  void fail(const char* rule, std::string message) {
+    errors_.push_back({rule, std::move(message)});
+  }
+
+  static std::string name(const basic_block* b) {
+    return b ? "bb" + std::to_string(b->id.id) : "<null block>";
+  }
+
+  static std::string name(const ir::value* v) {
+    return v ? "%" + std::to_string(v->id) : "<null value>";
+  }
+
+  void build_indexes() {
+    for (const auto& b : fn_.blocks)
+      blocks_.insert(b.get());
+    for (const auto& i : fn_.instructions)
+      owned_.insert(i.get());
+    for (const auto& b : fn_.blocks) {
+      size_t k = 0;
+      for (const ir::instruction* i : b->instructions) {
+        if (!i)
+          continue;
+        placed_.insert(i);
+        position_.emplace(i, k++);
+      }
+    }
+  }
+
+  void run() {
+    if (!fn_.entry) {
+      fail(verifier_rule::entry, "function has no entry block");
+      return;
+    }
+    build_indexes();
+    check_entry();
+    check_block_ids();
+    check_edges();
+    check_instruction_placement();
+    check_terminators();
+    check_definitions();
+    check_use_lists();
+    check_types();
+    compute_dominators();
+    check_phis();
+    check_dominance();
+  }
+
+  void check_entry() {
+    bool found = false;
+    for (auto& block : blocks_) {
+      if (block == fn_.entry)
+        found = true;
+
+      for (const auto succ : block->succ)
+        if (succ == fn_.entry)
+          fail(verifier_rule::entry_no_preds, "branch into entry block");
     }
 
-    struct verify_error {
-        std::string rule;
-        std::string message;
-    };
+    if (!found)
+      fail(verifier_rule::entry, "not found");
+  }
 
-    class ir_verifier {
-    public:
-        static std::vector<verify_error> verify(const ir::function &fn, const ir::module *mod = nullptr) {
-            ir_verifier v{fn, mod};
-            v.run();
-            return std::move(v.errors_);
+  void check_block_ids() {
+    std::unordered_set<uint32_t> seen;
+    for (const auto block : blocks_) {
+      if (auto [_, was_new] = seen.insert(block->id.id); !was_new)
+        fail(verifier_rule::unique_block_id,
+             "more than one block has the id " + std::to_string(block->id.id));
+    }
+  }
+
+  void check_edges_helper(const basic_block* source,
+                          const std::vector<basic_block*>& targets,
+                          bool are_successors) {
+    const std::string kind = are_successors ? "successor" : "predecessor";
+    std::unordered_set<basic_block*> seen_targets;
+    for (const auto target : targets) {
+      if (target == nullptr) {
+        fail(verifier_rule::edge_target, name(source) + " has a null " + kind);
+        continue;
+      }
+      if (!blocks_.contains(target)) {
+        fail(verifier_rule::edge_target,
+             name(source) + " has a " + kind + " that is not a block of this function");
+        continue;
+      }
+      if (auto [_, was_new] = seen_targets.insert(target); !was_new) {
+        fail(verifier_rule::edge_dup,
+             name(source) + " lists " + name(target) + " twice as a " + kind);
+        continue;
+      }
+      if (are_successors && std::ranges::find(target->pred, source) == target->pred.end()) {
+        fail(verifier_rule::edge_symmetry,
+             name(source) + " lists " + name(target) + " as a successor, but " + name(target) +
+             " does not list " + name(source) + " as a predecessor");
+        continue;
+      }
+      if (!are_successors && std::ranges::find(target->succ, source) == target->succ.end())
+        fail(verifier_rule::edge_symmetry,
+             name(source) + " lists " + name(target) + " as a predecessor, but " + name(target) +
+             " does not list " + name(source) + " as a successor");
+    }
+  }
+
+  void check_edges() {
+    for (const auto block : blocks_) {
+      check_edges_helper(block, block->succ, true);
+      check_edges_helper(block, block->pred, false);
+    }
+  }
+
+  void check_instruction_placement() {
+    for (const auto block : blocks_) {
+      for (auto ins : block->instructions) {
+        if (ins == nullptr) {
+          fail(verifier_rule::owned, "null instruction in " + name(block));
+          continue;
+        }
+        if (!owned_.contains(ins)) {
+          fail(verifier_rule::owned,
+               name(block) + " holds an instruction that the function does not own");
+          continue;
         }
 
-        static void verify_or_throw(const ir::function &fn, std::string_view context,
-                                    const ir::module *mod = nullptr) {
-            const auto errors = verify(fn, mod);
-            if (errors.empty())
-                return;
-            std::string text = "IR verification failed after " + std::string(context) + ":";
-            for (const auto &e: errors)
-                text += "\n  [" + e.rule + "] " + e.message;
-            throw std::runtime_error(text);
+        if (ins->parent != block) {
+          fail(verifier_rule::parent,
+               "instruction defining " + name(ins->result) + " is in " + name(block) +
+               " but its parent is " + name(ins->parent));
+          continue;
         }
 
-    private:
-        const ir::function &fn_;
-        const ir::module *mod_;
-        std::vector<verify_error> errors_;
+        if (ins->op == ir::opcode::label)
+          fail(verifier_rule::no_label, name(block) + " still contains a label instruction");
+      }
+    }
+  }
 
-        std::unordered_set<const basic_block *> blocks_; // every block of fn_
-        std::unordered_set<const ir::instruction *> owned_; // everything in fn_.instructions
-        std::unordered_set<const ir::instruction *> placed_; // every instruction found inside a block
-        std::unordered_map<const ir::instruction *, size_t> position_; // index within its block
-
-        ir_verifier(const ir::function &fn, const ir::module *mod) : fn_(fn), mod_(mod) {
+  void check_terminators() {
+    for (const auto block : blocks_) {
+      if (block->instructions.empty()) {
+        fail(verifier_rule::terminator, name(block) + " is empty: it has no terminator");
+        continue;
+      }
+      for (std::size_t i = 0; i < block->instructions.size(); ++i) {
+        const auto ins = block->instructions[i];
+        if (ins == nullptr)
+          continue;
+        if (size_t succ_size = block->succ.size(); (ins->op == ir::opcode::ret && succ_size != 0) ||
+                                                   (ins->op == ir::opcode::br && succ_size != 1) ||
+                                                   (ins->op == ir::opcode::cond_br && (
+                                                      succ_size < 1 || succ_size > 2))
+        ) {
+          fail(verifier_rule::succ_count,
+               name(block) +
+               " ends in a terminator that needs a different number of successors than its " +
+               std::to_string(succ_size));
+          continue;
         }
 
-        void fail(const char *rule, std::string message) {
-            errors_.push_back({rule, std::move(message)});
+        if (i == block->instructions.size() - 1 && !ins->is_terminator()) {
+          fail(verifier_rule::terminator,
+               name(block) + ": the last instruction is not a terminator");
+          continue;
         }
 
-        static std::string name(const basic_block *b) {
-            return b ? "bb" + std::to_string(b->id.id) : "<null block>";
+        if (i < block->instructions.size() - 1 && ins->is_terminator())
+          fail(verifier_rule::terminator,
+               name(block) + ": a terminator at position " + std::to_string(i) +
+               " is not the last instruction");
+      }
+    }
+  }
+
+  void check_definitions() {
+    std::unordered_set<const ir::value*> defs;
+
+    for (const auto ins : placed_) {
+      if (ins->result == nullptr)
+        continue;
+
+      if (auto [_, was_new] = defs.insert(ins->result); !was_new) {
+        fail(verifier_rule::single_def, "redefinition encountered at " + name(ins->result));
+        continue;
+      }
+      if (ins->result->defining_instruction != ins)
+        fail(verifier_rule::def_link, "invalid definition link at " + name(ins->result));
+    }
+
+    for (const auto ins : placed_)
+      for (const auto operand : ins->operands) {
+        if (operand == nullptr) {
+          fail(verifier_rule::operand_null, "operand null at " + name(ins->result));
+          continue;
         }
 
-        static std::string name(const ir::value *v) {
-            return v ? "%" + std::to_string(v->id) : "<null value>";
+        if (!defs.contains(operand))
+          fail(verifier_rule::operand_def, "operand not defined at " + name(ins->result));
+      }
+  }
+
+  void check_use_lists() {
+    using count_map = std::unordered_map<const ir::instruction*, int>;
+    std::unordered_map<const ir::value*, count_map> actual;
+    std::unordered_set<const ir::value*> values;
+
+    for (const auto ins : placed_) {
+      if (ins->result != nullptr)
+        values.insert(ins->result);
+
+      for (const auto operand : ins->operands) {
+        if (operand != nullptr) {
+          ++actual[operand][ins];
+          values.insert(operand);
+        }
+      }
+    }
+
+    for (auto val : values) {
+      std::unordered_map<const ir::instruction*, int> listed;
+      for (auto user : val->users)
+        listed[user]++;
+
+      auto& acc = actual[val];
+      for (auto& [ins, acc_count] : acc) {
+        if (!listed.contains(ins) || listed[ins] != acc_count) {
+          fail(verifier_rule::use_list,
+               name(val) + " is used " + std::to_string(acc_count) +
+               " time(s) by the instruction defining " +
+               name(ins->result) + " in " + name(ins->parent) + ", but its users list has " +
+               std::to_string(listed.contains(ins) ? listed[ins] : 0));
+          break;
+        }
+      }
+
+      for (auto& [ins, lis_count] : listed) {
+        if (!acc.contains(ins) || acc[ins] != lis_count) {
+          // do not look inside `ins`: a stale user is often an erased instruction
+          fail(verifier_rule::use_list,
+               "users list of " + name(val) + " has " + std::to_string(lis_count) +
+               " entry(ies) for an instruction that uses it " +
+               std::to_string(acc.contains(ins) ? acc[ins] : 0) + " time(s)");
+          break;
+        }
+      }
+    }
+  }
+
+  bool need_result(const ir::instruction* ins) {
+    if (ins->result != nullptr)
+      return true;
+    fail(verifier_rule::type, "missing result");
+    return false;
+  }
+
+  bool check_operands(const ir::instruction* ins, size_t expected) {
+    if (ins->operands.size() != expected) {
+      fail(verifier_rule::type, "invalid amount of operands at " + name(ins->result));
+      return false;
+    }
+
+    for (size_t i = 0; i < expected; ++i)
+      if (ins->operands[i] == nullptr)
+        return false;
+
+    return true;
+  }
+
+  bool check_binary_num_op(const ir::instruction* ins) {
+    if (!check_operands(ins, 2))
+      return false;
+
+    if (!need_result(ins))
+      return false;
+
+    if (!is_integer_ty(ins->operands[0]->ty) || !is_integer_ty(ins->operands[1]->ty)) {
+      fail(verifier_rule::type, "expected operands of integer type " + name(ins->result));
+      return false;
+    }
+
+    if (ins->operands[0]->ty != ins->operands[1]->ty) {
+      fail(verifier_rule::type, "expected operands of the same type " + name(ins->result));
+      return false;
+    }
+
+    if (ins->operands[0]->ty != ins->result->ty) {
+      fail(verifier_rule::type, "invalid result type " + name(ins->result));
+      return false;
+    }
+
+    return true;
+  }
+
+  bool check_binary_rel_op(const ir::instruction* ins) {
+    if (!check_operands(ins, 2)) {
+      return false;
+    }
+
+    if (!need_result(ins))
+      return false;
+
+    if (ins->operands[0]->ty != ins->operands[1]->ty) {
+      fail(verifier_rule::type, "expected operands of the same type " + name(ins->result));
+      return false;
+    }
+
+    if (!is_boolean_ty(ins->result->ty)) {
+      fail(verifier_rule::type, "expected boolean type of result " + name(ins->result));
+      return false;
+    }
+    return true;
+  }
+
+  void check_unary_log_op(const ir::instruction* ins) {
+    if (!check_operands(ins, 1))
+      return;
+
+    if (!need_result(ins))
+      return;
+
+    if (!is_boolean_ty(ins->operands[0]->ty))
+      fail(verifier_rule::type, "expected a boolean operand " + name(ins->result));
+
+    if (!is_boolean_ty(ins->result->ty))
+      fail(verifier_rule::type, "expected boolean type of result " + name(ins->result));
+  }
+
+  void check_br(const ir::instruction* ins, bool cond) {
+    if (!check_operands(ins, cond ? 1 : 0))
+      return;
+
+    if (cond && !is_boolean_ty(ins->operands[0]->ty))
+      fail(verifier_rule::type, "expected boolean type of operand " + name(ins->result));
+
+    if (ins->result != nullptr)
+      fail(verifier_rule::type, "unexpected result of an operation " + name(ins->result));
+  }
+
+  void check_ret(const ir::instruction* ins) {
+    if (ins->result) {
+      fail(verifier_rule::type, "invalid return type " + name(ins->result));
+      return;
+    }
+
+    if (is_unit_ty(fn_.return_type)) {
+      if (!ins->operands.empty())
+        fail(verifier_rule::type, "unexpected return in a unit function " + name(ins->result));
+      return;
+    }
+
+    if (!check_operands(ins, 1))
+      return;
+
+    if (!same_type(ins->operands[0]->ty, fn_.return_type))
+      fail(verifier_rule::type, "unexpected return type " + name(ins->result));
+  }
+
+  void check_unary_num_op(const ir::instruction* ins) {
+    if (!check_operands(ins, 1))
+      return;
+
+    if (!need_result(ins))
+      return;
+
+    if (!is_integer_ty(ins->operands[0]->ty))
+      fail(verifier_rule::type, "expected operand of integer type " + name(ins->result));
+
+    if (ins->operands[0]->ty != ins->result->ty)
+      fail(verifier_rule::type, "invalid result type " + name(ins->result));
+  }
+
+  void check_binary_unsigned_num_op(const ir::instruction* ins) {
+    if (!check_binary_num_op(ins))
+      return;
+
+    if (!is_unsigned_integer_ty(ins->operands[0]->ty) || !is_unsigned_integer_ty(
+            ins->operands[1]->ty))
+      fail(verifier_rule::signedness, "expected unsigned operands " + name(ins->result));
+  }
+
+  void check_binary_signed_num_op(const ir::instruction* ins) {
+    if (!check_binary_num_op(ins))
+      return;
+
+    if (!is_signed_integer_ty(ins->operands[0]->ty) || !is_signed_integer_ty(ins->operands[1]->ty))
+      fail(verifier_rule::signedness, "expected signed operands " + name(ins->result));
+  }
+
+
+  void check_binary_signed_rel_op(const ir::instruction* ins) {
+    if (!check_binary_rel_op(ins))
+      return;
+
+    if (!is_signed_integer_ty(ins->operands[0]->ty) || !is_signed_integer_ty(ins->operands[1]->ty))
+      fail(verifier_rule::signedness, "expected signed operands " + name(ins->result));
+  }
+
+  void check_binary_unsigned_rel_op(const ir::instruction* ins) {
+    if (!check_binary_rel_op(ins))
+      return;
+
+    if (!is_unsigned_integer_ty(ins->operands[0]->ty) || !is_unsigned_integer_ty(
+            ins->operands[1]->ty))
+      fail(verifier_rule::signedness, "expected unsigned operands " + name(ins->result));
+  }
+
+
+  static bool is_slot(const ir::value* v) {
+    if (v == nullptr || v->defining_instruction == nullptr)
+      return false;
+    const auto op = v->defining_instruction->op;
+    return op == ir::opcode::alloca || op == ir::opcode::param;
+  }
+
+  void check_types() {
+    for (const auto ins : placed_) {
+      switch (ins->op) {
+      case ir::opcode::iconst: {
+        if (!check_operands(ins, 0) || !need_result(ins))
+          break;
+
+        if (!is_integer_ty(ins->result->ty))
+          fail(verifier_rule::type, "expected integer return type for iconst " + name(ins->result));
+        break;
+      }
+      case ir::opcode::bconst: {
+        if (!check_operands(ins, 0) || !need_result(ins))
+          break;
+
+        if (!is_boolean_ty(ins->result->ty))
+          fail(verifier_rule::type, "expected boolean type for bconst " + name(ins->result));
+        break;
+      }
+      case ir::opcode::add:
+      case ir::opcode::sub:
+      case ir::opcode::mul:
+      case ir::opcode::shl:
+        check_binary_num_op(ins);
+        break;
+
+      case ir::opcode::shr:
+        check_binary_unsigned_num_op(ins);
+        break;
+
+      case ir::opcode::sar:
+        check_binary_signed_num_op(ins);
+        break;
+
+      case ir::opcode::neg:
+        check_unary_num_op(ins);
+        break;
+
+      case ir::opcode::umod:
+      case ir::opcode::udiv:
+        check_binary_unsigned_num_op(ins);
+        break;
+
+      case ir::opcode::smod:
+      case ir::opcode::sdiv:
+        check_binary_signed_num_op(ins);
+        break;
+
+      case ir::opcode::slt:
+      case ir::opcode::sgt:
+      case ir::opcode::sle:
+      case ir::opcode::sge:
+        check_binary_signed_rel_op(ins);
+        break;
+
+      case ir::opcode::ult:
+      case ir::opcode::ugt:
+      case ir::opcode::ule:
+      case ir::opcode::uge:
+        check_binary_unsigned_rel_op(ins);
+        break;
+
+      case ir::opcode::eq:
+        check_binary_rel_op(ins);
+        break;
+
+      case ir::opcode::lnot:
+        check_unary_log_op(ins);
+        break;
+
+      case ir::opcode::br:
+        check_br(ins, false);
+        break;
+
+      case ir::opcode::cond_br:
+        check_br(ins, true);
+        break;
+
+      case ir::opcode::alloca: {
+        if (!check_operands(ins, 0))
+          break;
+
+        if (ins->result == nullptr)
+          fail(verifier_rule::type, "missing result of an instruction " + name(ins->result));
+
+        break;
+      }
+      case ir::opcode::load: {
+        if (!check_operands(ins, 1) || !need_result(ins))
+          break;
+
+        if (!same_type(ins->result->ty, ins->operands[0]->ty))
+          fail(verifier_rule::type,
+               "expected result to have the same type as operand " + name(ins->result));
+
+        if (!is_slot(ins->operands[0]))
+          fail(verifier_rule::type, "load operand must be a slot " + name(ins->result));
+        break;
+      }
+      case ir::opcode::store: {
+        if (!check_operands(ins, 2))
+          break;
+
+        if (ins->result != nullptr)
+          fail(verifier_rule::type, "instruction expected to have no return " + name(ins->result));
+
+        if (!same_type(ins->operands[0]->ty, ins->operands[1]->ty))
+          fail(verifier_rule::type, "expected operands to have the same type " + name(ins->result));
+
+        if (!is_slot(ins->operands[0]))
+          fail(verifier_rule::type, "first store operand must be a slot " + name(ins->result));
+
+        break;
+      }
+      case ir::opcode::call:
+        break;
+      case ir::opcode::ret: {
+        check_ret(ins);
+        break;
+      }
+      case ir::opcode::param: {
+        if (!need_result(ins))
+          break;
+
+        auto pd = std::get_if<ir::param_data>(&ins->data);
+        if (!pd) {
+          fail(verifier_rule::type,
+               "expected instruction to have parameter data " + name(ins->result));
+          break;
         }
 
-        void build_indexes() {
-            for (const auto &b: fn_.blocks)
-                blocks_.insert(b.get());
-            for (const auto &i: fn_.instructions)
-                owned_.insert(i.get());
-            for (const auto &b: fn_.blocks) {
-                size_t k = 0;
-                for (const ir::instruction *i: b->instructions) {
-                    if (!i)
-                        continue;
-                    placed_.insert(i);
-                    position_.emplace(i, k++);
-                }
-            }
+        if (pd->index >= fn_.param_types.size() || !same_type(
+                fn_.param_types[pd->index],
+                ins->result->ty)) {
+          fail(verifier_rule::type,
+               "mismatching function signature param type and actual type provided in instruction "
+               +
+               name(ins->result));
+          break;
         }
 
-        void run() {
-            if (!fn_.entry) {
-                fail(verifier_rule::entry, "function has no entry block");
-                return;
-            }
-            build_indexes();
-            check_entry();
-            check_block_ids();
-            check_edges();
-            check_instruction_placement();
-            check_terminators();
-            check_definitions();
-            check_use_lists();
-            check_types();
-            compute_dominators();
-            check_phis();
-            check_dominance();
+        if (ins->parent != fn_.entry)
+          fail(verifier_rule::param_entry,
+               "parameter must be in the entry block " + name(ins->result));
+        break;
+      }
+      case ir::opcode::phi:
+        if (!need_result(ins))
+          break;
+        for (const auto oper : ins->operands)
+          if (oper != nullptr && !same_type(ins->result->ty, oper->ty))
+            fail(verifier_rule::type,
+                 "expected operands to have the same type " + name(ins->result));
+        break;
+      case ir::opcode::label:
+        break;
+      }
+    }
+  }
+
+  std::vector<const basic_block*> rpo;
+  std::map<const basic_block*, int> block_rpo;
+  std::map<const basic_block*, const basic_block*> doms;
+
+  void dfs(const basic_block* parent,
+           std::unordered_set<const basic_block*>& visited) {
+    visited.insert(parent);
+    for (const auto succ : parent->succ) {
+      if (succ == nullptr || !blocks_.contains(succ) || visited.contains(succ))
+        continue;
+      dfs(succ, visited);
+    }
+
+    rpo.push_back(parent);
+  }
+
+  void compute_rpo() {
+    std::unordered_set<const basic_block*> visited;
+    dfs(fn_.entry, visited);
+
+    std::ranges::reverse(rpo);
+    for (int i = 0; i < static_cast<int>(rpo.size()); ++i)
+      block_rpo[rpo[i]] = i;
+  }
+
+  const basic_block* intersect(const basic_block* a, const basic_block* b) {
+    const basic_block* finger1 = a;
+    const basic_block* finger2 = b;
+    while (block_rpo[finger1] != block_rpo[finger2]) {
+      while (block_rpo[finger1] > block_rpo[finger2])
+        finger1 = doms[finger1];
+      while (block_rpo[finger2] > block_rpo[finger1])
+        finger2 = doms[finger2];
+    }
+    return finger1;
+  }
+
+  void compute_dominators() {
+    compute_rpo();
+
+    for (auto block : blocks_)
+      doms[block] = nullptr;
+
+    doms[fn_.entry] = fn_.entry;
+    bool changed = true;
+
+    while (changed) {
+      changed = false;
+      for (auto block : rpo) {
+        if (block == fn_.entry)
+          continue;
+
+        const basic_block* new_idom = nullptr;
+        for (auto pred : block->pred) {
+          if (doms[pred] == nullptr)
+            continue;
+          new_idom = new_idom ? intersect(new_idom, pred) : pred;
         }
 
-        void check_entry() {
-            bool found = false;
-            for (auto &block: blocks_) {
-                if (block == fn_.entry)
-                    found = true;
+        if (new_idom && doms[block] != new_idom) {
+          doms[block] = new_idom;
+          changed = true;
+        }
+      }
+    }
+  }
 
-                for (const auto succ: block->succ)
-                    if (succ == fn_.entry)
-                        fail(verifier_rule::entry_no_preds, "branch into entry block");
-            }
+  bool reachable(const basic_block* b) const {
+    return block_rpo.contains(b);
+  }
 
-            if (!found)
-                fail(verifier_rule::entry, "not found");
+  bool dominates(const basic_block* a, const basic_block* b) const {
+    if (!reachable(a) || !reachable(b))
+      return false;
+    for (const basic_block* finger = b;; finger = doms.at(finger)) {
+      if (finger == a)
+        return true;
+      if (finger == fn_.entry)
+        return false;
+    }
+  }
+
+  void check_phis() {
+    for (const auto block : blocks_) {
+      const std::unordered_set<const basic_block*> preds(block->pred.begin(), block->pred.end());
+
+      bool seen_non_phi = false;
+      for (const auto ins : block->instructions) {
+        if (ins == nullptr)
+          continue;
+
+        if (ins->op != ir::opcode::phi) {
+          seen_non_phi = true;
+          continue;
         }
 
-        // RULE unique-block-id
-        //   No two blocks share an id. (The printer, phi maps and `edge` all assume ids identify blocks.)
-        void check_block_ids() {
-            std::unordered_set<uint32_t> seen;
-            for (const auto block: blocks_) {
-                if (auto [_, was_new] = seen.insert(block->id.id); !was_new)
-                    fail(verifier_rule::unique_block_id, "redundant id ");
-            }
+        if (seen_non_phi)
+          fail(verifier_rule::phi_first, "phi after a non-phi instruction in " + name(block));
+
+        const auto pd = std::get_if<ir::phi_data>(&ins->data);
+        if (pd == nullptr) {
+          fail(verifier_rule::phi_operands, "phi without phi_data " + name(ins->result));
+          continue;
         }
 
-        void check_edges_helper(const basic_block *source, const std::vector<basic_block *> &targets,
-                                bool are_successors) {
-            std::unordered_set<basic_block *> seen_targets;
-            for (const auto target: targets) {
-                if (target == nullptr) {
-                    fail(verifier_rule::edge_target, "non-existing target of an edge");
-                    continue;
-                }
-                if (!blocks_.contains(target)) {
-                    fail(verifier_rule::edge_target, "edge target does not belong to this function");
-                    continue;
-                }
-                if (auto [_, was_new] = seen_targets.insert(target); !was_new) {
-                    fail(verifier_rule::edge_dup, "duplicated edge");
-                    continue;
-                }
-                if (are_successors && std::ranges::find(target->pred, source) == target->pred.end()) {
-                    fail(verifier_rule::edge_symmetry, "missing predecessor");
-                    continue;
-                }
-                if (!are_successors && std::ranges::find(target->succ, source) == target->succ.end())
-                    fail(verifier_rule::edge_symmetry, "missing successor");
-            }
+        std::unordered_set<const basic_block*> phi_preds;
+        std::unordered_multiset<const ir::value*> inc_vals;
+        for (const auto& [bb, val] : pd->incoming) {
+          phi_preds.insert(bb);
+          inc_vals.insert(val);
         }
 
-        void check_edges() {
-            for (const auto block: blocks_) {
-                check_edges_helper(block, block->succ, true);
-                check_edges_helper(block, block->pred, false);
-            }
+        if (preds != phi_preds)
+          fail(verifier_rule::phi_preds,
+               "phi incoming blocks differ from the predecessors of " + name(block) + " at " +
+               name(ins->result));
+
+        const std::unordered_multiset<const ir::value*> operand_vals(ins->operands.begin(),
+          ins->operands.end());
+        if (operand_vals != inc_vals)
+          fail(verifier_rule::phi_operands,
+               "phi operands differ from phi_data::incoming at " + name(ins->result));
+      }
+    }
+  }
+
+  bool def_reaches_use(const ir::value* v,
+                       const basic_block* use_block,
+                       const ir::instruction* user) const {
+    const ir::instruction* def = v->defining_instruction;
+    if (def == nullptr || !placed_.contains(def) || !reachable(def->parent))
+      return true;
+    if (def->parent == use_block && user != nullptr)
+      return position_.at(def) < position_.at(user);
+    return dominates(def->parent, use_block);
+  }
+
+  void check_dominance() {
+    for (const auto block : rpo) {
+      // reachable blocks only, in a deterministic order
+      for (const auto ins : block->instructions) {
+        if (ins == nullptr)
+          continue;
+
+        if (ins->op == ir::opcode::phi) {
+          const auto pd = std::get_if<ir::phi_data>(&ins->data);
+          if (pd == nullptr)
+            continue; // reported by check_phis
+          for (const auto& [pred, val] : pd->incoming)
+            if (pred != nullptr && val != nullptr && reachable(pred) &&
+                !def_reaches_use(val, pred, nullptr))
+              fail(verifier_rule::dominance,
+                   "phi " + name(ins->result) + " in " + name(block) + ": " + name(val) +
+                   " does not dominate the end of " + name(pred));
+          continue;
         }
 
-        void check_instruction_placement() {
-            for (const auto block: blocks_) {
-                for (auto ins: block->instructions) {
-                    if (ins == nullptr) {
-                        fail(verifier_rule::owned, "null instruction encountered");
-                        continue;
-                    }
-                    if (!owned_.contains(ins)) {
-                        fail(verifier_rule::owned, "owned does not contain this instruction");
-                        continue;
-                    }
-
-                    if (ins->parent != block) {
-                        fail(verifier_rule::parent, "instruction has a bad parent");
-                        continue;
-                    }
-
-                    if (ins->op == ir::opcode::label)
-                        fail(verifier_rule::no_label, "instruction is a label for some reason");
-                }
-            }
-        }
-
-        void check_terminators() {
-            for (const auto block: blocks_) {
-                if (block->instructions.empty()) {
-                    fail(verifier_rule::terminator, "no terminator");
-                    continue;
-                }
-                for (std::size_t i = 0; i < block->instructions.size(); ++i) {
-                    const auto ins = block->instructions[i];
-                    if (ins == nullptr)
-                        continue;
-                    if (size_t succ_size = block->succ.size(); (ins->op == ir::opcode::ret && succ_size != 0) ||
-                                                               (ins->op == ir::opcode::br && succ_size != 1) ||
-                                                               (ins->op == ir::opcode::cond_br && (
-                                                                    succ_size < 1 || succ_size > 2))
-                    ) {
-                        fail(verifier_rule::succ_count, "invalid amount of successors");
-                        continue;
-                    }
-
-                    if (i == block->instructions.size() - 1 && !ins->is_terminator()) {
-                        fail(verifier_rule::terminator,
-                             "expected a terminator as the last instruction in a basic block");
-                        continue;
-                    }
-
-                    if (i < block->instructions.size() - 1 && ins->is_terminator())
-                        fail(verifier_rule::terminator,
-                             "encountered a terminator in the middle of a block");
-                }
-            }
-        }
-
-        void check_definitions() {
-            std::unordered_set<const ir::value *> defs;
-
-            for (const auto ins: placed_) {
-                if (ins->result == nullptr)
-                    continue;
-
-                if (auto [_, was_new] = defs.insert(ins->result); !was_new) {
-                    fail(verifier_rule::single_def, "redefinition encountered at " + name(ins->result));
-                    continue;
-                }
-                if (ins->result->defining_instruction != ins)
-                    fail(verifier_rule::def_link, "invalid definition link at " + name(ins->result));
-            }
-
-            for (const auto ins: placed_)
-                for (const auto operand: ins->operands) {
-                    if (operand == nullptr) {
-                        fail(verifier_rule::operand_null, "operand null at " + name(ins->result));
-                        continue;
-                    }
-
-                    if (!defs.contains(operand))
-                        fail(verifier_rule::operand_def, "operand not defined at " + name(ins->result));
-                }
-        }
-
-        void check_use_lists() {
-            using count_map = std::unordered_map<const ir::instruction *, int>;
-            std::unordered_map<const ir::value *, count_map> actual;
-            std::unordered_set<const ir::value *> values;
-
-            for (const auto ins: placed_) {
-                if (ins->result != nullptr)
-                    values.insert(ins->result);
-
-                for (const auto operand: ins->operands) {
-                    if (operand != nullptr) {
-                        ++actual[operand][ins];
-                        values.insert(operand);
-                    }
-                }
-            }
-
-            for (auto val: values) {
-                std::unordered_map<const ir::instruction *, int> listed;
-                for (auto user: val->users)
-                    listed[user]++;
-
-                auto &acc = actual[val];
-                for (auto &[ins, acc_count]: acc) {
-                    if (!listed.contains(ins) || listed[ins] != acc_count) {
-                        fail(verifier_rule::use_list, "uses/users list mismatch");
-                        break;
-                    }
-                }
-
-                for (auto &[ins, lis_count]: listed) {
-                    if (!acc.contains(ins) || acc[ins] != lis_count) {
-                        fail(verifier_rule::use_list, "uses/users list mismatch");
-                        break;
-                    }
-                }
-            }
-        }
-
-        bool need_result(const ir::instruction *ins) {
-            if (ins->result != nullptr)
-                return true;
-            fail(verifier_rule::type, "missing result");
-            return false;
-        }
-
-        bool check_operands(const ir::instruction *ins, size_t expected) {
-            if (ins->operands.size() != expected) {
-                fail(verifier_rule::type, "invalid amount of operands at " + name(ins->result));
-                return false;
-            }
-
-            for (size_t i = 0; i < expected; ++i)
-                if (ins->operands[i] == nullptr)
-                    return false;
-
-            return true;
-        }
-
-        bool check_binary_num_op(const ir::instruction *ins) {
-            if (!check_operands(ins, 2))
-                return false;
-
-            if (!need_result(ins))
-                return false;
-
-            if (!is_integer_ty(ins->operands[0]->ty) || !is_integer_ty(ins->operands[1]->ty)) {
-                fail(verifier_rule::type, "expected operands of integer type " + name(ins->result));
-                return false;
-            }
-
-            if (ins->operands[0]->ty != ins->operands[1]->ty) {
-                fail(verifier_rule::type, "expected operands of the same type " + name(ins->result));
-                return false;
-            }
-
-            if (ins->operands[0]->ty != ins->result->ty) {
-                fail(verifier_rule::type, "invalid result type " + name(ins->result));
-                return false;
-            }
-
-            return true;
-        }
-
-        bool check_binary_rel_op(const ir::instruction *ins) {
-            if (!check_operands(ins, 2)) {
-                return false;
-            }
-
-            if (!need_result(ins))
-                return false;
-
-            if (ins->operands[0]->ty != ins->operands[1]->ty) {
-                fail(verifier_rule::type, "expected operands of the same type " + name(ins->result));
-                return false;
-            }
-
-            if (!is_boolean_ty(ins->result->ty)) {
-                fail(verifier_rule::type, "expected boolean type of result " + name(ins->result));
-                return false;
-            }
-            return true;
-        }
-
-        void check_unary_log_op(const ir::instruction *ins) {
-            if (!check_operands(ins, 1))
-                return;
-
-            if (!need_result(ins))
-                return;
-
-            if (!is_boolean_ty(ins->operands[0]->ty))
-                fail(verifier_rule::type, "expected a boolean operand " + name(ins->result));
-
-            if (!is_boolean_ty(ins->result->ty))
-                fail(verifier_rule::type, "expected boolean type of result " + name(ins->result));
-        }
-
-        void check_br(const ir::instruction *ins, bool cond) {
-            if (!check_operands(ins, cond ? 1 : 0))
-                return;
-
-            if (cond && !is_boolean_ty(ins->operands[0]->ty))
-                fail(verifier_rule::type, "expected boolean type of operand " + name(ins->result));
-
-            if (ins->result != nullptr)
-                fail(verifier_rule::type, "unexpected result of an operation " + name(ins->result));
-        }
-
-        void check_ret(const ir::instruction *ins) {
-            if (ins->result) {
-                fail(verifier_rule::type, "invalid return type " + name(ins->result));
-                return;
-            }
-
-            if (is_unit_ty(fn_.return_type)) {
-                if (!ins->operands.empty())
-                    fail(verifier_rule::type, "unexpected return in a unit function " + name(ins->result));
-                return;
-            }
-
-            if (!check_operands(ins, 1))
-                return;
-
-            if (!same_type(ins->operands[0]->ty, fn_.return_type))
-                fail(verifier_rule::type, "unexpected return type " + name(ins->result));
-        }
-
-        void check_unary_num_op(const ir::instruction *ins) {
-            if (!check_operands(ins, 1))
-                return;
-
-            if (!need_result(ins))
-                return;
-
-            if (!is_integer_ty(ins->operands[0]->ty))
-                fail(verifier_rule::type, "expected operand of integer type " + name(ins->result));
-
-            if (ins->operands[0]->ty != ins->result->ty)
-                fail(verifier_rule::type, "invalid result type " + name(ins->result));
-        }
-
-        void check_binary_unsigned_num_op(const ir::instruction *ins) {
-            if (!check_binary_num_op(ins))
-                return;
-
-            if (!is_unsigned_integer_ty(ins->operands[0]->ty) || !is_unsigned_integer_ty(ins->operands[1]->ty))
-                fail(verifier_rule::signedness, "expected unsigned operands " + name(ins->result));
-        }
-
-        void check_binary_signed_num_op(const ir::instruction *ins) {
-            if (!check_binary_num_op(ins))
-                return;
-
-            if (!is_signed_integer_ty(ins->operands[0]->ty) || !is_signed_integer_ty(ins->operands[1]->ty))
-                fail(verifier_rule::signedness, "expected signed operands " + name(ins->result));
-        }
-
-
-        void check_binary_signed_rel_op(const ir::instruction *ins) {
-            if (!check_binary_rel_op(ins))
-                return;
-
-            if (!is_signed_integer_ty(ins->operands[0]->ty) || !is_signed_integer_ty(ins->operands[1]->ty))
-                fail(verifier_rule::signedness, "expected signed operands " + name(ins->result));
-        }
-
-        void check_binary_unsigned_rel_op(const ir::instruction *ins) {
-            if (!check_binary_rel_op(ins))
-                return;
-
-            if (!is_unsigned_integer_ty(ins->operands[0]->ty) || !is_unsigned_integer_ty(ins->operands[1]->ty))
-                fail(verifier_rule::signedness, "expected unsigned operands " + name(ins->result));
-        }
-
-
-        static bool is_slot(const ir::value *v) {
-            if (v == nullptr || v->defining_instruction == nullptr)
-                return false;
-            const auto op = v->defining_instruction->op;
-            return op == ir::opcode::alloca || op == ir::opcode::param;
-        }
-
-        void check_types() {
-            for (const auto ins: placed_) {
-                switch (ins->op) {
-                    case ir::opcode::iconst: {
-                        if (!check_operands(ins, 0) || !need_result(ins))
-                            break;
-
-                        if (!is_integer_ty(ins->result->ty))
-                            fail(verifier_rule::type, "expected integer return type for iconst " + name(ins->result));
-                        break;
-                    }
-                    case ir::opcode::bconst: {
-                        if (!check_operands(ins, 0) || !need_result(ins))
-                            break;
-
-                        if (!is_boolean_ty(ins->result->ty))
-                            fail(verifier_rule::type, "expected boolean type for bconst " + name(ins->result));
-                        break;
-                    }
-                    case ir::opcode::add:
-                    case ir::opcode::sub:
-                    case ir::opcode::mul:
-                    case ir::opcode::shl:
-                        check_binary_num_op(ins);
-                        break;
-
-                    case ir::opcode::shr:
-                        check_binary_unsigned_num_op(ins);
-                        break;
-
-                    case ir::opcode::sar:
-                        check_binary_signed_num_op(ins);
-                        break;
-
-                    case ir::opcode::neg:
-                        check_unary_num_op(ins);
-                        break;
-
-                    case ir::opcode::umod:
-                    case ir::opcode::udiv:
-                        check_binary_unsigned_num_op(ins);
-                        break;
-
-                    case ir::opcode::smod:
-                    case ir::opcode::sdiv:
-                        check_binary_signed_num_op(ins);
-                        break;
-
-                    case ir::opcode::slt:
-                    case ir::opcode::sgt:
-                    case ir::opcode::sle:
-                    case ir::opcode::sge:
-                        check_binary_signed_rel_op(ins);
-                        break;
-
-                    case ir::opcode::ult:
-                    case ir::opcode::ugt:
-                    case ir::opcode::ule:
-                    case ir::opcode::uge:
-                        check_binary_unsigned_rel_op(ins);
-                        break;
-
-                    case ir::opcode::eq:
-                        check_binary_rel_op(ins);
-                        break;
-
-                    case ir::opcode::lnot:
-                        check_unary_log_op(ins);
-                        break;
-
-                    case ir::opcode::br:
-                        check_br(ins, false);
-                        break;
-
-                    case ir::opcode::cond_br:
-                        check_br(ins, true);
-                        break;
-
-                    case ir::opcode::alloca: {
-                        if (!check_operands(ins, 0))
-                            break;
-
-                        if (ins->result == nullptr)
-                            fail(verifier_rule::type, "missing result of an instruction " + name(ins->result));
-
-                        break;
-                    }
-                    case ir::opcode::load: {
-                        if (!check_operands(ins, 1) || !need_result(ins))
-                            break;
-
-                        if (!same_type(ins->result->ty, ins->operands[0]->ty))
-                            fail(verifier_rule::type,
-                                 "expected result to have the same type as operand " + name(ins->result));
-
-                        if (!is_slot(ins->operands[0]))
-                            fail(verifier_rule::type, "load operand must be a slot " + name(ins->result));
-                        break;
-                    }
-                    case ir::opcode::store: {
-                        if (!check_operands(ins, 2))
-                            break;
-
-                        if (ins->result != nullptr)
-                            fail(verifier_rule::type, "instruction expected to have no return " + name(ins->result));
-
-                        if (!same_type(ins->operands[0]->ty, ins->operands[1]->ty))
-                            fail(verifier_rule::type, "expected operands to have the same type " + name(ins->result));
-
-                        if (!is_slot(ins->operands[0]))
-                            fail(verifier_rule::type, "first store operand must be a slot " + name(ins->result));
-
-                        break;
-                    }
-                    case ir::opcode::call:
-                        break;
-                    case ir::opcode::ret: {
-                        check_ret(ins);
-                        break;
-                    }
-                    case ir::opcode::param: {
-                        if (!need_result(ins))
-                            break;
-
-                        auto pd = std::get_if<ir::param_data>(&ins->data);
-                        if (!pd) {
-                            fail(verifier_rule::type,
-                                 "expected instruction to have parameter data " + name(ins->result));
-                            break;
-                        }
-
-                        if (pd->index >= fn_.param_types.size() || !same_type(
-                                fn_.param_types[pd->index], ins->result->ty)) {
-                            fail(verifier_rule::type,
-                                 "mismatching function signature param type and actual type provided in instruction " +
-                                 name(ins->result));
-                            break;
-                        }
-
-                        if (ins->parent != fn_.entry)
-                            fail(verifier_rule::param_entry,
-                                 "parameter must be in the entry block " + name(ins->result));
-                        break;
-                    }
-                    case ir::opcode::phi:
-                        if (!need_result(ins))
-                            break;
-                        for (const auto oper: ins->operands)
-                            if (oper != nullptr && !same_type(ins->result->ty, oper->ty))
-                                fail(verifier_rule::type,
-                                     "expected operands to have the same type " + name(ins->result));
-                        break;
-                    case ir::opcode::label:
-                        break;
-                }
-            }
-        }
-
-        std::vector<const basic_block *> rpo;
-        std::map<const basic_block *, int> block_rpo;
-        std::map<const basic_block *, const basic_block *> doms;
-
-        void dfs(const basic_block *parent,
-                 std::unordered_set<const basic_block *> &visited) {
-            visited.insert(parent);
-            for (const auto succ: parent->succ) {
-                if (succ == nullptr || !blocks_.contains(succ) || visited.contains(succ))
-                    continue;
-                dfs(succ, visited);
-            }
-
-            rpo.push_back(parent);
-        }
-
-        void compute_rpo() {
-            std::unordered_set<const basic_block *> visited;
-            dfs(fn_.entry, visited);
-
-            std::ranges::reverse(rpo);
-            for (int i = 0; i < static_cast<int>(rpo.size()); ++i)
-                block_rpo[rpo[i]] = i;
-        }
-
-        const basic_block *intersect(const basic_block *a, const basic_block *b) {
-            const basic_block *finger1 = a;
-            const basic_block *finger2 = b;
-            while (block_rpo[finger1] != block_rpo[finger2]) {
-                while (block_rpo[finger1] > block_rpo[finger2])
-                    finger1 = doms[finger1];
-                while (block_rpo[finger2] > block_rpo[finger1])
-                    finger2 = doms[finger2];
-            }
-            return finger1;
-        }
-
-        void compute_dominators() {
-            compute_rpo();
-
-            for (auto block: blocks_)
-                doms[block] = nullptr;
-
-            doms[fn_.entry] = fn_.entry;
-            bool changed = true;
-
-            while (changed) {
-                changed = false;
-                for (auto block: rpo) {
-                    if (block == fn_.entry)
-                        continue;
-
-                    const basic_block *new_idom = nullptr;
-                    for (auto pred: block->pred) {
-                        if (doms[pred] == nullptr)
-                            continue;
-                        new_idom = new_idom ? intersect(new_idom, pred) : pred;
-                    }
-
-                    if (new_idom && doms[block] != new_idom) {
-                        doms[block] = new_idom;
-                        changed = true;
-                    }
-                }
-            }
-        }
-
-        // block_rpo only contains what the DFS from the entry reached
-        bool reachable(const basic_block *b) const {
-            return block_rpo.contains(b);
-        }
-
-        // Every block dominates itself; the entry dominates every reachable block.
-        bool dominates(const basic_block *a, const basic_block *b) const {
-            if (!reachable(a) || !reachable(b))
-                return false;
-            for (const basic_block *finger = b;; finger = doms.at(finger)) {
-                if (finger == a)
-                    return true;
-                if (finger == fn_.entry)
-                    return false;
-            }
-        }
-
-        void check_phis() {
-            for (const auto block: blocks_) {
-                const std::unordered_set<const basic_block *> preds(block->pred.begin(), block->pred.end());
-
-                bool seen_non_phi = false;
-                for (const auto ins: block->instructions) {
-                    if (ins == nullptr)
-                        continue;
-
-                    if (ins->op != ir::opcode::phi) {
-                        seen_non_phi = true;
-                        continue;
-                    }
-
-                    if (seen_non_phi)
-                        fail(verifier_rule::phi_first, "phi after a non-phi instruction in " + name(block));
-
-                    const auto pd = std::get_if<ir::phi_data>(&ins->data);
-                    if (pd == nullptr) {
-                        fail(verifier_rule::phi_operands, "phi without phi_data " + name(ins->result));
-                        continue;
-                    }
-
-                    std::unordered_set<const basic_block *> phi_preds;
-                    std::unordered_multiset<const ir::value *> inc_vals;
-                    for (const auto &[bb, val]: pd->incoming) {
-                        phi_preds.insert(bb);
-                        inc_vals.insert(val);
-                    }
-
-                    if (preds != phi_preds)
-                        fail(verifier_rule::phi_preds,
-                             "phi incoming blocks differ from the predecessors of " + name(block) + " at " +
-                             name(ins->result));
-
-                    const std::unordered_multiset<const ir::value *> operand_vals(ins->operands.begin(),
-                                                                                  ins->operands.end());
-                    if (operand_vals != inc_vals)
-                        fail(verifier_rule::phi_operands,
-                             "phi operands differ from phi_data::incoming at " + name(ins->result));
-                }
-            }
-        }
-
-        bool def_reaches_use(const ir::value *v, const basic_block *use_block, const ir::instruction *user) const {
-            const ir::instruction *def = v->defining_instruction;
-            if (def == nullptr || !placed_.contains(def) || !reachable(def->parent))
-                return true;
-            if (def->parent == use_block && user != nullptr)
-                return position_.at(def) < position_.at(user);
-            return dominates(def->parent, use_block);
-        }
-
-        void check_dominance() {
-            for (const auto block: rpo) { // reachable blocks only, in a deterministic order
-                for (const auto ins: block->instructions) {
-                    if (ins == nullptr)
-                        continue;
-
-                    if (ins->op == ir::opcode::phi) {
-                        // the use happens at the end of the incoming predecessor
-                        const auto pd = std::get_if<ir::phi_data>(&ins->data);
-                        if (pd == nullptr)
-                            continue; // reported by check_phis
-                        for (const auto &[pred, val]: pd->incoming)
-                            if (pred != nullptr && val != nullptr && reachable(pred) &&
-                                !def_reaches_use(val, pred, nullptr))
-                                fail(verifier_rule::dominance,
-                                     "phi " + name(ins->result) + " in " + name(block) + ": " + name(val) +
-                                     " does not dominate the end of " + name(pred));
-                        continue;
-                    }
-
-                    for (const auto operand: ins->operands)
-                        if (operand != nullptr && !def_reaches_use(operand, block, ins))
-                            fail(verifier_rule::dominance,
-                                 "use of " + name(operand) + " in " + name(block) +
-                                 " is not dominated by its definition");
-                }
-            }
-        }
-    };
+        for (const auto operand : ins->operands)
+          if (operand != nullptr && !def_reaches_use(operand, block, ins))
+            fail(verifier_rule::dominance,
+                 "use of " + name(operand) + " in " + name(block) +
+                 " is not dominated by its definition");
+      }
+    }
+  }
+};
 }
