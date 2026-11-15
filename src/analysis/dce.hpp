@@ -40,7 +40,10 @@ struct dce : pass {
       auto& instructions = block->instructions;
       std::erase_if(instructions,
                     [&](ir::instruction* inst) {
-                      return !useful.contains(inst);
+                      if (useful.contains(inst))
+                        return false;
+                      inst->erase_operands();
+                      return true;
                     });
     }
   }

@@ -301,13 +301,12 @@ struct sccp : pass {
                 continue;
               auto& incoming = std::get<ir::phi_data>(phi->data).incoming;
               if (auto it = incoming.find(block.get()); it != incoming.end()) {
-                phi->erase_use(it->second);
+                phi->erase_operands();
                 incoming.erase(it);
-                phi->operands.clear();
-                for (auto& [b, v] : incoming)
+                for (auto& [b, v] : incoming) {
                   phi->operands.push_back(v);
-                for (auto op : phi->operands)
-                  op->users.push_back(phi);
+                  v->users.push_back(phi);
+                }
               }
             }
           }
