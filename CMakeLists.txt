@@ -150,3 +150,45 @@ foreach (input_file IN LISTS interp_inputs)
     add_test(NAME interp_each.${test_name} COMMAND compiler-dungeon ${input_file} --interpret-each)
     set_tests_properties(interp_each.${test_name} PROPERTIES LABELS "interpreter;assignment")
 endforeach ()
+
+# The backend assignment (docs/assignment-backend.md).  `ctest -L backend` runs it.
+#   unit.parallel_copy   sequentialize_parallel_copy, random + hand-written cases
+#   outssa.<name>        `--out-of-ssa --interpret-each --verify-each`: the pass keeps the behaviour
+#   backend.<name>       compile to RISC-V, assemble, run under qemu, compare with `// expect:`
+# The backend fixtures are every test/interp fixture whose expected output is a `result:` line
+# (traps and fuel exhaustion have no meaning on RISC-V yet) plus test/backend/*.ks.
+if (NOT EMSCRIPTEN)
+    add_executable(parallel_copy_test test/unit/parallel_copy_test.cpp)
+    add_test(NAME unit.parallel_copy COMMAND parallel_copy_test)
+    set_tests_properties(unit.parallel_copy PROPERTIES LABELS "backend;assignment")
+
+    find_program(RISCV_AS riscv64-linux-gnu-as)
+    find_program(QEMU_RISCV64 qemu-riscv64)
+    file(GLOB backend_inputs CONFIGURE_DEPENDS
+            "${CMAKE_SOURCE_DIR}/test/interp/*.ks" "${CMAKE_SOURCE_DIR}/test/backend/*.ks")
+    foreach (input_file IN LISTS backend_inputs)
+        file(STRINGS "${input_file}" first_line LIMIT_COUNT 1)
+        if (NOT first_line MATCHES "^// expect: result: ")
+            continue()
+        endif ()
+        get_filename_component(test_name "${input_file}" NAME_WE)
+        add_test(NAME outssa.${test_name}
+                COMMAND compiler-dungeon ${input_file} --out-of-ssa --interpret-each --verify-each)
+        set_tests_properties(outssa.${test_name} PROPERTIES LABELS "backend;assignment")
+        if (RISCV_AS AND QEMU_RISCV64)
+            add_test(
+                    NAME backend.${test_name}
+                    COMMAND ${CMAKE_COMMAND}
+                    -Dcompiler=$<TARGET_FILE:compiler-dungeon>
+                    -Dinput=${input_file}
+                    -Druntime=${CMAKE_SOURCE_DIR}/runtime/rt_rv64.s
+                    -Dworkdir=${CMAKE_BINARY_DIR}/backend_tmp
+                    -P ${CMAKE_SOURCE_DIR}/cmake/RunBackendTest.cmake
+            )
+            set_tests_properties(backend.${test_name} PROPERTIES LABELS "backend;assignment")
+        endif ()
+    endforeach ()
+    if (NOT (RISCV_AS AND QEMU_RISCV64))
+        message(WARNING "riscv64-linux-gnu-as or qemu-riscv64 not found: backend.* tests are not registered")
+    endif ()
+endif ()
