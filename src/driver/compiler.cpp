@@ -14,6 +14,11 @@
 #include "../hir/ast2hir.hpp"
 #include "../ir/hir2ir.hpp"
 #include "../ir/interpreter.hpp"
+#include "../backend/emit_rv64.hpp"
+#include "../backend/isel.hpp"
+#include "../backend/spill_all.hpp"
+
+#include <fstream>
 
 namespace dungeon {
 void compiler::run(config& conf) {
@@ -75,6 +80,7 @@ void compiler::run(config& conf) {
     return;
 
   std::optional<ir::exec_result> interpreter_res = std::nullopt;
+  std::function<void(pass&, ir::function&)> check_behaviour;
   {
     reporter.time("building cfg");
     ir::cfg_builder builder{};
@@ -92,7 +98,7 @@ void compiler::run(config& conf) {
     analysis::pass_manager pm = get_default_pipeline();
 
     if (conf.interpret_each)
-      pm.after_pass = [&](pass& p, ir::function& fn) {
+      check_behaviour = [&](pass& p, ir::function& fn) {
         const auto now = ir::interpreter{ir_module}.run(sa.semantics);
         if (now != *interpreter_res)
           throw std::runtime_error(
@@ -101,6 +107,7 @@ void compiler::run(config& conf) {
               "\n  before: " + ir::to_string(*interpreter_res) +
               "\n  after:  " + ir::to_string(now));
       };
+    pm.after_pass = check_behaviour;
     for (auto& fn : ir_module.funcs)
       pm.run(fn, conf.verify_each);
   }
@@ -112,6 +119,41 @@ void compiler::run(config& conf) {
   if (conf.interpret || conf.stage == pipeline_stage::interpret) {
     ir::interpreter inter{ir_module};
     std::cout << ir::to_string(inter.run(sa.semantics)) << '\n';
+  }
+
+  if (conf.out_of_ssa || conf.emit_asm || conf.emit_mir) {
+    {
+      reporter.time("out of ssa");
+      analysis::pass_manager pm = get_backend_pipeline();
+      pm.after_pass = check_behaviour;
+      for (auto& fn : ir_module.funcs)
+        pm.run(fn, conf.verify_each);
+    }
+    if (conf.out_of_ssa)
+      printer.print_ssa_ir(std::cout, ir_module);
+  }
+
+  if (conf.emit_asm || conf.emit_mir) {
+
+    reporter.time("code generation");
+    const auto entry = ir::find_entry(ir_module, sa.semantics);
+    if (!entry)
+      throw std::runtime_error("could not find 'main' entry point");
+    mir::module machine = backend::select_instructions(
+        ir_module, ir_module.funcs[*entry].return_type, static_cast<uint32_t>(*entry));
+    if (conf.emit_mir)
+      for (const auto& fn : machine.funcs)
+        std::cout << mir::to_string(fn) << '\n';
+
+    for (auto& fn : machine.funcs)
+      backend::allocate_spill_all(fn);
+
+    if (conf.emit_asm) {
+      std::ofstream file(conf.out_name);
+      if (!file)
+        throw std::runtime_error("cannot write " + conf.out_name);
+      backend::emit_module(file, machine);
+    }
   }
 }
 }
