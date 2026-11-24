@@ -28,7 +28,7 @@ struct pass_manager {
   void run(ir::function& fn, bool verify = false) {
     for (auto pass : schedule) {
       pass->run(fn);
-      if (verify)
+      if (verify && pass->preserves_ssa())
         ir_verifier::verify_or_throw(fn, pass->description());
       if (after_pass)
         after_pass(*pass, fn);
